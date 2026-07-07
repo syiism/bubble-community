@@ -8,6 +8,7 @@ RUN npm run build
 FROM python:3.14-slim
 
 ENV UV_PYTHON_PREFERENCE=only-system
+ENV UV_INDEX_URL=https://pypi.org/simple
 RUN pip install --no-cache-dir uv
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -19,9 +20,9 @@ RUN mkdir -p /var/lib/mysql && chown -R mysql:mysql /var/lib/mysql
 
 WORKDIR /app
 
-COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./backend/
+COPY backend/pyproject.toml backend/.python-version ./backend/
 WORKDIR /app/backend
-RUN uv sync --frozen --no-dev
+RUN uv sync --no-dev
 
 WORKDIR /app
 
