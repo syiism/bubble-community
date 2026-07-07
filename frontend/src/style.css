@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --paper: #F6F1E7;
+  --ink: #3a352c;
+  --accent: #b8693d;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #F7F6F3;
+  color: #111111;
+  font-family: 'SF Pro Display', 'Geist Sans', 'Helvetica Neue', 'Switzer', sans-serif;
+  line-height: 1.6;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scroll-animate {
+  opacity: 0;
+  animation: fadeUp 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.scroll-animate-delay-1 {
+  animation-delay: 80ms;
+}
+
+.scroll-animate-delay-2 {
+  animation-delay: 160ms;
+}
+
+.scroll-animate-delay-3 {
+  animation-delay: 240ms;
+}
+
+.scroll-animate-delay-4 {
+  animation-delay: 320ms;
+}
+
+.scroll-animate-delay-5 {
+  animation-delay: 400ms;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #EAEAEA;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D0D0D0;
+}
