@@ -1,4 +1,3 @@
-# ===== Stage 1: Build frontend =====
 FROM node:22-slim AS frontend-build
 WORKDIR /build
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
@@ -6,30 +5,33 @@ RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
-# ===== Stage 2: Backend runtime =====
 FROM python:3.14-slim
 
 ENV UV_PYTHON_PREFERENCE=only-system
 RUN pip install --no-cache-dir uv
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    mariadb-server \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /var/run/mysqld && chown -R mysql:mysql /var/run/mysqld
+RUN mkdir -p /var/lib/mysql && chown -R mysql:mysql /var/lib/mysql
+
 WORKDIR /app
 
-# Install backend dependencies first (better layer caching)
 COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./backend/
 WORKDIR /app/backend
 RUN uv sync --frozen --no-dev
 
 WORKDIR /app
 
-# Copy backend source, seed data, and entrypoint
 COPY backend/app/ ./backend/app/
 COPY backend/entrypoint.sh ./backend/entrypoint.sh
 
-# Copy built frontend
 COPY --from=frontend-build /build/dist/ ./frontend/dist/
 
 RUN chmod +x ./backend/entrypoint.sh
 
-EXPOSE 8001
+EXPOSE 7860
 
 CMD ["./backend/entrypoint.sh"]
