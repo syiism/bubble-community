@@ -1,80 +1,131 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel, field_validator
+import re
 
-from ..auth import (
-    hash_password,
-    verify_password,
-    create_token,
-    get_current_user,
-    public_user,
-    set_auth_cookie,
-    clear_auth_cookie,
-)
-from ..db import get_conn
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+
+from ..auth import get_current_user, public_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-
-class Credentials(BaseModel):
-    username: str
-    password: str
-
-    @field_validator("username", "password")
-    @classmethod
-    def non_empty(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("不能为空")
-        return v
-
-
-@router.post("/register")
-def register(body: Credentials, response: Response):
-    username = body.username
-    if len(username) < 2 or len(username) > 32:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "用户名需 2-32 个字符")
-    if len(body.password) < 6:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "密码至少 6 位")
-
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id FROM users WHERE username=%s", (username,))
-            if cur.fetchone():
-                raise HTTPException(status.HTTP_409_CONFLICT, "用户名已被占用")
-            cur.execute(
-                "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
-                (username, hash_password(body.password)),
-            )
-            conn.commit()
-            user_id = cur.lastrowid
-
-    token = create_token(user_id, username)
-    set_auth_cookie(response, token)
-    return {"user": {"id": user_id, "username": username, "authorName": ""}}
+UC_LOGIN_URL = "https://vossc.com/member.php"
+UC_USER_URL = "https://vossc.com/home.php"
 
 
 @router.post("/login")
-def login(body: Credentials, response: Response):
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, username, password_hash, author_name FROM users WHERE username=%s",
-                (body.username,),
+async def login(request: Request, response: Response):
+    try:
+        body = await request.json()
+        username = body.get("username")
+        password = body.get("password")
+        questionid = body.get("questionid", 0)
+        answer = body.get("answer", "")
+        cookietime = body.get("cookietime", 0)
+
+        if not username or not password:
+            raise HTTPException(status_code=400, detail="用户名和密码不能为空")
+
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            login_params = {
+                "mod": "logging",
+                "action": "login",
+                "infloat": "yes",
+                "handlekey": "login",
+                "inajax": "1",
+                "ajaxtarget": "fwin_content_login",
+            }
+
+            login_page = await client.get(UC_LOGIN_URL, params=login_params)
+
+            formhash_match = re.search(r'name="formhash" value="([^"]+)"', login_page.text)
+            loginhash_match = re.search(r'loginhash=([A-Za-z0-9]+)', login_page.text)
+
+            if not formhash_match or not loginhash_match:
+                raise HTTPException(status_code=500, detail="无法获取登录表单信息")
+
+            formhash = formhash_match.group(1)
+            loginhash = loginhash_match.group(1)
+
+            post_params = {
+                "mod": "logging",
+                "action": "login",
+                "loginsubmit": "yes",
+                "handlekey": "login",
+                "loginhash": loginhash,
+            }
+
+            post_data = {
+                "formhash": formhash,
+                "referer": "forum.php",
+                "loginfield": "username",
+                "username": username,
+                "password": password,
+                "questionid": questionid,
+                "answer": answer,
+                "cookietime": cookietime,
+            }
+
+            login_response = await client.post(
+                UC_LOGIN_URL,
+                params=post_params,
+                data=post_data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
-            row = cur.fetchone()
-    if not row or not verify_password(body.password, row["password_hash"]):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "用户名或密码错误")
-    token = create_token(row["id"], row["username"])
-    set_auth_cookie(response, token)
-    return {"user": public_user(row)}
 
+            if login_response.status_code != 200:
+                raise HTTPException(status_code=500, detail="登录请求失败")
 
-@router.post("/logout")
-def logout(response: Response):
-    clear_auth_cookie(response)
-    return {"code": 0}
+            discuz_cookies = [(k, v) for k, v in dict(client.cookies).items() if k.startswith("OcXe_")]
+
+            if not discuz_cookies:
+                raise HTTPException(status_code=401, detail="登录失败，请检查用户名和密码")
+
+            user_info = None
+            user_page = await client.get(UC_USER_URL, params={"mod": "space", "uid": "me"})
+            uid_match = re.search(r'discuz_uid\s*=\s*[\'"](\d+)[\'"]', user_page.text)
+            username_match = re.search(r'欢迎您回来，\s*([^<]+)', user_page.text)
+
+            if uid_match:
+                uid = int(uid_match.group(1))
+                if uid > 0:
+                    user_info = {"uid": uid}
+                    if username_match:
+                        user_info["username"] = username_match.group(1).strip()
+                    else:
+                        user_info["username"] = username
+
+            if not user_info:
+                raise HTTPException(status_code=401, detail="登录失败，请检查用户名和密码")
+
+            from ..session import create_session, SESSION_COOKIE
+
+            session_id = create_session(user_info["uid"], user_info["username"])
+            response.set_cookie(
+                key=SESSION_COOKIE,
+                value=session_id,
+                path="/",
+                httponly=True,
+                samesite="lax",
+            )
+
+            user = get_current_user(request, user_info)
+            return {"code": 0, "message": "登录成功", "user": public_user(user)}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"登录异常: {str(e)}")
 
 
 @router.get("/me")
 def me(user=Depends(get_current_user)):
     return {"user": public_user(user)}
+
+
+@router.post("/logout")
+def logout(request: Request, response: Response):
+    session_id = request.cookies.get(SESSION_COOKIE)
+    if session_id:
+        from ..session import delete_session
+        delete_session(session_id)
+    response.delete_cookie(SESSION_COOKIE)
+    return {"code": 0, "message": "退出成功"}

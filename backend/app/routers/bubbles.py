@@ -1,6 +1,6 @@
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from ..auth import get_current_user
@@ -32,7 +32,7 @@ class RedeemBody(BaseModel):
 
 
 class CurrentBody(BaseModel):
-    style: int
+    style: int | str
 
 
 class FavoriteBody(BaseModel):
@@ -266,11 +266,11 @@ def redeem(body: RedeemBody, user=Depends(get_current_user)):
 
 
 @router.post("/current")
-def set_current(body: CurrentBody, user=Depends(get_current_user)):
+def set_current(style: int | str = Body(..., embed=True), user=Depends(get_current_user)):
     user_id = user["id"]
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id FROM bubbles WHERE id = %s", (body.style,))
+            cur.execute("SELECT id FROM bubbles WHERE id = %s", (style,))
             if not cur.fetchone():
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
             cur.execute(
@@ -278,7 +278,7 @@ def set_current(body: CurrentBody, user=Depends(get_current_user)):
                 INSERT INTO user_current_bubble (user_id, bubble_id) VALUES (%s, %s)
                 ON DUPLICATE KEY UPDATE bubble_id = VALUES(bubble_id)
                 """,
-                (user_id, body.style),
+                (user_id, style),
             )
             conn.commit()
     return {"code": 0}

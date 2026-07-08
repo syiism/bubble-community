@@ -18,20 +18,15 @@ export async function bootstrapAuth() {
   state.ready = true
 }
 
-export async function login(username, password) {
-  const res = await api.login(username, password)
+export async function login(data) {
+  const res = await api.login(data)
   state.user = res.user
-  return res.user
-}
-
-export async function register(username, password) {
-  const res = await api.register(username, password)
-  state.user = res.user
-  return res.user
 }
 
 export async function logout() {
-  try { await api.logout() } catch {}
+  try {
+    await api.logout()
+  } catch {}
   state.user = null
 }
 

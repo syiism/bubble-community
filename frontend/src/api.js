@@ -19,12 +19,9 @@ async function request(method, url, body) {
 }
 
 export const api = {
-  // auth
-  register: (username, password) => request('POST', '/api/auth/register', { username, password }),
-  login: (username, password) => request('POST', '/api/auth/login', { username, password }),
-  logout: () => request('POST', '/api/auth/logout'),
+  login: (data) => request('POST', '/api/auth/login', data),
   me: () => request('GET', '/api/auth/me'),
-  // bubbles
+  logout: () => request('POST', '/api/auth/logout'),
   listBubbles: () => request('GET', '/api/bubbles'),
   createBubble: (data) => request('POST', '/api/bubbles', data),
   updateBubble: (id, data) => request('PUT', `/api/bubbles/${id}`, data),
@@ -34,6 +31,5 @@ export const api = {
   redeem: (code) => request('POST', '/api/bubbles/redeem', { code }),
   setCurrent: (style) => request('POST', '/api/bubbles/current', { style }),
   setFavorite: (id, favorite) => request('POST', '/api/bubbles/favorite', { id, favorite }),
-  // user
   setAuthorName: (name) => request('POST', '/api/user/author-name', { name }),
 }

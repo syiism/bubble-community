@@ -1,12 +1,12 @@
 import os
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .auth import COOKIE_NAME, decode_token
+from .auth import get_current_user
 from .db import get_conn
 from .routers import auth, bubbles, user
 from .svg_util import fill_svg
@@ -17,7 +17,7 @@ app = FastAPI(title="段评气泡社区 API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,7 +29,10 @@ app.include_router(user.router)
 
 
 @app.on_event("startup")
-def ensure_favorites_table():
+def startup():
+    from .session import init_sessions_table
+    init_sessions_table()
+
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -51,12 +54,8 @@ def health():
 
 
 @app.get("/api/get-bubble")
-def get_bubble(request: Request):
-    token = request.cookies.get(COOKIE_NAME)
-    if not token:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "未登录")
-    payload = decode_token(token)
-    user_id = int(payload["sub"])
+def get_bubble(user=Depends(get_current_user)):
+    user_id = user["id"]
 
     with get_conn() as conn:
         with conn.cursor() as cur:

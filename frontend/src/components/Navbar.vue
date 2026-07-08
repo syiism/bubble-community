@@ -40,15 +40,9 @@
         <template v-else>
           <router-link
             to="/login"
-            class="text-sm font-medium text-muted hover:text-accent transition-colors"
-          >
-            登录
-          </router-link>
-          <router-link
-            to="/register"
             class="px-4 py-1.5 text-sm font-medium text-white bg-accent rounded-lg hover:bg-accent/90 transition-colors"
           >
-            注册
+            登录
           </router-link>
         </template>
       </div>
@@ -58,14 +52,11 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { isAuthenticated, logout, getUser } from '@/stores/auth'
 
-const router = useRouter()
 const user = computed(() => getUser())
 
 const onLogout = async () => {
   await logout()
-  router.replace('/login')
 }
 </script>
