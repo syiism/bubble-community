@@ -10,8 +10,9 @@
         <div class="lg:col-span-1 space-y-6">
           <div class="bg-surface border border-border rounded-2xl p-6 scroll-animate scroll-animate-delay-1">
             <div class="flex flex-col items-center text-center">
-              <div class="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center mb-4">
-                <svg class="w-10 h-10 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <div class="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center mb-4 overflow-hidden">
+                <img v-if="user.avatarUrl" :src="user.avatarUrl" :alt="user.username" class="w-full h-full object-cover" />
+                <svg v-else class="w-10 h-10 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>

@@ -78,8 +78,9 @@
           <div class="lg:col-span-1">
             <div class="bg-surface border border-border rounded-xl p-5 sticky top-24 scroll-animate scroll-animate-delay-3">
               <div class="flex items-center gap-3 mb-4">
-                <div class="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                  <svg class="w-6 h-6 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <div class="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center overflow-hidden">
+                  <img v-if="userAvatar" :src="userAvatar" :alt="userName" class="w-full h-full object-cover" />
+                  <svg v-else class="w-6 h-6 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                     <circle cx="12" cy="7" r="4"></circle>
                   </svg>
@@ -171,6 +172,7 @@ const currentId = ref(0)
 const canUpload = ref(false)
 const authorName = ref('')
 const userName = ref('')
+const userAvatar = ref('')
 const showEditor = ref(false)
 const editingStyle = ref(null)
 const authorNamePanel = ref(true)
@@ -207,6 +209,7 @@ const loadStyles = async () => {
     canUpload.value = !!data.canUpload
     authorName.value = data.authorName || ''
     userName.value = (getUser() && getUser().username) || ''
+    userAvatar.value = (getUser() && getUser().avatarUrl) || ''
     currentId.value = data.style || (styles.value[0] ? styles.value[0].id : 0)
     const exists = styles.value.some(s => s.id === currentId.value)
     if (!exists && styles.value.length) currentId.value = styles.value[0].id

@@ -1,7 +1,21 @@
+import httpx
+
 from fastapi import HTTPException, Request, status
 
 from .db import get_conn
 from .session import SESSION_COOKIE, get_session
+
+UC_AVATAR_URL = "https://vossc.com/uc_server/avatar.php"
+
+
+def fetch_avatar_url(uid: int) -> str | None:
+    try:
+        resp = httpx.get(UC_AVATAR_URL, params={"uid": uid, "size": "big", "ts": 1}, follow_redirects=False)
+        if resp.status_code == 302 and "location" in resp.headers:
+            return resp.headers["location"]
+    except Exception:
+        pass
+    return None
 
 
 def get_current_user(request: Request, user_info: dict = None) -> dict:
@@ -61,29 +75,41 @@ def get_current_user(request: Request, user_info: dict = None) -> dict:
 
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, username, author_name FROM users WHERE id=%s", (user_id,))
+            cur.execute("SELECT id, username, author_name, avatar_url FROM users WHERE id=%s", (user_id,))
             row = cur.fetchone()
+            print(f"[DEBUG] get_current_user: user_id={user_id}, row_type={type(row)}, row={row}")
             if not row:
+                avatar_url = fetch_avatar_url(user_id)
+                print(f"[DEBUG] Inserting new user, avatar_url={avatar_url}")
                 try:
                     cur.execute(
-                        "INSERT INTO users (id, username) VALUES (%s, %s)",
-                        (user_id, username),
+                        "INSERT INTO users (id, username, avatar_url) VALUES (%s, %s, %s)",
+                        (user_id, username, avatar_url),
                     )
                     conn.commit()
-                    row = {"id": user_id, "username": username, "author_name": None}
+                    row = {"id": user_id, "username": username, "author_name": None, "avatar_url": avatar_url}
                 except Exception as e:
                     if "Duplicate entry" in str(e) and "for key 'users.username'" in str(e):
-                        cur.execute("SELECT id, username, author_name FROM users WHERE username=%s", (username,))
+                        cur.execute("SELECT id, username, author_name, avatar_url FROM users WHERE username=%s", (username,))
                         existing = cur.fetchone()
                         if existing:
-                            cur.execute(
-                                "UPDATE users SET id=%s WHERE id=%s",
-                                (user_id, existing["id"]),
-                            )
+                            if not existing.get("avatar_url"):
+                                avatar_url = fetch_avatar_url(user_id)
+                                cur.execute("UPDATE users SET id=%s, avatar_url=%s WHERE id=%s", (user_id, avatar_url, existing["id"]))
+                            else:
+                                cur.execute("UPDATE users SET id=%s WHERE id=%s", (user_id, existing["id"]))
                             conn.commit()
-                            row = {"id": user_id, "username": username, "author_name": existing.get("author_name")}
+                            row = {"id": user_id, "username": username, "author_name": existing.get("author_name"), "avatar_url": existing.get("avatar_url") or avatar_url}
                     else:
                         raise
+            elif not row.get("avatar_url"):
+                avatar_url = fetch_avatar_url(user_id)
+                print(f"[DEBUG] Updating avatar_url for user {user_id}: {avatar_url}")
+                cur.execute("UPDATE users SET avatar_url=%s WHERE id=%s", (avatar_url, user_id))
+                conn.commit()
+                row["avatar_url"] = avatar_url
+            else:
+                print(f"[DEBUG] User {user_id} already has avatar_url")
 
     return row
 
@@ -93,4 +119,5 @@ def public_user(row: dict) -> dict:
         "id": row["id"],
         "username": row["username"],
         "authorName": row.get("author_name") or "",
+        "avatarUrl": row.get("avatar_url") or "",
     }
