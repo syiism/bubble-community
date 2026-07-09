@@ -268,19 +268,21 @@ def redeem(body: RedeemBody, user=Depends(get_current_user)):
 @router.post("/current")
 def set_current(style: int | str = Body(..., embed=True), user=Depends(get_current_user)):
     user_id = user["id"]
+    print(f"[DEBUG] set_current: user_id={user_id}, style={style!r}, type={type(style).__name__}")
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT id FROM bubbles WHERE id = %s", (style,))
             if not cur.fetchone():
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
             cur.execute(
-                """
-                INSERT INTO user_current_bubble (user_id, bubble_id) VALUES (%s, %s)
-                ON DUPLICATE KEY UPDATE bubble_id = VALUES(bubble_id)
-                """,
+                "REPLACE INTO user_current_bubble (user_id, bubble_id) VALUES (%s, %s)",
                 (user_id, style),
             )
             conn.commit()
+            # 验证写入是否成功
+            cur.execute("SELECT bubble_id FROM user_current_bubble WHERE user_id = %s", (user_id,))
+            row = cur.fetchone()
+            print(f"[DEBUG] set_current: verify after write — {row}")
     return {"code": 0}
 
 
