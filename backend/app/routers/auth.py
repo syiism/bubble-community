@@ -169,11 +169,18 @@ async def register(request: Request, response: Response):
                 max_age=7200,
             )
 
-            # 清除浏览器中残留的旧 Discuz! cookie，防止之后的请求通过
-            # uc_auth / OcXe_* 备选链路解析到其他用户的身份
-            for name in list(request.cookies.keys()):
-                if name == "uc_auth" or name.startswith("OcXe_"):
-                    response.delete_cookie(name, path="/")
+            # 将 vossc.com 注册登录返回的 cookie 原样传递给浏览器
+            for name, value in dict(client.cookies).items():
+                if name == SESSION_COOKIE:
+                    continue
+                response.set_cookie(
+                    key=name,
+                    value=value,
+                    path="/",
+                    httponly=name.startswith("OcXe_") and "_auth" in name,
+                    samesite="lax",
+                    max_age=7200,
+                )
 
             user = _resolve_user(request, {"uid": uid, "username": resolved_username})
 
@@ -294,11 +301,18 @@ async def login(request: Request, response: Response):
                 max_age=7200,  # 2 hours
             )
 
-            # 清除浏览器中残留的旧 Discuz! cookie，防止之后的请求通过
-            # uc_auth / OcXe_* 备选链路解析到其他用户的身份
-            for name in list(request.cookies.keys()):
-                if name == "uc_auth" or name.startswith("OcXe_"):
-                    response.delete_cookie(name, path="/")
+            # 将 vossc.com 登录返回的 cookie 原样传递给浏览器
+            for name, value in dict(client.cookies).items():
+                if name == SESSION_COOKIE:
+                    continue
+                response.set_cookie(
+                    key=name,
+                    value=value,
+                    path="/",
+                    httponly=name.startswith("OcXe_") and "_auth" in name,
+                    samesite="lax",
+                    max_age=7200,
+                )
 
             user = _resolve_user(request, user_info)
 
