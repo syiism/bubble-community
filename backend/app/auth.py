@@ -164,6 +164,14 @@ def get_current_user(request: Request, response: Response) -> dict:
     return _resolve_user(request, response=response)
 
 
+def get_current_user_strict(request: Request) -> dict:
+    """FastAPI dependency — resolves user WITHOUT a Response parameter.
+    Use ONLY for endpoints that return a custom Response object
+    (e.g. Response(content=svg, media_type="image/svg+xml")),
+    because a new Response discards cookies set on the default one."""
+    return _resolve_user(request)
+
+
 def public_user(row: dict) -> dict:
     return {
         "id": row["id"],

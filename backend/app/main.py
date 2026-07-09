@@ -6,7 +6,7 @@ from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .auth import get_current_user
+from .auth import get_current_user_strict
 from .db import get_conn
 from .routers import auth, bubbles, user
 from .svg_util import fill_svg
@@ -54,7 +54,7 @@ def health():
 
 
 @app.get("/bubble-community/api/get-bubble")
-def get_bubble(user=Depends(get_current_user)):
+def get_bubble(user=Depends(get_current_user_strict)):
     user_id = user["id"]
 
     with get_conn() as conn:
@@ -85,7 +85,15 @@ def get_bubble(user=Depends(get_current_user)):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
 
     svg = fill_svg(row["svg_template"], color=row["color"], text_color=row["text_color"], n=12)
-    return Response(content=svg, media_type="image/svg+xml")
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 class SPAStaticFiles(StaticFiles):
