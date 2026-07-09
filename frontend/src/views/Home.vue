@@ -321,10 +321,14 @@ const saveAuthorName = async () => {
 const saveCurrentStyle = async () => {
   if (!currentId.value) return
   saving.value = true
+  const selectedId = currentId.value  // 记住用户选择，防止 loadStyles 覆盖
   try {
-    await api.setCurrent(currentId.value)
+    await api.setCurrent(selectedId)
     showToast('已保存，回到阅读翻页即生效')
     await loadStyles()
+    // loadStyles 中 currentId 可能被 data.style 覆盖回旧值，
+    // 显式恢复为用户选择的气泡，保证界面高亮和底部名称立即更新
+    currentId.value = selectedId
   } catch (e) {
     showToast(e.message || '保存失败')
   } finally {
@@ -339,9 +343,10 @@ const redeem = async () => {
   try {
     const res = await api.redeem(code)
     showToast(`已添加：${res.name || ''}`)
-    if (res.id) currentId.value = res.id
+    const newId = res.id || currentId.value
     redeemCode.value = ''
     await loadStyles()
+    currentId.value = newId  // 显式保持选择，防止 loadStyles 覆盖
   } catch (e) {
     showToast(e.message || '分享码无效')
   } finally {
