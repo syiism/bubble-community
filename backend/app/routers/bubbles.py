@@ -66,6 +66,14 @@ def list_bubbles(user=Depends(get_current_user)):
     user_id = user["id"]
     with get_conn() as conn:
         with conn.cursor() as cur:
+            # 先读用户当前选中的气泡，确保它一定包含在返回列表中
+            cur.execute(
+                "SELECT bubble_id FROM user_current_bubble WHERE user_id = %s",
+                (user_id,),
+            )
+            cur_row = cur.fetchone()
+            current_bubble_id = cur_row["bubble_id"] if cur_row else 0
+
             cur.execute(
                 """
                 SELECT b.*,
@@ -75,9 +83,10 @@ def list_bubbles(user=Depends(get_current_user)):
                    OR b.is_public = 1
                    OR b.user_id = %s
                    OR b.id IN (SELECT bubble_id FROM imported_bubbles WHERE user_id = %s)
+                   OR b.id = %s
                 ORDER BY b.is_official DESC, b.id DESC
                 """,
-                (user_id, user_id),
+                (user_id, user_id, current_bubble_id),
             )
             rows = cur.fetchall()
             cur.execute(
@@ -90,16 +99,11 @@ def list_bubbles(user=Depends(get_current_user)):
                 (user_id,),
             )
             favorite_set = {r["bubble_id"] for r in cur.fetchall()}
-            cur.execute(
-                "SELECT bubble_id FROM user_current_bubble WHERE user_id = %s",
-                (user_id,),
-            )
-            cur_row = cur.fetchone()
             cur.execute("SELECT author_name FROM users WHERE id = %s", (user_id,))
             urow = cur.fetchone()
 
     styles = [_row_to_style(r, user_id, imported_set, favorite_set) for r in rows]
-    current_id = cur_row["bubble_id"] if cur_row else (styles[0]["id"] if styles else 0)
+    current_id = current_bubble_id if current_bubble_id else (styles[0]["id"] if styles else 0)
     visible_ids = {s["id"] for s in styles}
     if current_id not in visible_ids and styles:
         current_id = styles[0]["id"]
