@@ -1,3 +1,10 @@
+/** 401 回调 — 由 auth store 在 bootstrap 时注册 */
+let _onUnauthorized = null
+
+export function setOnUnauthorized(cb) {
+  _onUnauthorized = cb
+}
+
 async function request(method, url, body) {
   const headers = { 'Content-Type': 'application/json' }
   const opts = { method, headers, credentials: 'include' }
@@ -13,6 +20,10 @@ async function request(method, url, body) {
     const msg = (data && (data.detail || data.message)) || `请求失败 (${res.status})`
     const err = new Error(msg)
     err.status = res.status
+    // 401 → session 过期或被覆盖，通知 auth store 清除状态
+    if (res.status === 401 && _onUnauthorized) {
+      _onUnauthorized()
+    }
     throw err
   }
   return data

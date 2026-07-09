@@ -1,6 +1,6 @@
 import httpx
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, Request, Response, status
 
 from .db import get_conn
 from .session import SESSION_COOKIE, get_session
@@ -18,7 +18,9 @@ def fetch_avatar_url(uid: int) -> str | None:
     return None
 
 
-def _resolve_user(request: Request, user_info: dict | None = None) -> dict:
+def _resolve_user(request: Request, user_info: dict | None = None, response: Response | None = None) -> dict:
+    resolved_via_fallback = False
+
     if user_info:
         user_id = user_info["uid"]
         username = user_info.get("username", "")
@@ -43,6 +45,7 @@ def _resolve_user(request: Request, user_info: dict | None = None) -> dict:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已过期，请重新登录")
 
         if not session_id:
+            resolved_via_fallback = True
             uc_auth = request.cookies.get("uc_auth")
             if uc_auth:
                 from .ucenter import decode_uc_cookie
@@ -136,12 +139,29 @@ def _resolve_user(request: Request, user_info: dict | None = None) -> dict:
             else:
                 print(f"[DEBUG] User {user_id} already has avatar_url")
 
+    # 通过备选链路（uc_auth / OcXe_*）解析后，创建 bubble_session 锁定身份，
+    # 后续请求直接走 session 验证，不再重复走备选链路，避免被其他用户污染过的
+    # Discuz! cookie 影响。
+    if resolved_via_fallback and response:
+        from .session import create_session as _create_session, SESSION_COOKIE as _COOKIE
+        new_sid = _create_session(user_id, row["username"])
+        response.set_cookie(
+            key=_COOKIE,
+            value=new_sid,
+            path="/",
+            httponly=True,
+            samesite="lax",
+            max_age=7200,
+        )
+        print(f"[DEBUG] _resolve_user: created bubble_session {new_sid} for fallback-resolved user {user_id}")
+
     return row
 
 
-def get_current_user(request: Request) -> dict:
-    """FastAPI dependency — resolves user without consuming the request body."""
-    return _resolve_user(request)
+def get_current_user(request: Request, response: Response) -> dict:
+    """FastAPI dependency — resolves user without consuming the request body.
+    Accepts Response to set a bubble_session cookie when resolving via fallback auth."""
+    return _resolve_user(request, response=response)
 
 
 def public_user(row: dict) -> dict:

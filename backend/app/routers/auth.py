@@ -169,17 +169,13 @@ async def register(request: Request, response: Response):
                 max_age=7200,
             )
 
-            user = _resolve_user(request, {"uid": uid, "username": resolved_username})
+            # 清除浏览器中残留的旧 Discuz! cookie，防止之后的请求通过
+            # uc_auth / OcXe_* 备选链路解析到其他用户的身份
+            for name in list(request.cookies.keys()):
+                if name == "uc_auth" or name.startswith("OcXe_"):
+                    response.delete_cookie(name, path="/")
 
-            # Forward all Discuz! cookies to the browser
-            for name, value in dict(client.cookies).items():
-                response.set_cookie(
-                    key=name,
-                    value=value,
-                    path="/",
-                    httponly=True,
-                    samesite="lax",
-                )
+            user = _resolve_user(request, {"uid": uid, "username": resolved_username})
 
             return {
                 "code": 0,
@@ -280,10 +276,17 @@ async def login(request: Request, response: Response):
             if not user_info:
                 raise HTTPException(status_code=401, detail="登录失败，请检查用户名和密码")
 
-            from ..session import create_session, SESSION_COOKIE
+            from ..session import create_session, delete_session, SESSION_COOKIE
 
             print(f"[DEBUG] Login SUCCESS: uid={user_info['uid']}, username={user_info['username']}")
             print(f"[DEBUG] Discuz! cookies from httpx: {dict(client.cookies)}")
+
+            # 删除当前浏览器中旧的 session，防止同一浏览器多标签页间的
+            # bubble_session cookie 被新登录覆盖后，旧标签页仍能使用旧 session
+            old_session_id = request.cookies.get(SESSION_COOKIE)
+            if old_session_id:
+                delete_session(old_session_id)
+                print(f"[DEBUG] Deleted old session on login: {old_session_id}")
 
             session_id = create_session(user_info["uid"], user_info["username"])
             print(f"[DEBUG] Created session: {session_id}")
@@ -296,17 +299,13 @@ async def login(request: Request, response: Response):
                 max_age=7200,  # 2 hours
             )
 
-            user = _resolve_user(request, user_info)
+            # 清除浏览器中残留的旧 Discuz! cookie，防止之后的请求通过
+            # uc_auth / OcXe_* 备选链路解析到其他用户的身份
+            for name in list(request.cookies.keys()):
+                if name == "uc_auth" or name.startswith("OcXe_"):
+                    response.delete_cookie(name, path="/")
 
-            # Also forward vossc.com cookies for potential uc_auth fallback
-            for name, value in dict(client.cookies).items():
-                response.set_cookie(
-                    key=name,
-                    value=value,
-                    path="/",
-                    httponly=True,
-                    samesite="lax",
-                )
+            user = _resolve_user(request, user_info)
 
             return {"code": 0, "message": "登录成功", "user": public_user(user)}
 
