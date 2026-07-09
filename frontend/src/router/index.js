@@ -19,6 +19,11 @@ const routes = [
     name: 'login',
     component: () => import('@/views/Login.vue'),
   },
+  {
+    path: '/register',
+    name: 'register',
+    component: () => import('@/views/Register.vue'),
+  },
 ]
 
 const router = createRouter({
@@ -33,7 +38,7 @@ router.beforeEach((to) => {
   if (to.meta.requiresAuth && !isAuthenticated.value) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
-  if (to.name === 'login' && isAuthenticated.value) {
+  if ((to.name === 'login' || to.name === 'register') && isAuthenticated.value) {
     return { name: 'home' }
   }
 })

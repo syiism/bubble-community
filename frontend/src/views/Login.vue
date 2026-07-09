@@ -100,7 +100,7 @@
         <div class="mt-6 text-center">
           <p class="text-sm text-muted">
             还没有账号？
-            <a href="https://vossc.com/member.php?mod=register" target="_blank" class="text-accent hover:underline">立即注册</a>
+            <router-link to="/register" class="text-accent hover:underline">立即注册</router-link>
           </p>
           <p class="text-sm text-muted mt-2">
             <a href="javascript:;" onclick="display('layer_login');display('layer_lostpw');" class="text-accent hover:underline">找回密码</a>

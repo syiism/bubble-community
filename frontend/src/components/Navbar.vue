@@ -39,6 +39,12 @@
         </template>
         <template v-else>
           <router-link
+            to="/register"
+            class="px-4 py-1.5 text-sm font-medium text-accent border border-accent rounded-lg hover:bg-accent/10 transition-colors"
+          >
+            注册
+          </router-link>
+          <router-link
             to="/login"
             class="px-4 py-1.5 text-sm font-medium text-white bg-accent rounded-lg hover:bg-accent/90 transition-colors"
           >

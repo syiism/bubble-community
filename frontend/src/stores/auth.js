@@ -23,6 +23,11 @@ export async function login(data) {
   state.user = res.user
 }
 
+export async function register(data) {
+  const res = await api.register(data)
+  state.user = res.user
+}
+
 export async function logout() {
   try {
     await api.logout()

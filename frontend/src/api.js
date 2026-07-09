@@ -22,6 +22,8 @@ export const api = {
   login: (data) => request('POST', '/bubble-community/api/auth/login', data),
   me: () => request('GET', '/bubble-community/api/auth/me'),
   logout: () => request('POST', '/bubble-community/api/auth/logout'),
+  checkUsername: (username) => request('GET', `/bubble-community/api/auth/check-username?username=${encodeURIComponent(username)}`),
+  register: (data) => request('POST', '/bubble-community/api/auth/register', data),
   listBubbles: () => request('GET', '/bubble-community/api/bubbles'),
   createBubble: (data) => request('POST', '/bubble-community/api/bubbles', data),
   updateBubble: (id, data) => request('PUT', `/bubble-community/api/bubbles/${id}`, data),
