@@ -12,6 +12,14 @@
       </router-link>
       <div class="flex items-center gap-6">
         <template v-if="isAuthenticated">
+          <a
+            href="https://vossc.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-sm font-medium text-muted hover:text-accent transition-colors"
+          >
+            论坛
+          </a>
           <router-link
             to="/"
             :class="[

@@ -272,7 +272,6 @@ def redeem(body: RedeemBody, user=Depends(get_current_user)):
 @router.post("/current")
 def set_current(style: int | str = Body(..., embed=True), user=Depends(get_current_user)):
     user_id = user["id"]
-    print(f"[DEBUG] set_current: user_id={user_id}, style={style!r}, type={type(style).__name__}")
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT id FROM bubbles WHERE id = %s", (style,))
@@ -283,10 +282,6 @@ def set_current(style: int | str = Body(..., embed=True), user=Depends(get_curre
                 (user_id, style),
             )
             conn.commit()
-            # 验证写入是否成功
-            cur.execute("SELECT bubble_id FROM user_current_bubble WHERE user_id = %s", (user_id,))
-            row = cur.fetchone()
-            print(f"[DEBUG] set_current: verify after write — {row}")
     return {"code": 0}
 
 

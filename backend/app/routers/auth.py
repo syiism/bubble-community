@@ -278,18 +278,13 @@ async def login(request: Request, response: Response):
 
             from ..session import create_session, delete_session, SESSION_COOKIE
 
-            print(f"[DEBUG] Login SUCCESS: uid={user_info['uid']}, username={user_info['username']}")
-            print(f"[DEBUG] Discuz! cookies from httpx: {dict(client.cookies)}")
-
             # 删除当前浏览器中旧的 session，防止同一浏览器多标签页间的
             # bubble_session cookie 被新登录覆盖后，旧标签页仍能使用旧 session
             old_session_id = request.cookies.get(SESSION_COOKIE)
             if old_session_id:
                 delete_session(old_session_id)
-                print(f"[DEBUG] Deleted old session on login: {old_session_id}")
 
             session_id = create_session(user_info["uid"], user_info["username"])
-            print(f"[DEBUG] Created session: {session_id}")
             response.set_cookie(
                 key=SESSION_COOKIE,
                 value=session_id,
