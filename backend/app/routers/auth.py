@@ -317,7 +317,11 @@ async def login(request: Request, response: Response):
 
 
 @router.get("/me")
-def me(user=Depends(get_current_user)):
+def me(user=Depends(get_current_user), response: Response = None):
+    # 禁止缓存，避免浏览器返回过期的用户信息
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     return {"user": public_user(user)}
 
 
@@ -328,4 +332,8 @@ def logout(request: Request, response: Response):
     if session_id:
         delete_session(session_id)
     response.delete_cookie(SESSION_COOKIE, path="/")
+    # 清除所有 Discuz! 相关 cookie，避免旧 cookie 导致静默切换用户
+    for name in list(request.cookies.keys()):
+        if name == "uc_auth" or name.startswith("OcXe_"):
+            response.delete_cookie(name, path="/")
     return {"code": 0, "message": "退出成功"}

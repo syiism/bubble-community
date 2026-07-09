@@ -33,9 +33,10 @@ def _resolve_user(request: Request, user_info: dict | None = None) -> dict:
                 user_id = session_data["user_id"]
                 username = session_data["username"]
             else:
-                # Local session expired — fall through to other auth methods
-                print(f"[DEBUG] bubble_session expired, falling through to next auth method")
-                session_id = None
+                # bubble_session cookie 存在但 session 已过期/无效。
+                # 不降级到 uc_auth/OcXe_* 等可能属于不同用户的 cookie，
+                # 直接要求重新登录，防止身份静默切换。
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已过期，请重新登录")
 
         if not session_id:
             uc_auth = request.cookies.get("uc_auth")
