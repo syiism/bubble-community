@@ -3,7 +3,7 @@ import re
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
-from ..auth import get_current_user, public_user
+from ..auth import _resolve_user, get_current_user, public_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -98,16 +98,32 @@ async def login(request: Request, response: Response):
 
             from ..session import create_session, SESSION_COOKIE
 
+            print(f"[DEBUG] Login SUCCESS: uid={user_info['uid']}, username={user_info['username']}")
+            print(f"[DEBUG] Discuz! cookies from httpx: {dict(client.cookies)}")
+
             session_id = create_session(user_info["uid"], user_info["username"])
+            print(f"[DEBUG] Created session: {session_id}")
             response.set_cookie(
                 key=SESSION_COOKIE,
                 value=session_id,
                 path="/",
                 httponly=True,
                 samesite="lax",
+                max_age=7200,  # 2 hours
             )
 
-            user = get_current_user(request, user_info)
+            user = _resolve_user(request, user_info)
+
+            # Also forward vossc.com cookies for potential uc_auth fallback
+            for name, value in dict(client.cookies).items():
+                response.set_cookie(
+                    key=name,
+                    value=value,
+                    path="/",
+                    httponly=True,
+                    samesite="lax",
+                )
+
             return {"code": 0, "message": "登录成功", "user": public_user(user)}
 
     except HTTPException:
@@ -123,9 +139,9 @@ def me(user=Depends(get_current_user)):
 
 @router.post("/logout")
 def logout(request: Request, response: Response):
+    from ..session import SESSION_COOKIE, delete_session
     session_id = request.cookies.get(SESSION_COOKIE)
     if session_id:
-        from ..session import delete_session
         delete_session(session_id)
-    response.delete_cookie(SESSION_COOKIE)
+    response.delete_cookie(SESSION_COOKIE, path="/")
     return {"code": 0, "message": "退出成功"}

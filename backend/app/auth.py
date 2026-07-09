@@ -18,11 +18,14 @@ def fetch_avatar_url(uid: int) -> str | None:
     return None
 
 
-def get_current_user(request: Request, user_info: dict = None) -> dict:
+def _resolve_user(request: Request, user_info: dict | None = None) -> dict:
     if user_info:
         user_id = user_info["uid"]
         username = user_info.get("username", "")
     else:
+        print(f"[DEBUG] get_current_user: request cookies: {list(request.cookies.keys())}")
+        print(f"[DEBUG] get_current_user: bubble_session={request.cookies.get(SESSION_COOKIE, 'NONE')}")
+        print(f"[DEBUG] get_current_user: uc_auth={'PRESENT' if request.cookies.get('uc_auth') else 'NONE'}")
         session_id = request.cookies.get(SESSION_COOKIE)
         if session_id:
             session_data = get_session(session_id)
@@ -30,8 +33,11 @@ def get_current_user(request: Request, user_info: dict = None) -> dict:
                 user_id = session_data["user_id"]
                 username = session_data["username"]
             else:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已过期")
-        else:
+                # Local session expired — fall through to other auth methods
+                print(f"[DEBUG] bubble_session expired, falling through to next auth method")
+                session_id = None
+
+        if not session_id:
             uc_auth = request.cookies.get("uc_auth")
             if uc_auth:
                 from .ucenter import decode_uc_cookie
@@ -57,20 +63,32 @@ def get_current_user(request: Request, user_info: dict = None) -> dict:
                     import re
 
                     cookies = {k: v for k, v in request.cookies.items() if k.startswith("OcXe_")}
-                    user_page = httpx.get(UC_USER_URL, params={"mod": "space", "uid": "me"}, cookies=cookies)
-                    uid_match = re.search(r'discuz_uid\s*=\s*[\'"](\d+)[\'"]', user_page.text)
+                    print(f"[DEBUG] OcXe_* cookies in request: {cookies}")
+                    resp = httpx.get(
+                        UC_USER_URL,
+                        params={"mod": "space", "uid": "me"},
+                        cookies=cookies,
+                        follow_redirects=True,
+                        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+                    )
+                    print(f"[DEBUG] vossc.com response status: {resp.status_code}, url: {resp.url}")
+                    print(f"[DEBUG] vossc.com response body (first 500): {resp.text[:500]}")
+                    uid_match = re.search(r'discuz_uid\s*=\s*[\'"](\d+)[\'"]', resp.text)
 
                     if uid_match:
                         uid = int(uid_match.group(1))
                         if uid > 0:
                             user_id = uid
-                            username_match = re.search(r'欢迎您回来，\s*([^<]+)', user_page.text)
+                            username_match = re.search(r'欢迎您回来，\s*([^<]+)', resp.text)
                             username = username_match.group(1).strip() if username_match else ""
+                            print(f"[DEBUG] OcXe_* validation SUCCESS: uid={uid}, username={username}")
                         else:
                             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未登录")
                     else:
+                        print(f"[DEBUG] discuz_uid NOT FOUND in vossc.com response")
                         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无法获取用户信息")
                 except Exception as e:
+                    print(f"[DEBUG] OcXe_* validation failed: {e}")
                     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"会话验证失败: {str(e)}")
 
     with get_conn() as conn:
@@ -112,6 +130,11 @@ def get_current_user(request: Request, user_info: dict = None) -> dict:
                 print(f"[DEBUG] User {user_id} already has avatar_url")
 
     return row
+
+
+def get_current_user(request: Request) -> dict:
+    """FastAPI dependency — resolves user without consuming the request body."""
+    return _resolve_user(request)
 
 
 def public_user(row: dict) -> dict:
