@@ -22,20 +22,24 @@ def _resolve_user(request: Request, user_info: dict | None = None) -> dict:
     if user_info:
         user_id = user_info["uid"]
         username = user_info.get("username", "")
+        print(f"[DEBUG] _resolve_user: using direct user_info — uid={user_id}, username={username}")
     else:
-        print(f"[DEBUG] get_current_user: request cookies: {list(request.cookies.keys())}")
-        print(f"[DEBUG] get_current_user: bubble_session={request.cookies.get(SESSION_COOKIE, 'NONE')}")
-        print(f"[DEBUG] get_current_user: uc_auth={'PRESENT' if request.cookies.get('uc_auth') else 'NONE'}")
+        cookies_snapshot = dict(request.cookies)
+        print(f"[DEBUG] _resolve_user: cookies={ {k:v[:20]+'...' if len(v)>20 else v for k,v in cookies_snapshot.items()} }")
+        print(f"[DEBUG] _resolve_user: bubble_session={request.cookies.get(SESSION_COOKIE, 'NONE')}")
+        print(f"[DEBUG] _resolve_user: uc_auth={'PRESENT' if request.cookies.get('uc_auth') else 'NONE'}")
         session_id = request.cookies.get(SESSION_COOKIE)
         if session_id:
             session_data = get_session(session_id)
             if session_data:
                 user_id = session_data["user_id"]
                 username = session_data["username"]
+                print(f"[DEBUG] _resolve_user: SESSION AUTH — user_id={user_id}, username={username}")
             else:
                 # bubble_session cookie 存在但 session 已过期/无效。
                 # 不降级到 uc_auth/OcXe_* 等可能属于不同用户的 cookie，
                 # 直接要求重新登录，防止身份静默切换。
+                print(f"[DEBUG] _resolve_user: bubble_session PRESENT but get_session returned None — raising 401")
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已过期，请重新登录")
 
         if not session_id:
@@ -46,7 +50,9 @@ def _resolve_user(request: Request, user_info: dict | None = None) -> dict:
                 if uc_user:
                     user_id = uc_user["uid"]
                     username = uc_user["username"]
+                    print(f"[DEBUG] _resolve_user: UC_AUTH FALLBACK — uid={user_id}, username={username}")
                 else:
+                    print(f"[DEBUG] _resolve_user: uc_auth present but decode failed")
                     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的登录态")
             else:
                 sid_cookie = None
@@ -56,6 +62,7 @@ def _resolve_user(request: Request, user_info: dict | None = None) -> dict:
                         break
 
                 if not sid_cookie:
+                    print(f"[DEBUG] _resolve_user: NO AUTH COOKIES FOUND — raising 401")
                     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未登录")
 
                 try:
@@ -64,7 +71,7 @@ def _resolve_user(request: Request, user_info: dict | None = None) -> dict:
                     import re
 
                     cookies = {k: v for k, v in request.cookies.items() if k.startswith("OcXe_")}
-                    print(f"[DEBUG] OcXe_* cookies in request: {cookies}")
+                    print(f"[DEBUG] _resolve_user: OcXe_* FALLBACK — cookies={cookies}")
                     resp = httpx.get(
                         UC_USER_URL,
                         params={"mod": "space", "uid": "me"},
@@ -72,8 +79,6 @@ def _resolve_user(request: Request, user_info: dict | None = None) -> dict:
                         follow_redirects=True,
                         headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
                     )
-                    print(f"[DEBUG] vossc.com response status: {resp.status_code}, url: {resp.url}")
-                    print(f"[DEBUG] vossc.com response body (first 500): {resp.text[:500]}")
                     uid_match = re.search(r'discuz_uid\s*=\s*[\'"](\d+)[\'"]', resp.text)
 
                     if uid_match:
@@ -82,21 +87,22 @@ def _resolve_user(request: Request, user_info: dict | None = None) -> dict:
                             user_id = uid
                             username_match = re.search(r'欢迎您回来，\s*([^<]+)', resp.text)
                             username = username_match.group(1).strip() if username_match else ""
-                            print(f"[DEBUG] OcXe_* validation SUCCESS: uid={uid}, username={username}")
+                            print(f"[DEBUG] _resolve_user: OcXe_* FALLBACK SUCCESS — uid={uid}, username={username}")
                         else:
+                            print(f"[DEBUG] _resolve_user: OcXe_* uid <= 0")
                             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未登录")
                     else:
-                        print(f"[DEBUG] discuz_uid NOT FOUND in vossc.com response")
+                        print(f"[DEBUG] _resolve_user: discuz_uid NOT FOUND in vossc.com response")
                         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无法获取用户信息")
                 except Exception as e:
-                    print(f"[DEBUG] OcXe_* validation failed: {e}")
+                    print(f"[DEBUG] _resolve_user: OcXe_* validation failed: {e}")
                     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"会话验证失败: {str(e)}")
 
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT id, username, author_name, avatar_url FROM users WHERE id=%s", (user_id,))
             row = cur.fetchone()
-            print(f"[DEBUG] get_current_user: user_id={user_id}, row_type={type(row)}, row={row}")
+            print(f"[DEBUG] DB lookup: user_id={user_id}, found={row is not None}, row={row}")
             if not row:
                 avatar_url = fetch_avatar_url(user_id)
                 print(f"[DEBUG] Inserting new user, avatar_url={avatar_url}")
