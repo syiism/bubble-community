@@ -23,9 +23,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
-app.include_router(bubbles.router)
-app.include_router(user.router)
+app.include_router(auth.router, prefix="/bubble-community")
+app.include_router(bubbles.router, prefix="/bubble-community")
+app.include_router(user.router, prefix="/bubble-community")
 
 
 @app.on_event("startup")
@@ -48,12 +48,12 @@ def startup():
             conn.commit()
 
 
-@app.get("/api/health")
+@app.get("/bubble-community/api/health")
 def health():
-    return {"name": "段评气泡社区 API", "docs": "/docs"}
+    return {"name": "段评气泡社区 API", "docs": "/bubble-community/docs"}
 
 
-@app.get("/api/get-bubble")
+@app.get("/bubble-community/api/get-bubble")
 def get_bubble(user=Depends(get_current_user)):
     user_id = user["id"]
 
@@ -99,8 +99,8 @@ class SPAStaticFiles(StaticFiles):
 
 
 if os.path.isdir(FRONTEND_DIST):
-    app.mount("/", SPAStaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+    app.mount("/bubble-community", SPAStaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
 else:
-    @app.get("/")
+    @app.get("/bubble-community")
     def root_fallback():
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "前端未构建，请先执行 pnpm build")

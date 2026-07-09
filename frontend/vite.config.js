@@ -4,6 +4,7 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [vue()],
+  base: '/bubble-community/',
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')
@@ -11,7 +12,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://127.0.0.1:8001',
+      '/bubble-community/api': 'http://127.0.0.1:8001',
     }
   }
 })

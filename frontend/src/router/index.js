@@ -22,7 +22,7 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/bubble-community/'),
   routes,
   scrollBehavior() {
     return { top: 0 }
