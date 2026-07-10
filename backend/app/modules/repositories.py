@@ -9,6 +9,7 @@ from .user_current_bubble import UserCurrentBubble
 from .imported_bubble import ImportedBubble
 from .user_favorite import UserFavorite
 from .session_model import Session
+from ..password_util import hash_password
 
 
 class UserRepository:
@@ -47,6 +48,12 @@ class UserRepository:
     async def update_author_name(db: AsyncSession, user_id: int, author_name: str | None) -> None:
         await db.execute(update(User).where(User.id == user_id).values({"author_name": author_name}))
         await db.execute(update(Bubble).where(Bubble.user_id == user_id).values({"author_name": author_name or ""}))
+        await db.commit()
+
+    @staticmethod
+    async def update_password(db: AsyncSession, user_id: int, plain_password: str) -> None:
+        hashed = hash_password(plain_password)
+        await db.execute(update(User).where(User.id == user_id).values({"password": hashed}))
         await db.commit()
 
 

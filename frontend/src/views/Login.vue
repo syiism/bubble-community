@@ -36,48 +36,9 @@
             />
           </div>
 
-          <div>
-            <label class="block text-sm font-medium text-ink mb-2">安全提问</label>
-            <select
-              v-model="form.questionid"
-              class="w-full px-4 py-3 rounded-xl border border-border bg-canvas focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-              :disabled="loading"
-              @change="toggleAnswer"
-            >
-              <option :value="0">安全提问(未设置请忽略)</option>
-              <option :value="1">母亲的名字</option>
-              <option :value="2">爷爷的名字</option>
-              <option :value="3">父亲出生的城市</option>
-              <option :value="4">您其中一位老师的名字</option>
-              <option :value="5">您个人计算机的型号</option>
-              <option :value="6">您最喜欢的餐馆名称</option>
-              <option :value="7">驾驶执照最后四位数字</option>
-            </select>
-          </div>
-
-          <div v-if="showAnswer" class="animate-fadeIn">
-            <label class="block text-sm font-medium text-ink mb-2">答案</label>
-            <input
-              v-model="form.answer"
-              type="text"
-              placeholder="请输入安全提问答案"
-              class="w-full px-4 py-3 rounded-xl border border-border bg-canvas focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-              :disabled="loading"
-            />
-          </div>
-
-          <div class="flex items-center justify-between">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                v-model="form.cookietime"
-                type="checkbox"
-                :value="2592000"
-                class="w-4 h-4 text-accent rounded border-border focus:ring-accent"
-                :disabled="loading"
-              />
-              <span class="text-sm text-muted">自动登录</span>
-            </label>
-          </div>
+          <p class="text-xs text-muted -mt-2">
+            dev 模式无需密码，输入用户名即可登录
+          </p>
 
           <button
             type="submit"
@@ -102,9 +63,6 @@
             还没有账号？
             <router-link to="/register" class="text-accent hover:underline">立即注册</router-link>
           </p>
-          <p class="text-sm text-muted mt-2">
-            <a href="javascript:;" onclick="display('layer_login');display('layer_lostpw');" class="text-accent hover:underline">找回密码</a>
-          </p>
         </div>
       </div>
     </div>
@@ -123,22 +81,11 @@ const loading = ref(false)
 const form = ref({
   username: '',
   password: '',
-  questionid: 0,
-  answer: '',
-  cookietime: 0,
 })
-
-const showAnswer = computed(() => Number(form.value.questionid) > 0)
 
 const canSubmit = computed(() => {
   return form.value.username.trim() && form.value.password.trim()
 })
-
-const toggleAnswer = () => {
-  if (Number(form.value.questionid) === 0) {
-    form.value.answer = ''
-  }
-}
 
 const handleSubmit = async () => {
   if (!canSubmit.value || loading.value) return
@@ -148,9 +95,6 @@ const handleSubmit = async () => {
     await login({
       username: form.value.username.trim(),
       password: form.value.password,
-      questionid: Number(form.value.questionid),
-      answer: form.value.answer.trim(),
-      cookietime: form.value.cookietime,
     })
     const redirect = route.query.redirect || '/'
     await router.push(redirect)

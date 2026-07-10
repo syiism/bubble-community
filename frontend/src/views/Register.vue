@@ -51,18 +51,6 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-ink mb-2">邮箱 <span class="text-muted">(可选)</span></label>
-            <input
-              v-model="form.email"
-              type="email"
-              placeholder="选填，用于接收通知"
-              class="w-full px-4 py-3 rounded-xl border border-border bg-canvas focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-              :class="{ 'opacity-50': loading }"
-              :disabled="loading"
-            />
-          </div>
-
-          <div>
             <label class="block text-sm font-medium text-ink mb-2">密码</label>
             <input
               v-model="form.password"
@@ -136,15 +124,12 @@ let usernameTimer = null
 
 const form = ref({
   username: '',
-  email: '',
   password: '',
   password2: '',
 })
 
 const canSubmit = computed(() => {
-  return form.value.username.trim()
-    && form.value.password
-    && form.value.password2
+  return form.value.username.trim().length >= 3
 })
 
 const onUsernameInput = () => {
@@ -193,7 +178,6 @@ const handleSubmit = async () => {
       username: form.value.username.trim(),
       password: form.value.password,
       password2: form.value.password2,
-      email: form.value.email.trim(),
     })
     const redirect = route.query.redirect || '/'
     await router.push(redirect)

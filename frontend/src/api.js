@@ -45,4 +45,5 @@ export const api = {
   setCurrent: (style) => request('POST', '/bubble-community/api/bubbles/current', { style }),
   setFavorite: (id, favorite) => request('POST', '/bubble-community/api/bubbles/favorite', { id, favorite }),
   setAuthorName: (name) => request('POST', '/bubble-community/api/user/author-name', { name }),
+  forgetPassword: (data) => request('POST', '/bubble-community/api/auth/forget', data),
 }

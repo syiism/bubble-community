@@ -173,7 +173,7 @@
           
           <div class="bg-surface border border-border rounded-2xl p-6 scroll-animate scroll-animate-delay-4">
             <h2 class="text-lg font-medium text-ink mb-6">账户设置</h2>
-            
+
             <div class="space-y-6">
               <div>
                 <label class="block text-sm font-medium text-ink mb-2">登录昵称</label>
@@ -184,12 +184,12 @@
                   class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink disabled:opacity-50"
                 />
               </div>
-              
+
               <div>
                 <label class="block text-sm font-medium text-ink mb-2">分享署名</label>
-                <input 
+                <input
                   v-model="authorName"
-                  type="text" 
+                  type="text"
                   maxlength="16"
                   placeholder="如 隔壁老王（留空=匿名书友）"
                   class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
@@ -198,14 +198,48 @@
                   这个名字只在你公开或用分享码分享出去的气泡上，给别人看到（显示为"by 署名"）。不影响你的登录账号，可随时修改，不可与他人重复。
                 </p>
               </div>
-              
-              <button 
+
+              <button
                 :disabled="!authorName.trim() || saving"
                 class="w-full py-3 text-sm font-medium text-white bg-ink rounded-xl hover:bg-charcoal transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 @click="saveAuthorName"
               >
                 {{ saving ? '保存中...' : '保存设置' }}
               </button>
+            </div>
+          </div>
+
+          <div class="bg-surface border border-border rounded-2xl p-6 scroll-animate">
+            <h2 class="text-lg font-medium text-ink mb-6">密码设置</h2>
+            <div class="space-y-6">
+              <div>
+                <label class="block text-sm font-medium text-ink mb-2">新密码</label>
+                <input
+                  v-model="passwordForm.newPassword"
+                  type="password"
+                  placeholder="至少 6 个字符"
+                  class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-ink mb-2">确认新密码</label>
+                <input
+                  v-model="passwordForm.confirmPassword"
+                  type="password"
+                  placeholder="再次输入新密码"
+                  class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+                />
+              </div>
+              <button
+                :disabled="!canSavePassword || passwordSaving"
+                class="w-full py-3 text-sm font-medium text-white bg-ink rounded-xl hover:bg-charcoal transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                @click="savePassword"
+              >
+                {{ passwordSaving ? '保存中...' : '设置密码' }}
+              </button>
+              <p v-if="passwordMessage" class="text-sm" :class="passwordMessageType === 'error' ? 'text-red-500' : 'text-green-600'">
+                {{ passwordMessage }}
+              </p>
             </div>
           </div>
         </div>
@@ -227,6 +261,36 @@ const showSaved = ref(false)
 const showStats = ref(false)
 const styles = ref([])
 const loading = ref(false)
+
+// 密码设置
+const passwordForm = ref({ newPassword: '', confirmPassword: '' })
+const passwordSaving = ref(false)
+const passwordMessage = ref('')
+const passwordMessageType = ref('')
+const canSavePassword = computed(() => {
+  const np = passwordForm.value.newPassword
+  const cp = passwordForm.value.confirmPassword
+  return np.length >= 6 && np === cp
+})
+
+const savePassword = async () => {
+  passwordSaving.value = true
+  passwordMessage.value = ''
+  try {
+    await api.forgetPassword({
+      new_password: passwordForm.value.newPassword,
+      confirm_password: passwordForm.value.confirmPassword,
+    })
+    passwordMessage.value = '密码设置成功'
+    passwordMessageType.value = 'success'
+    passwordForm.value = { newPassword: '', confirmPassword: '' }
+  } catch (e) {
+    passwordMessage.value = e.message || '设置失败'
+    passwordMessageType.value = 'error'
+  } finally {
+    passwordSaving.value = false
+  }
+}
 
 const stats = computed(() => ({
   created: styles.value.filter(s => s.mine).length,
