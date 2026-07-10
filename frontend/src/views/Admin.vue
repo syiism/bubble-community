@@ -38,6 +38,11 @@
         <div v-if="activeTab === 'users'"
              class="bg-surface border border-border rounded-xl p-5">
           <div class="flex flex-wrap items-center gap-3 mb-4">
+            <button v-if="selectedUsers.size"
+                    class="px-3 py-1.5 text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors"
+                    @click="batchDeleteUsers">
+              批量删除 ({{ selectedUsers.size }})
+            </button>
             <select v-model="userRoleFilter"
                     class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink
                            focus:outline-none focus:border-accent transition-colors">
@@ -56,6 +61,10 @@
             <table class="w-full text-sm">
               <thead>
                 <tr class="text-left text-muted text-xs border-b border-border">
+                  <th class="pb-3 pr-3 w-8">
+                    <input type="checkbox" :checked="allUsersSelected"
+                           @change="toggleAllUsers" class="rounded border-border text-accent focus:ring-accent" />
+                  </th>
                   <th class="pb-3 pr-4 font-medium">ID</th>
                   <th class="pb-3 pr-4 font-medium">用户名</th>
                   <th class="pb-3 pr-4 font-medium">署名</th>
@@ -67,6 +76,10 @@
               <tbody>
                 <tr v-for="u in users" :key="u.id"
                     class="border-b border-border/50 hover:bg-canvas/50 transition-colors">
+                  <td class="py-3 pr-3">
+                    <input type="checkbox" :checked="selectedUsers.has(u.id)"
+                           @change="toggleUser(u.id)" class="rounded border-border text-accent focus:ring-accent" />
+                  </td>
                   <td class="py-3 pr-4 text-muted">{{ u.id }}</td>
                   <td class="py-3 pr-4 font-medium text-ink flex items-center gap-2">
                     <img v-if="u.avatarUrl" :src="u.avatarUrl" class="w-6 h-6 rounded-full object-cover" />
@@ -104,7 +117,7 @@
                   </td>
                 </tr>
                 <tr v-if="!users.length">
-                  <td colspan="6" class="py-8 text-center text-sm text-muted">暂无用户</td>
+                  <td colspan="7" class="py-8 text-center text-sm text-muted">暂无用户</td>
                 </tr>
               </tbody>
             </table>
@@ -127,6 +140,11 @@
         <div v-if="activeTab === 'bubbles'"
              class="bg-surface border border-border rounded-xl p-5">
           <div class="flex flex-wrap items-center gap-3 mb-4">
+            <button v-if="selectedBubbles.size"
+                    class="px-3 py-1.5 text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors"
+                    @click="batchDeleteBubbles">
+              批量删除 ({{ selectedBubbles.size }})
+            </button>
             <select v-model="bubbleOfficialFilter"
                     class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink
                            focus:outline-none focus:border-accent transition-colors">
@@ -152,6 +170,10 @@
             <table class="w-full text-sm">
               <thead>
                 <tr class="text-left text-muted text-xs border-b border-border">
+                  <th class="pb-3 pr-3 w-8">
+                    <input type="checkbox" :checked="allBubblesSelected"
+                           @change="toggleAllBubbles" class="rounded border-border text-accent focus:ring-accent" />
+                  </th>
                   <th class="pb-3 pr-4 font-medium">ID</th>
                   <th class="pb-3 pr-4 font-medium">名称</th>
                   <th class="pb-3 pr-4 font-medium">描述</th>
@@ -166,6 +188,10 @@
               <tbody>
                 <tr v-for="b in bubbles" :key="b.id"
                     class="border-b border-border/50 hover:bg-canvas/50 transition-colors">
+                  <td class="py-3 pr-3">
+                    <input type="checkbox" :checked="selectedBubbles.has(b.id)"
+                           @change="toggleBubble(b.id)" class="rounded border-border text-accent focus:ring-accent" />
+                  </td>
                   <td class="py-3 pr-4 text-muted">{{ b.id }}</td>
                   <td class="py-3 pr-4 font-medium text-ink max-w-32 truncate" :title="b.name">{{ b.name }}</td>
                   <td class="py-3 pr-4 text-muted max-w-32 truncate text-xs" :title="b.desc">{{ b.desc || '—' }}</td>
@@ -194,7 +220,7 @@
                   </td>
                 </tr>
                 <tr v-if="!bubbles.length">
-                  <td colspan="9" class="py-8 text-center text-sm text-muted">暂无气泡</td>
+                  <td colspan="10" class="py-8 text-center text-sm text-muted">暂无气泡</td>
                 </tr>
               </tbody>
             </table>
@@ -278,8 +304,58 @@ const loadAllUsers = async () => {
   } catch (e) { console.error(e) }
 }
 
-const searchUsers = () => { usersPage.value = 1; loadUsers() }
-const goUsersPage = (p) => { usersPage.value = p; loadUsers() }
+const searchUsers = () => { usersPage.value = 1; selectedUsers.value = new Set(); loadUsers() }
+const goUsersPage = (p) => { usersPage.value = p; selectedUsers.value = new Set(); loadUsers() }
+
+// ===== 选中状态（用户 & 气泡） =====
+const selectedUsers = ref(new Set())
+const selectedBubbles = ref(new Set())
+
+const allUsersSelected = computed(() =>
+  users.value.length > 0 && users.value.every(u => selectedUsers.value.has(u.id))
+)
+const allBubblesSelected = computed(() =>
+  bubbles.value.length > 0 && bubbles.value.every(b => selectedBubbles.value.has(b.id))
+)
+
+const toggleUser = (id) => {
+  const s = new Set(selectedUsers.value)
+  if (s.has(id)) s.delete(id); else s.add(id)
+  selectedUsers.value = s
+}
+const toggleAllUsers = () => {
+  selectedUsers.value = allUsersSelected.value ? new Set() : new Set(users.value.map(u => u.id))
+}
+const toggleBubble = (id) => {
+  const s = new Set(selectedBubbles.value)
+  if (s.has(id)) s.delete(id); else s.add(id)
+  selectedBubbles.value = s
+}
+const toggleAllBubbles = () => {
+  selectedBubbles.value = allBubblesSelected.value ? new Set() : new Set(bubbles.value.map(b => b.id))
+}
+
+const batchDeleteUsers = async () => {
+  const n = selectedUsers.value.size
+  if (!n) return
+  if (!confirm(`确定删除选中的 ${n} 个用户？\n（管理员和当前账号会自动跳过）`)) return
+  try {
+    await api.adminBatchDeleteUsers([...selectedUsers.value])
+    selectedUsers.value = new Set()
+    await loadUsers()
+  } catch (e) { alert(e.message || '操作失败') }
+}
+
+const batchDeleteBubbles = async () => {
+  const n = selectedBubbles.value.size
+  if (!n) return
+  if (!confirm(`确定删除选中的 ${n} 个气泡？`)) return
+  try {
+    await api.adminBatchDeleteBubbles([...selectedBubbles.value])
+    selectedBubbles.value = new Set()
+    await loadBubbles()
+  } catch (e) { alert(e.message || '操作失败') }
+}
 
 // ===== 气泡管理 =====
 const bubbles = ref([])
@@ -300,8 +376,8 @@ const loadBubbles = async () => {
   } catch (e) { console.error(e) }
 }
 
-const searchBubbles = () => { bubblesPage.value = 1; loadBubbles() }
-const goBubblesPage = (p) => { bubblesPage.value = p; loadBubbles() }
+const searchBubbles = () => { bubblesPage.value = 1; selectedBubbles.value = new Set(); loadBubbles() }
+const goBubblesPage = (p) => { bubblesPage.value = p; selectedBubbles.value = new Set(); loadBubbles() }
 
 // 筛选变化时自动重新搜索
 watch([userRoleFilter], () => { usersPage.value = 1; loadUsers() })

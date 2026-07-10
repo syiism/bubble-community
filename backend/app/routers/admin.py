@@ -12,6 +12,10 @@ from app.modules.repositories import (
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
+class IdListBody(BaseModel):
+    ids: list[int]
+
+
 class RoleBody(BaseModel):
     role: str
 
@@ -266,6 +270,36 @@ async def admin_delete_bubble(bubble_id: int, user=Depends(require_admin)):
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
         await BubbleRepository.delete(db, bubble_id)
+    return {"code": 0}
+
+
+@router.post("/users/batch-delete")
+async def admin_batch_delete_users(body: IdListBody, user=Depends(require_admin)):
+    if not body.ids:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "请选择要删除的用户")
+    async with get_db_context() as db:
+        for uid in body.ids:
+            target = await UserRepository.get_by_id(db, uid)
+            if not target:
+                continue
+            if target.id == user["id"]:
+                continue
+            if target.role == "admin":
+                continue
+            await UserRepository.delete_user(db, uid)
+    return {"code": 0}
+
+
+@router.post("/bubbles/batch-delete")
+async def admin_batch_delete_bubbles(body: IdListBody, user=Depends(require_admin)):
+    if not body.ids:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "请选择要删除的气泡")
+    async with get_db_context() as db:
+        for bid in body.ids:
+            bubble = await BubbleRepository.get_by_id(db, bid)
+            if not bubble:
+                continue
+            await BubbleRepository.delete(db, bid)
     return {"code": 0}
 
 
