@@ -76,6 +76,31 @@ class UserRepository:
         await db.execute(update(User).where(User.id == user_id).values({"password": hashed}))
         await db.commit()
 
+    @staticmethod
+    async def delete_user(db: AsyncSession, user_id: int) -> None:
+        from .session_model import Session
+        from .user_current_bubble import UserCurrentBubble
+        from .user_favorite import UserFavorite
+        from .imported_bubble import ImportedBubble
+        from .bubble import Bubble
+        # 先获取用户创建的气泡 ID
+        result = await db.execute(select(Bubble.id).filter(Bubble.user_id == user_id))
+        bubble_ids = [row[0] for row in result.all()]
+        # 删除用户级的关联
+        await db.execute(delete(Session).where(Session.user_id == user_id))
+        await db.execute(delete(UserCurrentBubble).where(UserCurrentBubble.user_id == user_id))
+        await db.execute(delete(UserFavorite).where(UserFavorite.user_id == user_id))
+        await db.execute(delete(ImportedBubble).where(ImportedBubble.user_id == user_id))
+        # 删除气泡级的关联
+        if bubble_ids:
+            await db.execute(delete(UserCurrentBubble).where(UserCurrentBubble.bubble_id.in_(bubble_ids)))
+            await db.execute(delete(ImportedBubble).where(ImportedBubble.bubble_id.in_(bubble_ids)))
+            await db.execute(delete(UserFavorite).where(UserFavorite.bubble_id.in_(bubble_ids)))
+            await db.execute(delete(Bubble).where(Bubble.id.in_(bubble_ids)))
+        # 删除用户
+        await db.execute(delete(User).where(User.id == user_id))
+        await db.commit()
+
 
 class BubbleRepository:
     @staticmethod

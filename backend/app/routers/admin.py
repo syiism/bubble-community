@@ -162,6 +162,20 @@ async def admin_reset_password(user_id: int, body: PasswordBody, user=Depends(re
     return {"code": 0, "message": "密码已重置"}
 
 
+@router.delete("/users/{user_id}")
+async def admin_delete_user(user_id: int, user=Depends(require_admin)):
+    async with get_db_context() as db:
+        target = await UserRepository.get_by_id(db, user_id)
+        if not target:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "用户不存在")
+        if target.id == user["id"]:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "不能删除自己的账号")
+        if target.role == "admin":
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "不能删除管理员，请先降级为用户")
+        await UserRepository.delete_user(db, user_id)
+    return {"code": 0}
+
+
 @router.get("/bubbles")
 async def list_bubbles(
     page: int = Query(1, ge=1),

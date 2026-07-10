@@ -8,6 +8,20 @@
         </p>
       </div>
 
+      <!-- 吸附式搜索栏 -->
+      <div class="sticky top-16 z-40 -mx-6 px-6 bg-white/95 backdrop-blur-md border-b border-border shadow-[0_1px_6px_rgba(0,0,0,0.04)] mb-6">
+        <div class="max-w-4xl mx-auto py-3 flex items-center gap-3">
+          <svg class="w-4 h-4 text-muted flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input v-model="searchQuery" type="text" placeholder="搜索气泡名称 / 作者..."
+                 class="flex-1 px-0 py-1.5 bg-transparent border-0 text-sm text-ink placeholder:text-muted
+                        focus:outline-none focus:ring-0" />
+          <button v-if="searchQuery" class="text-xs text-muted hover:text-ink transition-colors flex-shrink-0"
+                  @click="searchQuery = ''">清空</button>
+        </div>
+      </div>
+
       <div v-if="loading && !styles.length" class="text-center py-20 text-sm text-muted">加载中…</div>
 
       <template v-else>
@@ -118,7 +132,7 @@
         </div>
 
         <BubbleList
-          :styles="styles"
+          :styles="filteredStyles"
           :current-id="currentId"
           @select="handleSelect"
           @edit="handleEdit"
@@ -133,7 +147,7 @@
   </div>
 
   <div
-    v-if="styles.length"
+    v-if="filteredStyles.length"
     class="fixed bottom-0 left-0 right-0 z-30 bg-surface/95 backdrop-blur border-t border-border"
   >
     <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
@@ -168,6 +182,15 @@ import { api } from '@/api'
 import { getUser } from '@/stores/auth'
 
 const styles = ref([])
+const searchQuery = ref('')
+const filteredStyles = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return styles.value
+  return styles.value.filter(s =>
+    s.name.toLowerCase().includes(q) ||
+    s.author.toLowerCase().includes(q)
+  )
+})
 const currentId = ref(0)
 const canUpload = ref(false)
 const authorName = ref('')

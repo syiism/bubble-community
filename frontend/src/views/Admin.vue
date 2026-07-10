@@ -8,71 +8,11 @@
         <p class="text-sm text-muted">用户 / 气泡数据总览与管理</p>
       </div>
 
-      <!-- 吸附式搜索卡片 -->
-      <div class="sticky top-16 z-40 -mx-6 px-6 bg-white/95 backdrop-blur-md border-b border-border shadow-[0_1px_6px_rgba(0,0,0,0.04)]">
-        <div class="max-w-6xl mx-auto">
-          <!-- 标签切换 -->
-          <div class="flex gap-1 pt-3">
-            <button v-for="tab in tabs" :key="tab.key"
-                    :class="[
-                      'px-5 py-2.5 text-sm font-medium transition-colors rounded-t-lg',
-                      activeTab === tab.key
-                        ? 'text-accent border-b-2 border-accent bg-accent/5'
-                        : 'text-muted hover:text-ink hover:bg-canvas'
-                    ]"
-                    @click="activeTab = tab.key">
-              {{ tab.label }}
-            </button>
-          </div>
-          <!-- 筛选栏 -->
-          <div class="flex flex-wrap items-center gap-3 pb-3 pt-2">
-            <template v-if="activeTab === 'users'">
-              <select v-model="userRoleFilter"
-                      class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink
-                             focus:outline-none focus:border-accent transition-colors">
-                <option value="">全部角色</option>
-                <option value="user">普通用户</option>
-                <option value="admin">管理员</option>
-              </select>
-              <input v-model="userQuery" type="text" placeholder="搜索用户名/署名"
-                     class="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink placeholder:text-muted
-                            focus:outline-none focus:border-accent transition-colors"
-                     @keyup.enter="searchUsers" />
-              <button class="px-3 py-1.5 text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors"
-                      @click="searchUsers">搜索</button>
-            </template>
-            <template v-else-if="activeTab === 'bubbles'">
-              <select v-model="bubbleOfficialFilter"
-                      class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink
-                             focus:outline-none focus:border-accent transition-colors">
-                <option value="">全部类型</option>
-                <option value="1">官方</option>
-                <option value="0">用户</option>
-              </select>
-              <select v-model="bubblePublicFilter"
-                      class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink
-                             focus:outline-none focus:border-accent transition-colors">
-                <option value="">全部状态</option>
-                <option value="1">公开</option>
-                <option value="0">私有</option>
-              </select>
-              <input v-model="bubbleQuery" type="text" placeholder="搜索气泡名/作者"
-                     class="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink placeholder:text-muted
-                            focus:outline-none focus:border-accent transition-colors"
-                     @keyup.enter="searchBubbles" />
-              <button class="px-3 py-1.5 text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors"
-                      @click="searchBubbles">搜索</button>
-            </template>
-          </div>
-        </div>
-      </div>
-
-      <!-- 加载状态 -->
       <div v-if="loading && !stats" class="text-center py-20 text-sm text-muted">加载中…</div>
 
       <template v-else>
         <!-- 统计卡片 -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 my-8 scroll-animate scroll-animate-delay-1">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8 scroll-animate scroll-animate-delay-1">
           <div v-for="card in statCards" :key="card.label"
                class="bg-surface border border-border rounded-xl p-4 text-center">
             <div class="text-2xl font-medium text-ink">{{ card.value }}</div>
@@ -80,9 +20,38 @@
           </div>
         </div>
 
+        <!-- 标签切换 -->
+        <div class="flex gap-1 mb-6 border-b border-border">
+          <button v-for="tab in tabs" :key="tab.key"
+                  :class="[
+                    'px-5 py-2.5 text-sm font-medium transition-colors rounded-t-lg -mb-px',
+                    activeTab === tab.key
+                      ? 'text-accent border-b-2 border-accent bg-accent/5'
+                      : 'text-muted hover:text-ink hover:bg-canvas'
+                  ]"
+                  @click="activeTab = tab.key">
+            {{ tab.label }}
+          </button>
+        </div>
+
         <!-- 用户管理 -->
-        <div v-show="activeTab === 'users'"
+        <div v-if="activeTab === 'users'"
              class="bg-surface border border-border rounded-xl p-5">
+          <div class="flex flex-wrap items-center gap-3 mb-4">
+            <select v-model="userRoleFilter"
+                    class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink
+                           focus:outline-none focus:border-accent transition-colors">
+              <option value="">全部角色</option>
+              <option value="user">普通用户</option>
+              <option value="admin">管理员</option>
+            </select>
+            <input v-model="userQuery" type="text" placeholder="搜索用户名/署名"
+                   class="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink placeholder:text-muted
+                          focus:outline-none focus:border-accent transition-colors"
+                   @keyup.enter="searchUsers" />
+            <button class="px-3 py-1.5 text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors"
+                    @click="searchUsers">搜索</button>
+          </div>
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
               <thead>
@@ -126,6 +95,11 @@
                               @click="resetPassword(u.id, u.username)">
                         重置密码
                       </button>
+                      <button v-if="u.role !== 'admin'"
+                              class="text-xs font-medium text-red-500/70 hover:text-red-500 transition-colors"
+                              @click="deleteUser(u)">
+                        删除
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -150,8 +124,30 @@
         </div>
 
         <!-- 气泡管理 -->
-        <div v-show="activeTab === 'bubbles'"
+        <div v-if="activeTab === 'bubbles'"
              class="bg-surface border border-border rounded-xl p-5">
+          <div class="flex flex-wrap items-center gap-3 mb-4">
+            <select v-model="bubbleOfficialFilter"
+                    class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink
+                           focus:outline-none focus:border-accent transition-colors">
+              <option value="">全部类型</option>
+              <option value="1">官方</option>
+              <option value="0">用户</option>
+            </select>
+            <select v-model="bubblePublicFilter"
+                    class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink
+                           focus:outline-none focus:border-accent transition-colors">
+              <option value="">全部状态</option>
+              <option value="1">公开</option>
+              <option value="0">私有</option>
+            </select>
+            <input v-model="bubbleQuery" type="text" placeholder="搜索气泡名/作者"
+                   class="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink placeholder:text-muted
+                          focus:outline-none focus:border-accent transition-colors"
+                   @keyup.enter="searchBubbles" />
+            <button class="px-3 py-1.5 text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors"
+                    @click="searchBubbles">搜索</button>
+          </div>
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
               <thead>
@@ -392,6 +388,15 @@ const resetPassword = async (userId, username) => {
   catch (e) { alert(e.message || '操作失败') }
 }
 
+const deleteUser = async (u) => {
+  if (!confirm(`确定删除用户「${u.username}」(ID:${u.id})？\n该用户的气泡、收藏等所有数据将被一并删除，不可撤销。`)) return
+  try {
+    await api.adminDeleteUser(u.id)
+    users.value = users.value.filter(x => x.id !== u.id)
+    usersTotal.value = Math.max(0, usersTotal.value - 1)
+  } catch (e) { alert(e.message || '操作失败') }
+}
+
 // ===== 气泡操作 =====
 const toggleVisibility = async (b) => {
   try { const d = await api.adminSetBubbleVisibility(b.id, !b.public); b.public = d.public }
@@ -426,7 +431,6 @@ const saveEdit = async () => {
   savingEdit.value = true
   try {
     await api.adminUpdateBubble(editingBubble.value.id, editForm.value)
-    // 更新本地行
     const idx = bubbles.value.findIndex(x => x.id === editingBubble.value.id)
     if (idx >= 0) {
       Object.assign(bubbles.value[idx], {
