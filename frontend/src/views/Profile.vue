@@ -19,8 +19,8 @@
                 </svg>
                 <!-- 右下角笔图标 -->
                 <div class="absolute bottom-0 right-0 w-5 h-5 bg-white rounded-full shadow-sm flex items-center justify-center">
-                  <svg class="w-3 h-3 text-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-                    <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                  <svg class="w-3.5 h-3.5 text-ink" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <path d="M16.84 2.73c-.39 0-.77.15-1.07.44l-2.12 2.12 5.3 5.3 2.12-2.12c.6-.6.6-1.56 0-2.16l-3.18-3.18c-.28-.28-.66-.44-1.05-.44M2 18.08V22h3.92l11.3-11.3-5.3-5.3L2 18.08Z"/>
                   </svg>
                 </div>
                 <input ref="avatarInput" type="file" accept="image/*" class="hidden" @change="onAvatarChange" />
