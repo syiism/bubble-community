@@ -1,6 +1,6 @@
 import secrets
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status, Response
 from pydantic import BaseModel
 
 from app.svg_util import fill_svg
