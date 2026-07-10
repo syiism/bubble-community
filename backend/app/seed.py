@@ -26,6 +26,20 @@ def create_all_tables_sync():
     Base.metadata.create_all(sync_engine)
 
 
+def migrate_schema():
+    """增量迁移：给已有表补充新字段"""
+    from .modules.database import DATABASE_URL
+    sync_engine = create_engine(DATABASE_URL.replace("aiomysql", "pymysql"))
+    with sync_engine.connect() as conn:
+        result = conn.execute(
+            text("SHOW COLUMNS FROM users LIKE 'password'")
+        )
+        if not result.fetchone():
+            conn.execute(text("ALTER TABLE users ADD COLUMN password VARCHAR(255) DEFAULT NULL AFTER avatar_url"))
+            conn.commit()
+            print("[seed] 已添加 users.password 字段。")
+
+
 def seed_official():
     seed_path = SEED_JSON if SEED_JSON.exists() else (SEED_JSON_FALLBACK if SEED_JSON_FALLBACK.exists() else None)
     if not seed_path:
@@ -70,6 +84,7 @@ def main():
     print(f"[seed] 数据库 {DB_NAME} 就绪。")
     create_all_tables_sync()
     print("[seed] 表结构就绪。")
+    migrate_schema()
     seed_official()
     print("[seed] 完成。")
 
