@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isAuthenticated } from '@/stores/auth'
+import { isAuthenticated, getUser } from '@/stores/auth'
 
 const routes = [
   {
@@ -28,7 +28,7 @@ const routes = [
     path: '/admin',
     name: 'admin',
     component: () => import('@/views/Admin.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
 ]
 
@@ -43,6 +43,12 @@ const router = createRouter({
 router.beforeEach((to) => {
   if (to.meta.requiresAuth && !isAuthenticated.value) {
     return { name: 'login', query: { redirect: to.fullPath } }
+  }
+  if (to.meta.requiresAdmin) {
+    const u = getUser()
+    if (!u || u.role !== 'admin') {
+      return { name: 'home' }
+    }
   }
   if ((to.name === 'login' || to.name === 'register') && isAuthenticated.value) {
     return { name: 'home' }
