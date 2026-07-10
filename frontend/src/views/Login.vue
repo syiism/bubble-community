@@ -36,10 +36,6 @@
             />
           </div>
 
-          <p class="text-xs text-muted -mt-2">
-            dev 模式无需密码，输入用户名即可登录
-          </p>
-
           <button
             type="submit"
             :disabled="loading || !canSubmit"
