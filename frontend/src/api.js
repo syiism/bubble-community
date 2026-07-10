@@ -48,10 +48,11 @@ export const api = {
   forgetPassword: (data) => request('POST', '/bubble-community/api/auth/forget', data),
   // 管理后台
   adminStats: () => request('GET', '/bubble-community/api/admin/stats'),
-  adminUsers: (page, size, query) => request('GET', `/bubble-community/api/admin/users?page=${page}&size=${size}&query=${encodeURIComponent(query)}`),
+  adminUsers: (page, size, query, role) => request('GET', `/bubble-community/api/admin/users?page=${page}&size=${size}&query=${encodeURIComponent(query)}&role=${role}`),
   adminSetRole: (userId, role) => request('PUT', `/bubble-community/api/admin/users/${userId}/role`, { role }),
   adminSetPassword: (userId, password) => request('PUT', `/bubble-community/api/admin/users/${userId}/password`, { password }),
-  adminBubbles: (page, size, query) => request('GET', `/bubble-community/api/admin/bubbles?page=${page}&size=${size}&query=${encodeURIComponent(query)}`),
+  adminBubbles: (page, size, query, official, pub) => request('GET', `/bubble-community/api/admin/bubbles?page=${page}&size=${size}&query=${encodeURIComponent(query)}&official=${official}&public=${pub}`),
   adminDeleteBubble: (id) => request('DELETE', `/bubble-community/api/admin/bubbles/${id}`),
   adminSetBubbleVisibility: (id, pub) => request('PUT', `/bubble-community/api/admin/bubbles/${id}/visibility`, { public: pub }),
+  adminUpdateBubble: (id, data) => request('PUT', `/bubble-community/api/admin/bubbles/${id}`, data),
 }

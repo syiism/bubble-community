@@ -24,6 +24,15 @@ class BubbleVisibilityBody(BaseModel):
     public: bool
 
 
+class BubbleEditBody(BaseModel):
+    name: str = ""
+    desc: str = ""
+    color: str = ""
+    textColor: str = ""
+    public: bool = False
+    authorName: str = ""
+
+
 @router.get("/stats")
 async def admin_stats(user=Depends(require_admin)):
     async with get_db_context() as db:
@@ -70,10 +79,11 @@ async def list_users(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     query: str = Query("", max_length=64),
+    role: str = Query("", max_length=16),
     user=Depends(require_admin),
 ):
     async with get_db_context() as db:
-        from sqlalchemy import func, select, or_
+        from sqlalchemy import func, select, or_, and_
         from app.modules.user import User
 
         filters = []
@@ -81,6 +91,8 @@ async def list_users(
             filters.append(
                 or_(User.username.ilike(f"%{query}%"), User.author_name.ilike(f"%{query}%"))
             )
+        if role:
+            filters.append(User.role == role)
 
         total = (await db.execute(
             select(func.count(User.id)).where(*filters)
@@ -155,10 +167,12 @@ async def list_bubbles(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     query: str = Query("", max_length=64),
+    official: str = Query("", max_length=8),
+    public: str = Query("", max_length=8),
     user=Depends(require_admin),
 ):
     async with get_db_context() as db:
-        from sqlalchemy import func, select, or_
+        from sqlalchemy import func, select, or_, and_
         from app.modules.bubble import Bubble
         from app.modules.user import User
 
@@ -170,6 +184,14 @@ async def list_bubbles(
                     Bubble.author_name.ilike(f"%{query}%"),
                 )
             )
+        if official in ("1", "true"):
+            filters.append(Bubble.is_official == True)
+        elif official in ("0", "false"):
+            filters.append(Bubble.is_official == False)
+        if public in ("1", "true"):
+            filters.append(Bubble.is_public == True)
+        elif public in ("0", "false"):
+            filters.append(Bubble.is_public == False)
 
         total = (await db.execute(
             select(func.count(Bubble.id)).where(*filters)
@@ -235,3 +257,21 @@ async def admin_set_visibility(bubble_id: int, body: BubbleVisibilityBody, user=
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
         await BubbleRepository.update(db, bubble, is_public=body.public)
     return {"code": 0, "public": body.public}
+
+
+@router.put("/bubbles/{bubble_id}")
+async def admin_update_bubble(bubble_id: int, body: BubbleEditBody, user=Depends(require_admin)):
+    async with get_db_context() as db:
+        bubble = await BubbleRepository.get_by_id(db, bubble_id)
+        if not bubble:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
+        await BubbleRepository.update(
+            db, bubble,
+            name=body.name.strip()[:64] or "未命名",
+            description=body.desc.strip()[:120],
+            color=body.color,
+            text_color=body.textColor,
+            is_public=body.public,
+            author_name=body.authorName.strip()[:32],
+        )
+    return {"code": 0}
