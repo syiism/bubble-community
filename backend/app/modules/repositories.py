@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from sqlalchemy import and_, or_, func, select, delete, update
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
 
@@ -35,6 +36,25 @@ class UserRepository:
         await db.commit()
         await db.refresh(user)
         return user
+
+    @staticmethod
+    async def get_or_create(db: AsyncSession, user_id: int, username: str, avatar_url: str | None = None) -> User:
+        """原子化 get-or-create，消除并发创建竞态。"""
+        result = await db.execute(select(User).filter(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user:
+            return user
+
+        insert_stmt = mysql_insert(User).values(
+            id=user_id, username=username, avatar_url=avatar_url
+        ).on_duplicate_key_update(
+            id=mysql_insert(User).inserted.id  # no-op, 仅防 duplicate key 报错
+        )
+        await db.execute(insert_stmt)
+        await db.commit()
+
+        result = await db.execute(select(User).filter(User.id == user_id))
+        return result.scalar_one()
 
     @staticmethod
     async def update(db: AsyncSession, user: User, **kwargs) -> User:
@@ -217,12 +237,12 @@ class UserCurrentBubbleRepository:
 
     @staticmethod
     async def set_current(db: AsyncSession, user_id: int, bubble_id: int) -> None:
-        result = await db.execute(select(UserCurrentBubble).filter(UserCurrentBubble.user_id == user_id))
-        existing = result.scalar_one_or_none()
-        if existing:
-            existing.bubble_id = bubble_id
-        else:
-            db.add(UserCurrentBubble(user_id=user_id, bubble_id=bubble_id))
+        stmt = mysql_insert(UserCurrentBubble).values(
+            user_id=user_id, bubble_id=bubble_id
+        ).on_duplicate_key_update(
+            bubble_id=bubble_id,
+        )
+        await db.execute(stmt)
         await db.commit()
 
 
@@ -241,9 +261,13 @@ class ImportedBubbleRepository:
 
     @staticmethod
     async def import_bubble(db: AsyncSession, user_id: int, bubble_id: int) -> None:
-        if not await ImportedBubbleRepository.is_imported(db, user_id, bubble_id):
-            db.add(ImportedBubble(user_id=user_id, bubble_id=bubble_id))
-            await db.commit()
+        stmt = mysql_insert(ImportedBubble).values(
+            user_id=user_id, bubble_id=bubble_id
+        ).on_duplicate_key_update(
+            user_id=mysql_insert(ImportedBubble).inserted.user_id,  # no-op，防重复
+        )
+        await db.execute(stmt)
+        await db.commit()
 
 
 class UserFavoriteRepository:
@@ -262,8 +286,12 @@ class UserFavoriteRepository:
     @staticmethod
     async def set_favorite(db: AsyncSession, user_id: int, bubble_id: int, favorite: bool) -> None:
         if favorite:
-            if not await UserFavoriteRepository.is_favorited(db, user_id, bubble_id):
-                db.add(UserFavorite(user_id=user_id, bubble_id=bubble_id))
+            stmt = mysql_insert(UserFavorite).values(
+                user_id=user_id, bubble_id=bubble_id
+            ).on_duplicate_key_update(
+                user_id=mysql_insert(UserFavorite).inserted.user_id,  # no-op，防重复
+            )
+            await db.execute(stmt)
         else:
             await db.execute(delete(UserFavorite).where(
                 and_(UserFavorite.user_id == user_id, UserFavorite.bubble_id == bubble_id)
@@ -291,6 +319,17 @@ class SessionRepository:
     @staticmethod
     async def get(db: AsyncSession, session_id: str) -> Session | None:
         result = await db.execute(select(Session).options(load_only(Session.id, Session.user_id, Session.username, Session.expires_at)).filter(Session.id == session_id))
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_for_update(db: AsyncSession, session_id: str) -> Session | None:
+        """带行锁读取 session，防止并发刷新/删除竞态。"""
+        result = await db.execute(
+            select(Session)
+            .options(load_only(Session.id, Session.user_id, Session.username, Session.expires_at))
+            .filter(Session.id == session_id)
+            .with_for_update()
+        )
         return result.scalar_one_or_none()
 
     @staticmethod

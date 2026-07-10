@@ -2,6 +2,7 @@ import secrets
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status, Response
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 
 from app.svg_util import fill_svg
 from app.auth import get_current_user, get_current_user_strict
@@ -156,7 +157,8 @@ async def create_bubble(body: BubbleCreate, user=Depends(get_current_user)):
             is_public=body.public,
             author_name=author_name,
         )
-    return {"code": 0, "id": bubble.id}
+        style = _row_to_style(bubble, user_id, set(), set())
+    return {"code": 0, "id": bubble.id, "style": style}
 
 
 @router.put("/{bubble_id}")
@@ -178,7 +180,12 @@ async def update_bubble(bubble_id: int, body: BubbleCreate, user=Depends(get_cur
             text_color=body.textColor,
             is_public=body.public,
         )
-    return {"code": 0}
+        # 重新读取以获得更新后的数据（含 updated_at）
+        updated = await BubbleRepository.get_by_id(db, bubble_id)
+        imported_set = await ImportedBubbleRepository.get_imported_ids(db, user_id)
+        favorite_set = await UserFavoriteRepository.get_favorite_ids(db, user_id)
+        style = _row_to_style(updated, user_id, imported_set, favorite_set)
+    return {"code": 0, "style": style}
 
 
 @router.delete("/{bubble_id}")
@@ -204,7 +211,10 @@ async def set_visibility(body: VisibilityBody, user=Depends(get_current_user)):
         if bubble.user_id != user_id:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "只能修改自己的气泡")
         await BubbleRepository.update(db, bubble, is_public=body.public)
-    return {"code": 0}
+        # 构造 style 对象返回，imported/favorited 由前端从本地状态继承
+        style = _row_to_style(bubble, user_id, set(), set())
+        style["public"] = body.public
+    return {"code": 0, "style": style}
 
 
 @router.post("/share")
@@ -218,13 +228,19 @@ async def gen_share(body: ShareBody, user=Depends(get_current_user)):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "只能分享自己的气泡")
         code = bubble.share_code
         if not code:
-            for _ in range(8):
+            for attempt in range(8):
                 code = "B" + secrets.token_hex(4).upper()
                 existing = await BubbleRepository.get_by_share_code(db, code)
                 if not existing:
-                    break
-            await BubbleRepository.update(db, bubble, share_code=code)
-    return {"code": 0, "shareCode": code}
+                    try:
+                        await BubbleRepository.update(db, bubble, share_code=code)
+                        break
+                    except IntegrityError:
+                        await db.rollback()
+                        if attempt == 7:
+                            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "生成分享码失败，请重试")
+                        continue
+    return {"code": 0, "shareCode": code, "id": body.id}
 
 
 @router.post("/redeem")
@@ -240,7 +256,10 @@ async def redeem(body: RedeemBody, user=Depends(get_current_user)):
         if bubble.user_id == user_id:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "这是你自己的气泡")
         await ImportedBubbleRepository.import_bubble(db, user_id, bubble.id)
-    return {"code": 0, "id": bubble.id, "name": bubble.name}
+        imported_set = await ImportedBubbleRepository.get_imported_ids(db, user_id)
+        favorite_set = await UserFavoriteRepository.get_favorite_ids(db, user_id)
+        style = _row_to_style(bubble, user_id, imported_set, favorite_set)
+    return {"code": 0, "id": bubble.id, "name": bubble.name, "style": style}
 
 
 @router.post("/current")
@@ -262,4 +281,5 @@ async def set_favorite(body: FavoriteBody, user=Depends(get_current_user)):
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
         await UserFavoriteRepository.set_favorite(db, user_id, body.id, body.favorite)
-    return {"code": 0}
+        fav_count = await UserFavoriteRepository.count_favorites(db, user_id)
+    return {"code": 0, "favorited": body.favorite, "favoritesCount": fav_count}

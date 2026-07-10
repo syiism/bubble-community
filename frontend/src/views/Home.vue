@@ -239,14 +239,16 @@ const handleEditorSubmit = async (data) => {
   }
   try {
     if (data.id) {
-      await api.updateBubble(data.id, payload)
+      const res = await api.updateBubble(data.id, payload)
+      const idx = styles.value.findIndex(s => s.id === data.id)
+      if (idx >= 0 && res.style) styles.value[idx] = res.style
       showToast(data.public ? '已保存，所有使用者将同步更新' : '已保存，凭分享码使用者将更新')
     } else {
-      await api.createBubble(payload)
+      const res = await api.createBubble(payload)
+      if (res.style) styles.value.unshift(res.style)
       showToast('已创建')
     }
     closeEditor()
-    await loadStyles()
   } catch (e) {
     showToast(e.message || '保存失败')
   }
@@ -257,8 +259,11 @@ const handleDelete = async (style) => {
   if (!confirm(`确定删除这个气泡样式？${extra}`)) return
   try {
     await api.deleteBubble(style.id)
+    styles.value = styles.value.filter(s => s.id !== style.id)
+    if (currentId.value === style.id) {
+      currentId.value = styles.value.length ? styles.value[0].id : 0
+    }
     showToast('已删除')
-    await loadStyles()
   } catch (e) {
     showToast(e.message || '删除失败')
   }
@@ -266,9 +271,10 @@ const handleDelete = async (style) => {
 
 const handleShare = async (style) => {
   try {
-    await api.genShare(style.id)
+    const data = await api.genShare(style.id)
+    const s = styles.value.find(s => s.id === style.id)
+    if (s && data.shareCode) s.shareCode = data.shareCode
     showToast('分享码已生成')
-    await loadStyles()
   } catch (e) {
     showToast(e.message || '生成失败')
   }
@@ -283,22 +289,34 @@ const handleCopyShare = (code) => {
 }
 
 const handleTogglePublic = async (id, isPublic) => {
+  // 乐观更新：先改界面，再发请求
+  const s = styles.value.find(s => s.id === id)
+  const prevPublic = s ? s.public : false
+  if (s) s.public = isPublic
   try {
     await api.setVisibility(id, isPublic)
+    // 成功：界面已是最新，无需再改
     showToast(isPublic ? '已设为公开' : '已设为私有')
-    await loadStyles()
   } catch (e) {
+    // 失败：回滚到之前的值
+    if (s) s.public = prevPublic
     showToast(e.message || '操作失败')
     await loadStyles()
   }
 }
 
 const handleToggleFavorite = async (id, favorite) => {
+  // 乐观更新：先改界面，再发请求
+  const s = styles.value.find(s => s.id === id)
+  const prevFav = s ? s.favorited : false
+  if (s) s.favorited = favorite
   try {
     await api.setFavorite(id, favorite)
+    // 成功：界面已是最新，无需再改
     showToast(favorite ? '已收藏' : '已取消收藏')
-    await loadStyles()
   } catch (e) {
+    // 失败：回滚到之前的值
+    if (s) s.favorited = prevFav
     showToast(e.message || '操作失败')
     await loadStyles()
   }
@@ -306,12 +324,18 @@ const handleToggleFavorite = async (id, favorite) => {
 
 const saveAuthorName = async () => {
   savingAuthor.value = true
+  const prevName = authorName.value
   try {
     const res = await api.setAuthorName(authorName.value.trim())
-    authorName.value = res.authorName || ''
-    showToast(authorName.value ? `署名已保存：${authorName.value}` : '已清空署名')
-    await loadStyles()
+    const newName = res.authorName || ''
+    authorName.value = newName
+    // 更新所有自己的气泡的 author 字段
+    styles.value.forEach(s => {
+      if (s.mine) s.author = newName || '匿名书友'
+    })
+    showToast(newName ? `署名已保存：${newName}` : '已清空署名')
   } catch (e) {
+    authorName.value = prevName
     showToast(e.message || '保存失败')
   } finally {
     savingAuthor.value = false
@@ -321,14 +345,10 @@ const saveAuthorName = async () => {
 const saveCurrentStyle = async () => {
   if (!currentId.value) return
   saving.value = true
-  const selectedId = currentId.value  // 记住用户选择，防止 loadStyles 覆盖
   try {
-    await api.setCurrent(selectedId)
+    await api.setCurrent(currentId.value)
     showToast('已保存，回到阅读翻页即生效')
-    await loadStyles()
-    // loadStyles 中 currentId 可能被 data.style 覆盖回旧值，
-    // 显式恢复为用户选择的气泡，保证界面高亮和底部名称立即更新
-    currentId.value = selectedId
+    // 无需 loadStyles — currentId 已是用户所选，界面立即响应
   } catch (e) {
     showToast(e.message || '保存失败')
   } finally {
@@ -342,11 +362,17 @@ const redeem = async () => {
   redeeming.value = true
   try {
     const res = await api.redeem(code)
+    if (res.style) {
+      // 替换已有的或追加新气泡
+      const idx = styles.value.findIndex(s => s.id === res.style.id)
+      if (idx >= 0) {
+        styles.value[idx] = res.style
+      } else {
+        styles.value.unshift(res.style)
+      }
+    }
     showToast(`已添加：${res.name || ''}`)
-    const newId = res.id || currentId.value
     redeemCode.value = ''
-    await loadStyles()
-    currentId.value = newId  // 显式保持选择，防止 loadStyles 覆盖
   } catch (e) {
     showToast(e.message || '分享码无效')
   } finally {
