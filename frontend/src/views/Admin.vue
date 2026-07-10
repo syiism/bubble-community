@@ -215,88 +215,21 @@
       </template>
     </div>
 
-    <!-- 编辑气泡模态框 -->
-    <Teleport to="body">
-      <div v-if="editingBubble"
-           class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-           @click.self="editingBubble = null">
-        <div class="bg-surface border border-border rounded-2xl p-6 w-full max-w-lg mx-4 shadow-2xl">
-          <h3 class="text-base font-medium text-ink mb-5">编辑气泡 #{{ editingBubble.id }}</h3>
-
-          <div class="space-y-4">
-            <div>
-              <label class="block text-xs text-muted mb-1">名称</label>
-              <input v-model="editForm.name" type="text" maxlength="64"
-                     class="w-full px-3 py-2 bg-canvas border border-border rounded-lg text-sm text-ink
-                            focus:outline-none focus:border-accent transition-colors" />
-            </div>
-            <div>
-              <label class="block text-xs text-muted mb-1">描述</label>
-              <input v-model="editForm.desc" type="text" maxlength="120"
-                     class="w-full px-3 py-2 bg-canvas border border-border rounded-lg text-sm text-ink
-                            focus:outline-none focus:border-accent transition-colors" />
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs text-muted mb-1">气泡颜色</label>
-                <div class="flex gap-2">
-                  <input v-model="editForm.color" type="text" placeholder="#..."
-                         class="flex-1 px-3 py-2 bg-canvas border border-border rounded-lg text-sm text-ink
-                                focus:outline-none focus:border-accent transition-colors" />
-                  <input v-model="editForm.color" type="color"
-                         class="w-9 h-9 rounded-lg border border-border cursor-pointer bg-canvas" />
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs text-muted mb-1">文字颜色</label>
-                <div class="flex gap-2">
-                  <input v-model="editForm.textColor" type="text" placeholder="#..."
-                         class="flex-1 px-3 py-2 bg-canvas border border-border rounded-lg text-sm text-ink
-                                focus:outline-none focus:border-accent transition-colors" />
-                  <input v-model="editForm.textColor" type="color"
-                         class="w-9 h-9 rounded-lg border border-border cursor-pointer bg-canvas" />
-                </div>
-              </div>
-            </div>
-            <div>
-              <label class="block text-xs text-muted mb-1">作者署名</label>
-              <input v-model="editForm.authorName" type="text" maxlength="32"
-                     class="w-full px-3 py-2 bg-canvas border border-border rounded-lg text-sm text-ink
-                            focus:outline-none focus:border-accent transition-colors" />
-            </div>
-            <div class="flex items-center gap-3">
-              <label class="text-xs text-muted">公开可见</label>
-              <button @click="editForm.public = !editForm.public"
-                      :class="[
-                        'relative w-10 h-5 rounded-full transition-colors',
-                        editForm.public ? 'bg-accent' : 'bg-border'
-                      ]">
-                <span :class="[
-                  'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow-sm',
-                  editForm.public ? 'translate-x-5' : ''
-                ]" />
-              </button>
-            </div>
-          </div>
-
-          <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
-            <button class="px-4 py-2 text-sm font-medium text-muted hover:text-ink transition-colors"
-                    @click="editingBubble = null">取消</button>
-            <button :disabled="savingEdit"
-                    class="px-5 py-2 text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors disabled:opacity-50"
-                    @click="saveEdit">
-              {{ savingEdit ? '保存中…' : '保存' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <!-- 编辑气泡 — 复用 Editor 组件 -->
+    <Editor v-if="editingBubble"
+            :style="editingBubble"
+            :admin="true"
+            :user-list="allUsers"
+            @close="editingBubble = null"
+            @submit="handleEditSubmit"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { api } from '@/api'
+import Editor from '@/components/Editor.vue'
 
 const tabs = [
   { key: 'users', label: '用户管理' },
@@ -322,6 +255,7 @@ const statCards = computed(() => {
 
 // ===== 用户管理 =====
 const users = ref([])
+const allUsers = ref([])
 const usersTotal = ref(0)
 const usersPage = ref(1)
 const usersPageSize = 20
@@ -334,6 +268,13 @@ const loadUsers = async () => {
     const data = await api.adminUsers(usersPage.value, usersPageSize, userQuery.value, userRoleFilter.value)
     users.value = data.users || []
     usersTotal.value = data.total || 0
+  } catch (e) { console.error(e) }
+}
+
+const loadAllUsers = async () => {
+  try {
+    const data = await api.adminUsers(1, 1000, '', '')
+    allUsers.value = data.users || []
   } catch (e) { console.error(e) }
 }
 
@@ -412,37 +353,34 @@ const deleteBubble = async (b) => {
 
 // ===== 编辑气泡 =====
 const editingBubble = ref(null)
-const savingEdit = ref(false)
-const editForm = ref({ name: '', desc: '', color: '', textColor: '', public: false, authorName: '' })
 
-const openEditModal = (b) => {
-  editForm.value = {
-    name: b.name,
-    desc: b.desc || '',
-    color: b.color || '',
-    textColor: b.textColor || '',
-    public: b.public,
-    authorName: b.authorName || '',
-  }
-  editingBubble.value = b
-}
+const openEditModal = (b) => { editingBubble.value = b }
 
-const saveEdit = async () => {
-  savingEdit.value = true
+const handleEditSubmit = async (data) => {
   try {
-    await api.adminUpdateBubble(editingBubble.value.id, editForm.value)
-    const idx = bubbles.value.findIndex(x => x.id === editingBubble.value.id)
+    const res = await api.adminUpdateBubble(data.id, {
+      name: data.name,
+      desc: data.desc,
+      svg: data.svg,
+      color: data.color,
+      textColor: data.textColor,
+      public: data.public,
+      authorName: data.authorName || '',
+      userId: data.userId || 0,
+    })
+    // 更新本地行
+    const idx = bubbles.value.findIndex(x => x.id === data.id)
     if (idx >= 0) {
       Object.assign(bubbles.value[idx], {
-        name: editForm.value.name,
-        desc: editForm.value.desc,
-        public: editForm.value.public,
-        authorName: editForm.value.authorName,
+        name: data.name,
+        desc: data.desc,
+        public: data.public,
+        authorName: data.authorName || '',
+        userId: data.userId || 0,
       })
     }
     editingBubble.value = null
   } catch (e) { alert(e.message || '保存失败') }
-  finally { savingEdit.value = false }
 }
 
 // ===== 初始化 =====
@@ -450,7 +388,7 @@ const loadAll = async () => {
   loading.value = true
   try { const d = await api.adminStats(); stats.value = d.stats } catch (e) { console.error(e) }
   loading.value = false
-  await Promise.all([loadUsers(), loadBubbles()])
+  await Promise.all([loadUsers(), loadBubbles(), loadAllUsers()])
 }
 
 onMounted(loadAll)

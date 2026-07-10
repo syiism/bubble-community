@@ -27,10 +27,12 @@ class BubbleVisibilityBody(BaseModel):
 class BubbleEditBody(BaseModel):
     name: str = ""
     desc: str = ""
+    svg: str = ""
     color: str = ""
     textColor: str = ""
     public: bool = False
     authorName: str = ""
+    userId: int = 0
 
 
 @router.get("/stats")
@@ -236,6 +238,10 @@ async def list_bubbles(
                 "id": b.id,
                 "name": b.name,
                 "desc": b.description,
+                "svg": b.svg_template,
+                "rawSvg": b.svg_template,
+                "color": b.color or "",
+                "textColor": b.text_color or "",
                 "official": bool(b.is_official),
                 "public": bool(b.is_public),
                 "authorName": b.author_name or "",
@@ -279,13 +285,16 @@ async def admin_update_bubble(bubble_id: int, body: BubbleEditBody, user=Depends
         bubble = await BubbleRepository.get_by_id(db, bubble_id)
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
-        await BubbleRepository.update(
-            db, bubble,
-            name=body.name.strip()[:64] or "未命名",
-            description=body.desc.strip()[:120],
-            color=body.color,
-            text_color=body.textColor,
-            is_public=body.public,
-            author_name=body.authorName.strip()[:32],
-        )
+        kwargs = {
+            "name": body.name.strip()[:64] or "未命名",
+            "description": body.desc.strip()[:120],
+            "svg_template": body.svg,
+            "color": body.color,
+            "text_color": body.textColor,
+            "is_public": body.public,
+            "author_name": body.authorName.strip()[:32],
+        }
+        if body.userId and body.userId != bubble.user_id:
+            kwargs["user_id"] = body.userId
+        await BubbleRepository.update(db, bubble, **kwargs)
     return {"code": 0}

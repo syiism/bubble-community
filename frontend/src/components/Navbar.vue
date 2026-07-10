@@ -75,11 +75,14 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { isAuthenticated, logout, getUser } from '@/stores/auth'
 
 const user = computed(() => getUser())
+const router = useRouter()
 
 const onLogout = async () => {
   await logout()
+  router.push('/login')
 }
 </script>

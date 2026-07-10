@@ -22,6 +22,16 @@
           />
         </div>
         
+        <div v-if="admin">
+          <label class="block text-sm font-medium text-ink mb-2">作者（用户名）</label>
+          <select v-model="form.userId"
+                  class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink
+                         focus:outline-none focus:border-accent transition-colors">
+            <option :value="0">—</option>
+            <option v-for="u in userList" :key="u.id" :value="u.id">{{ u.username }}</option>
+          </select>
+        </div>
+
         <div>
           <label class="block text-sm font-medium text-ink mb-2">描述（选填）</label>
           <input 
@@ -188,6 +198,14 @@ const props = defineProps({
   style: {
     type: Object,
     default: null
+  },
+  admin: {
+    type: Boolean,
+    default: false
+  },
+  userList: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -201,7 +219,8 @@ const form = ref({
   svg: '',
   color: '',
   textColor: '',
-  public: false
+  public: false,
+  userId: 0
 })
 
 const loading = ref(false)
@@ -215,7 +234,8 @@ watch(() => props.style, (newStyle) => {
       svg: newStyle.rawSvg || newStyle.svg || '',
       color: newStyle.color || '',
       textColor: newStyle.textColor || '',
-      public: !!newStyle.public
+      public: !!newStyle.public,
+      userId: newStyle.userId || newStyle.user_id || 0
     }
   } else {
     form.value = {
@@ -224,7 +244,8 @@ watch(() => props.style, (newStyle) => {
       svg: '',
       color: '',
       textColor: '',
-      public: false
+      public: false,
+      userId: 0
     }
   }
   extractedColors.value = []
