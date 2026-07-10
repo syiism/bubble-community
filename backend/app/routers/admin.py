@@ -16,6 +16,14 @@ class RoleBody(BaseModel):
     role: str
 
 
+class PasswordBody(BaseModel):
+    password: str
+
+
+class BubbleVisibilityBody(BaseModel):
+    public: bool
+
+
 @router.get("/stats")
 async def admin_stats(user=Depends(require_admin)):
     async with get_db_context() as db:
@@ -126,3 +134,104 @@ async def update_user_role(user_id: int, body: RoleBody, user=Depends(require_ad
         await UserRepository.update(db, target, role=body.role)
 
     return {"code": 0, "role": body.role}
+
+
+@router.put("/users/{user_id}/password")
+async def admin_reset_password(user_id: int, body: PasswordBody, user=Depends(require_admin)):
+    if len(body.password) < 6:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "密码长度不能少于 6 个字符")
+
+    async with get_db_context() as db:
+        target = await UserRepository.get_by_id(db, user_id)
+        if not target:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "用户不存在")
+        await UserRepository.update_password(db, user_id, body.password)
+
+    return {"code": 0, "message": "密码已重置"}
+
+
+@router.get("/bubbles")
+async def list_bubbles(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    query: str = Query("", max_length=64),
+    user=Depends(require_admin),
+):
+    async with get_db_context() as db:
+        from sqlalchemy import func, select, or_
+        from app.modules.bubble import Bubble
+        from app.modules.user import User
+
+        filters = []
+        if query:
+            filters.append(
+                or_(
+                    Bubble.name.ilike(f"%{query}%"),
+                    Bubble.author_name.ilike(f"%{query}%"),
+                )
+            )
+
+        total = (await db.execute(
+            select(func.count(Bubble.id)).where(*filters)
+        )).scalar() or 0
+
+        result = await db.execute(
+            select(Bubble)
+            .where(*filters)
+            .order_by(Bubble.id.desc())
+            .offset((page - 1) * size)
+            .limit(size)
+        )
+        rows = result.scalars().all()
+
+        # 查询每个气泡对应的用户名
+        user_ids = {r.user_id for r in rows if r.user_id}
+        users_map = {}
+        if user_ids:
+            users_result = await db.execute(
+                select(User).filter(User.id.in_(user_ids))
+            )
+            for u in users_result.scalars().all():
+                users_map[u.id] = u.username
+
+        bubbles_data = []
+        for b in rows:
+            bubbles_data.append({
+                "id": b.id,
+                "name": b.name,
+                "desc": b.description,
+                "official": bool(b.is_official),
+                "public": bool(b.is_public),
+                "authorName": b.author_name or "",
+                "userId": b.user_id,
+                "username": users_map.get(b.user_id) or "",
+                "createdAt": b.created_at.isoformat() if b.created_at else "",
+            })
+
+    return {
+        "code": 0,
+        "bubbles": bubbles_data,
+        "total": total,
+        "page": page,
+        "size": size,
+    }
+
+
+@router.delete("/bubbles/{bubble_id}")
+async def admin_delete_bubble(bubble_id: int, user=Depends(require_admin)):
+    async with get_db_context() as db:
+        bubble = await BubbleRepository.get_by_id(db, bubble_id)
+        if not bubble:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
+        await BubbleRepository.delete(db, bubble_id)
+    return {"code": 0}
+
+
+@router.put("/bubbles/{bubble_id}/visibility")
+async def admin_set_visibility(bubble_id: int, body: BubbleVisibilityBody, user=Depends(require_admin)):
+    async with get_db_context() as db:
+        bubble = await BubbleRepository.get_by_id(db, bubble_id)
+        if not bubble:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
+        await BubbleRepository.update(db, bubble, is_public=body.public)
+    return {"code": 0, "public": body.public}
