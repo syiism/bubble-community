@@ -31,9 +31,9 @@ async def _resolve_user(request: Request, user_info: dict | None = None, respons
             async with get_db_context() as db:
                 session = await SessionRepository.get(db, session_id)
                 if session and SessionRepository.is_valid(session):
-                    await SessionRepository.refresh_expiry(db, session)
                     user_id = int(session.user_id)
                     username = str(session.username)
+                    await SessionRepository.refresh_expiry(db, session)
                 else:
                     if session:
                         await SessionRepository.delete(db, session_id)

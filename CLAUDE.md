@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development commands
 
-### Backend (Python 3.14+, FastAPI)
+### Backend (Python 3.12+, FastAPI)
 
 ```bash
 cd backend
@@ -40,18 +40,21 @@ There are no automated tests in this repository.
 
 ### Backend
 
-- **Framework**: FastAPI, all routes mounted under `/bubble-community`
-- **Database**: MySQL/MariaDB via PyMySQL (`backend/app/db.py`). Context-manager `get_conn()` for connections. Schema in `backend/app/schema.sql`.
-- **Config**: Environment variables (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `UC_KEY`) — defaults in `backend/app/config.py`.
+- **Framework**: FastAPI, fully asynchronous, all routes mounted under `/bubble-community`
+- **Database**: MySQL/MariaDB via SQLAlchemy 2.0 ORM with aiomysql async driver (`backend/app/modules/database.py`). Async session management with connection pooling (`pool_size=20`, `max_overflow=50`).
+- **Repository pattern**: Database operations encapsulated in `backend/app/modules/repositories.py` with async methods.
+- **Models**: Separate model files in `backend/app/modules/` — `user.py`, `bubble.py`, `session_model.py`, `user_current_bubble.py`, `imported_bubble.py`, `user_favorite.py`.
+- **Config**: Environment variables (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `UC_USER_URL`, `UC_LOGIN_URL`, `UC_AVATAR_URL`) — defaults in `backend/app/config.py`.
+- **HTTP client**: Global `httpx.AsyncClient` instances in `backend/app/http_client.py` for efficient reuse across requests.
+- **Rate limiting**: `slowapi` middleware limits login (5/minute) and register (3/minute) endpoints to prevent abuse.
 - **Routes** (in `backend/app/routers/`):
-  - `auth.py` — `POST /api/auth/login` (proxies to Discuz! UCenter login), `GET /api/auth/me`, `POST /api/auth/logout`
+  - `auth.py` — `POST /api/auth/login`, `POST /api/auth/register`, `GET /api/auth/me`, `POST /api/auth/logout`
   - `bubbles.py` — full CRUD for bubble styles, plus `POST /visibility`, `POST /share` (generate share code), `POST /redeem` (import via share code), `POST /current` (set active bubble), `POST /favorite`
   - `user.py` — `POST /api/user/author-name` (set display name for public/shared bubbles)
-- **Auth flow** (`backend/app/auth.py`): Multi-source — checks in order: (1) `user_info` dict (from login endpoint), (2) `bubble_session` cookie (DB-backed, 2-hour TTL), (3) `uc_auth` cookie (UCenter-encoded), (4) Discuz! `OcXe_*` session cookies (fetches user page to extract `discuz_uid`). On first access, auto-creates a `users` row (with auto-fetched UCenter avatar).
+- **Auth flow** (`backend/app/auth.py`): Multi-source — checks in order: (1) `user_info` dict (from login endpoint), (2) `bubble_session` cookie (DB-backed, 2-hour TTL), (3) Discuz! `OcXe_*` session cookies (fetches user page to extract `discuz_uid`). UCenter `uc_auth` cookie decryption was removed due to key mismatch; falls back to HTTP-based verification. On first access, auto-creates a `users` row (with auto-fetched UCenter avatar).
 - **Session management** (`backend/app/session.py`): UUID-based sessions stored in `sessions` table, cookie name `bubble_session`, 2-hour expiry with sliding refresh.
-- **UCenter integration** (`backend/app/ucenter.py`): Implements Discuz! `authcode` encryption/decryption for `uc_auth` cookie parsing using the `UC_KEY` secret.
 - **SVG processing** (`backend/app/svg_util.py`): Normalizes various placeholder formats (`${displayText}`, `{{color}}`, etc.) to `{n}`/`{c}`/`{t}`, then fills them. The `GET /api/get-bubble` endpoint returns a fully rendered SVG for use in the reading interface.
-- **Seed** (`backend/app/seed.py`): Creates database, runs schema.sql, seeds official bubbles from a JSON file (checks `user/api/bubble-style/index.html` first, falls back to `official_bubbles.json`). Idempotent — skips if official bubbles already exist.
+- **Seed** (`backend/app/seed.py`): Creates database, runs SQLAlchemy model metadata to create tables, seeds official bubbles from a JSON file (checks `user/api/bubble-style/index.html` first, falls back to `official_bubbles.json`). Uses synchronous engine for one-time initialization. Idempotent — skips if official bubbles already exist.
 - **Frontend serving**: In production, FastAPI mounts `frontend/dist/` as static files at `/bubble-community` with SPA fallback (all 404s serve `index.html`). In dev, Vite proxies API calls to the backend.
 
 ### Frontend
@@ -67,6 +70,7 @@ There are no automated tests in this repository.
   - `Editor.vue` — modal form for creating/editing bubbles with SVG input, color pickers, color extraction, and live preview
   - `Toast.vue` — floating notification (exposed via `ref` and `defineExpose`)
 - **Component communication**: Parent (`Home.vue`) passes a `toastRef` down via props; child components emit events that Home handles, then calls `toastRef.show()` for feedback. Editor uses emit-based submit/close pattern.
+- **Registration**: Email field is optional, not required for signup.
 
 ### Database tables
 
@@ -87,4 +91,6 @@ The bubble list endpoint (`GET /api/bubbles`) is the core response. Each style o
 - SVG placeholders `{n}`, `{c}`, `{t}` are the canonical format; input accepts many variants (`${displayText}`, `{{bubbleColor}}`, etc.) which are normalized on save.
 - The `rawSvg` field in API responses preserves the original user-submitted template (with placeholders) for editing; `svg` is the same after normalization.
 - CORS is configured for localhost:5173/:5174 (Vite dev servers).
-- No ORM — raw SQL with PyMySQL `DictCursor`.
+- SQLAlchemy ORM with async operations; use `await` for all database queries and transactions.
+- Database sessions managed via context manager: `async with get_db_context() as db:`
+- Avoid lazy loading issues by using `load_only()` in queries to explicitly load needed fields.
