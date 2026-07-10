@@ -10,12 +10,20 @@
         <div class="lg:col-span-1 space-y-6">
           <div class="bg-surface border border-border rounded-2xl p-6 scroll-animate scroll-animate-delay-1">
             <div class="flex flex-col items-center text-center">
-              <div class="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center mb-4 overflow-hidden">
+              <div class="relative w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center mb-4 overflow-hidden cursor-pointer"
+                   @click="$refs.avatarInput.click()">
                 <img v-if="user.avatarUrl" :src="user.avatarUrl" :alt="user.username" class="w-full h-full object-cover" />
                 <svg v-else class="w-10 h-10 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
+                <!-- 右下角笔图标 -->
+                <div class="absolute bottom-0 right-0 w-5 h-5 bg-white rounded-full shadow-sm flex items-center justify-center">
+                  <svg class="w-3 h-3 text-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+                    <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                  </svg>
+                </div>
+                <input ref="avatarInput" type="file" accept="image/*" class="hidden" @change="onAvatarChange" />
               </div>
               <h2 class="text-xl font-medium text-ink mb-1">{{ user.username }}</h2>
               <p class="text-sm text-muted mb-4">
@@ -304,6 +312,21 @@ const favoriteStyles = computed(() => styles.value.filter(s => s.favorited))
 
 const getPreview = (style) => {
   return svgToImg(style.svg, 'h-8 w-auto', style.color, style.textColor)
+}
+
+const onAvatarChange = async (e) => {
+  const file = e.target?.files?.[0]
+  if (!file) return
+  e.target.value = ''
+  try {
+    const data = await api.uploadAvatar(file)
+    if (data.avatarUrl) {
+      user.value = { ...user.value, avatarUrl: data.avatarUrl }
+      await refreshUser()
+    }
+  } catch (err) {
+    alert(err.message || '上传失败')
+  }
 }
 
 const saveAuthorName = async () => {

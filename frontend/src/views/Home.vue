@@ -99,17 +99,17 @@
           <div class="lg:col-span-1">
             <div class="bg-surface border border-border rounded-xl p-5 sticky top-24 scroll-animate scroll-animate-delay-3">
               <div class="flex items-center gap-3 mb-4">
-                <div class="relative w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center overflow-hidden cursor-pointer group"
+                <div class="relative w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center overflow-hidden cursor-pointer"
                      @click="$refs.avatarInput.click()">
                   <img v-if="userAvatar" :src="userAvatar" :alt="userName" class="w-full h-full object-cover" />
                   <svg v-else class="w-6 h-6 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                     <circle cx="12" cy="7" r="4"></circle>
                   </svg>
-                  <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
-                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                      <circle cx="12" cy="13" r="4"/>
+                  <!-- 右下角笔图标 -->
+                  <div class="absolute bottom-0 right-0 w-4 h-4 bg-white rounded-full shadow-sm flex items-center justify-center">
+                    <svg class="w-2.5 h-2.5 text-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+                      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
                     </svg>
                   </div>
                   <input ref="avatarInput" type="file" accept="image/*" class="hidden" @change="onAvatarChange" />
