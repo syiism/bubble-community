@@ -10,7 +10,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .http_client import client, avatar_client
 from .modules.database import create_all_tables
-from .routers import auth, bubbles, user
+from .routers import auth, bubbles, user, admin
 
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "dist")
 
@@ -31,6 +31,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/bubble-community")
 app.include_router(bubbles.router, prefix="/bubble-community")
 app.include_router(user.router, prefix="/bubble-community")
+app.include_router(admin.router, prefix="/bubble-community")
 
 
 @app.on_event("startup")

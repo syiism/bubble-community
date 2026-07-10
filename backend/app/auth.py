@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Request, Response, status
+from fastapi import Depends, HTTPException, Request, Response, status
 
 from .modules.database import get_db_context
 from .modules.repositories import UserRepository, SessionRepository
@@ -37,6 +37,7 @@ async def _resolve_user(request: Request, user_info: dict | None = None, respons
         "username": user.username,
         "author_name": user.author_name,
         "avatar_url": user.avatar_url,
+        "role": user.role or "user",
     }
 
 
@@ -48,10 +49,17 @@ async def get_current_user_strict(request: Request) -> dict:
     return await _resolve_user(request)
 
 
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
+    return user
+
+
 def public_user(row: dict) -> dict:
     return {
         "id": row["id"],
         "username": row["username"],
         "authorName": row.get("author_name") or "",
         "avatarUrl": row.get("avatar_url") or "",
+        "role": row.get("role") or "user",
     }

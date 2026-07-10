@@ -38,6 +38,15 @@
           >
             {{ user?.username || '我的' }}
           </router-link>
+          <router-link v-if="user?.role === 'admin'"
+            to="/admin"
+            :class="[
+              'text-sm font-medium transition-colors hover:text-accent',
+              $route.name === 'admin' ? 'text-accent' : 'text-muted'
+            ]"
+          >
+            管理
+          </router-link>
           <button
             class="text-sm font-medium text-muted hover:text-accent transition-colors"
             @click="onLogout"

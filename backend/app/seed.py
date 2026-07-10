@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, text
 from .config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 from .modules.bubble import Bubble
 from .modules.database import Base
+from .modules.role import Role
 
 HERE = Path(__file__).resolve().parent
 SEED_JSON = HERE.parent.parent / "user" / "api" / "bubble-style" / "index.html"
@@ -47,6 +48,33 @@ def migrate_schema():
             conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_bubbles_share_code ON bubbles(share_code)"))
             conn.commit()
             print("[seed] 已添加 bubbles.share_code UNIQUE 索引。")
+
+        # role 字段
+        result = conn.execute(
+            text("SHOW COLUMNS FROM users LIKE 'role'")
+        )
+        if not result.fetchone():
+            conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(32) NOT NULL DEFAULT 'user' AFTER password"))
+            conn.commit()
+            print("[seed] 已添加 users.role 字段。")
+
+        # 灌入 roles 表
+        count = conn.execute(text("SELECT COUNT(*) FROM roles")).scalar()
+        if count == 0:
+            conn.execute(text("INSERT INTO roles (name, description) VALUES ('user', '普通用户')"))
+            conn.execute(text("INSERT INTO roles (name, description) VALUES ('admin', '管理员')"))
+            conn.commit()
+            print("[seed] 已灌入 roles 表（user / admin）。")
+
+        # 设置 syiism(id=190) 为管理员
+        result = conn.execute(
+            text("SELECT role FROM users WHERE id = 190")
+        )
+        row = result.fetchone()
+        if row and row[0] != "admin":
+            conn.execute(text("UPDATE users SET role = 'admin' WHERE id = 190"))
+            conn.commit()
+            print("[seed] 已将用户 syiism(id=190) 设为管理员。")
 
 
 def seed_official():

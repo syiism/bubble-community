@@ -24,6 +24,12 @@ const routes = [
     name: 'register',
     component: () => import('@/views/Register.vue'),
   },
+  {
+    path: '/admin',
+    name: 'admin',
+    component: () => import('@/views/Admin.vue'),
+    meta: { requiresAuth: true },
+  },
 ]
 
 const router = createRouter({
