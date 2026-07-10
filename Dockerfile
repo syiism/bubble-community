@@ -29,7 +29,7 @@ WORKDIR /app
 COPY backend/app/ ./backend/app/
 COPY backend/entrypoint.sh ./backend/entrypoint.sh
 
-COPY --from=frontend-build /build/dist/ ./frontend/dist/
+COPY --from=frontend-build /build/dist/ ./backend/dist/
 
 RUN chmod +x ./backend/entrypoint.sh
 

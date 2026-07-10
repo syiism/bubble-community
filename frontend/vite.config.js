@@ -5,6 +5,10 @@ import { resolve } from 'path'
 export default defineConfig({
   plugins: [vue()],
   base: '/bubble-community/',
+  build: {
+    outDir: '../backend/dist',
+    emptyOutDir: true,
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')

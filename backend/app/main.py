@@ -12,7 +12,7 @@ from .http_client import client, avatar_client
 from .modules.database import create_all_tables
 from .routers import auth, bubbles, user
 
-FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "dist")
 
 app = FastAPI(title="段评气泡社区 API", version="1.0.0")
 

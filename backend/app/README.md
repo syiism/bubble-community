@@ -53,7 +53,7 @@ Cookie 认证（httponly，名为 `bubble_token`，`samesite=lax`）。
 
 ## 前端静态托管
 
-后端根路径 `/` 直接托管前端打包产物（`frontend/dist/`）。启动前需先构建前端：
+后端根路径 `/` 直接托管前端打包产物（`backend/dist/`）。启动前需先构建前端：
 
 ```bash
 cd frontend && pnpm build
