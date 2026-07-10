@@ -2,9 +2,11 @@ import json
 import os
 from pathlib import Path
 
+from sqlalchemy import create_engine, text
+
 from .config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
-from .modules.database import engine, create_all_tables, get_db_context
-from .modules.repositories import BubbleRepository
+from .modules.bubble import Bubble
+from .modules.database import Base
 
 HERE = Path(__file__).resolve().parent
 SEED_JSON = HERE.parent.parent / "user" / "api" / "bubble-style" / "index.html"
@@ -12,11 +14,16 @@ SEED_JSON_FALLBACK = HERE / "official_bubbles.json"
 
 
 def create_database():
-    from sqlalchemy import create_engine
     admin_engine = create_engine(f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/")
     with admin_engine.connect() as conn:
-        conn.execute(f"CREATE DATABASE IF NOT EXISTS `{DB_NAME}` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
+        conn.execute(text(f"CREATE DATABASE IF NOT EXISTS `{DB_NAME}` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
         conn.commit()
+
+
+def create_all_tables_sync():
+    from .modules.database import DATABASE_URL
+    sync_engine = create_engine(DATABASE_URL.replace("aiomysql", "pymysql"))
+    Base.metadata.create_all(sync_engine)
 
 
 def seed_official():
@@ -28,8 +35,12 @@ def seed_official():
     data = json.loads(seed_path.read_text(encoding="utf-8"))
     styles = data.get("styles", []) if isinstance(data, dict) else data
 
-    with get_db_context() as db:
-        if BubbleRepository.count_official(db) > 0:
+    from .modules.database import DATABASE_URL
+    sync_engine = create_engine(DATABASE_URL.replace("aiomysql", "pymysql"))
+    
+    with sync_engine.connect() as conn:
+        count = conn.execute(text("SELECT COUNT(*) FROM bubbles WHERE is_official = 1")).scalar()
+        if count > 0:
             print("[seed] 官方气泡已存在，跳过灌入。")
             return
 
@@ -37,17 +48,19 @@ def seed_official():
         for s in styles:
             if not s.get("official"):
                 continue
-            BubbleRepository.create_official(
-                db,
+            bubble = Bubble(
                 name=(s.get("name") or "未命名")[:64],
                 description=(s.get("desc") or "")[:120],
                 svg_template=s.get("svg") or "",
                 color=s.get("color") or "",
                 text_color=s.get("textColor") or "",
+                is_public=True,
+                is_official=True,
                 author_name="",
             )
+            conn.add(bubble)
             inserted += 1
-        db.commit()
+        conn.commit()
         print(f"[seed] 已灌入 {inserted} 个官方气泡。")
 
 
@@ -55,7 +68,7 @@ def main():
     print(f"[seed] 连接 {DB_HOST}:{DB_PORT} 用户 {DB_USER}")
     create_database()
     print(f"[seed] 数据库 {DB_NAME} 就绪。")
-    create_all_tables()
+    create_all_tables_sync()
     print("[seed] 表结构就绪。")
     seed_official()
     print("[seed] 完成。")

@@ -2,6 +2,7 @@ import re
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.auth import _resolve_user, get_current_user, public_user
