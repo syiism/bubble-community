@@ -4,7 +4,14 @@ from fastapi import APIRouter, Body, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from ..auth import get_current_user
-from ..db import get_conn
+from ..modules.database import get_db_context
+from ..modules.repositories import (
+    BubbleRepository,
+    UserCurrentBubbleRepository,
+    ImportedBubbleRepository,
+    UserFavoriteRepository,
+    UserRepository,
+)
 
 router = APIRouter(prefix="/api/bubbles", tags=["bubbles"])
 
@@ -41,82 +48,58 @@ class FavoriteBody(BaseModel):
 
 
 def _row_to_style(row, user_id, imported_set, favorite_set):
-    mine = row["user_id"] == user_id
+    mine = row.user_id == user_id
     return {
-        "id": row["id"],
-        "name": row["name"],
-        "desc": row["description"],
-        "svg": row["svg_template"],
-        "rawSvg": row["svg_template"],
-        "color": row["color"],
-        "textColor": row["text_color"],
-        "official": bool(row["is_official"]),
-        "public": bool(row["is_public"]),
+        "id": row.id,
+        "name": row.name,
+        "desc": row.description,
+        "svg": row.svg_template,
+        "rawSvg": row.svg_template,
+        "color": row.color,
+        "textColor": row.text_color,
+        "official": bool(row.is_official),
+        "public": bool(row.is_public),
         "mine": mine,
-        "imported": row["id"] in imported_set,
-        "favorited": row["id"] in favorite_set,
-        "uses": row["uses"],
-        "author": row["author_name"] or ("" if row["is_official"] else "匿名书友"),
-        "shareCode": row["share_code"] if mine else "",
+        "imported": row.id in imported_set,
+        "favorited": row.id in favorite_set,
+        "uses": 0,
+        "author": row.author_name or ("" if row.is_official else "匿名书友"),
+        "shareCode": row.share_code if mine else "",
     }
 
 
 @router.get("")
 def list_bubbles(user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            # 先读用户当前选中的气泡，确保它一定包含在返回列表中
-            cur.execute(
-                "SELECT bubble_id FROM user_current_bubble WHERE user_id = %s",
-                (user_id,),
-            )
-            cur_row = cur.fetchone()
-            current_bubble_id = cur_row["bubble_id"] if cur_row else 0
+    with get_db_context() as db:
+        current_bubble = UserCurrentBubbleRepository.get_by_user_id(db, user_id)
+        current_bubble_id = current_bubble.bubble_id if current_bubble else 0
 
-            cur.execute(
-                """
-                SELECT b.*,
-                  (SELECT COUNT(*) FROM user_current_bubble u WHERE u.bubble_id = b.id) AS uses
-                FROM bubbles b
-                WHERE b.is_official = 1
-                   OR b.is_public = 1
-                   OR b.user_id = %s
-                   OR b.id IN (SELECT bubble_id FROM imported_bubbles WHERE user_id = %s)
-                   OR b.id = %s
-                ORDER BY b.is_official DESC, b.id DESC
-                """,
-                (user_id, user_id, current_bubble_id),
-            )
-            rows = cur.fetchall()
-            cur.execute(
-                "SELECT bubble_id FROM imported_bubbles WHERE user_id = %s",
-                (user_id,),
-            )
-            imported_set = {r["bubble_id"] for r in cur.fetchall()}
-            cur.execute(
-                "SELECT bubble_id FROM user_favorites WHERE user_id = %s",
-                (user_id,),
-            )
-            favorite_set = {r["bubble_id"] for r in cur.fetchall()}
-            cur.execute("SELECT author_name FROM users WHERE id = %s", (user_id,))
-            urow = cur.fetchone()
+        bubbles = BubbleRepository.get_visible_bubbles(db, user_id)
+        imported_set = ImportedBubbleRepository.get_imported_ids(db, user_id)
+        favorite_set = UserFavoriteRepository.get_favorite_ids(db, user_id)
+        user_info = UserRepository.get_by_id(db, user_id)
 
-    styles = [_row_to_style(r, user_id, imported_set, favorite_set) for r in rows]
-    current_id = current_bubble_id if current_bubble_id else (styles[0]["id"] if styles else 0)
-    visible_ids = {s["id"] for s in styles}
-    if current_id not in visible_ids and styles:
-        current_id = styles[0]["id"]
+        styles = []
+        for b in bubbles:
+            style = _row_to_style(b, user_id, imported_set, favorite_set)
+            style["uses"] = BubbleRepository.get_bubble_uses(db, b.id)
+            styles.append(style)
 
-    return {
-        "code": 0,
-        "allowed": True,
-        "canUpload": True,
-        "authorName": (urow["author_name"] if urow else "") or "",
-        "style": current_id,
-        "favoritesCount": len(favorite_set),
-        "styles": styles,
-    }
+        current_id = current_bubble_id if current_bubble_id else (styles[0]["id"] if styles else 0)
+        visible_ids = {s["id"] for s in styles}
+        if current_id not in visible_ids and styles:
+            current_id = styles[0]["id"]
+
+        return {
+            "code": 0,
+            "allowed": True,
+            "canUpload": True,
+            "authorName": (user_info.author_name if user_info else "") or "",
+            "style": current_id,
+            "favoritesCount": len(favorite_set),
+            "styles": styles,
+        }
 
 
 @router.post("")
@@ -124,121 +107,88 @@ def create_bubble(body: BubbleCreate, user=Depends(get_current_user)):
     if not body.svg.strip():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "请填写 SVG")
     user_id = user["id"]
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT author_name FROM users WHERE id = %s", (user_id,))
-            urow = cur.fetchone()
-            author_name = (urow["author_name"] if urow else "") or ""
-            cur.execute(
-                """
-                INSERT INTO bubbles
-                  (user_id, name, description, svg_template, color, text_color, is_public, is_official, author_name)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 0, %s)
-                """,
-                (
-                    user_id,
-                    body.name.strip()[:64] or "未命名",
-                    body.desc.strip()[:120],
-                    body.svg,
-                    body.color,
-                    body.textColor,
-                    1 if body.public else 0,
-                    author_name,
-                ),
-            )
-            conn.commit()
-            new_id = cur.lastrowid
-    return {"code": 0, "id": new_id}
+    with get_db_context() as db:
+        user_info = UserRepository.get_by_id(db, user_id)
+        author_name = (user_info.author_name if user_info else "") or ""
+        bubble = BubbleRepository.create(
+            db,
+            user_id=user_id,
+            name=body.name.strip()[:64] or "未命名",
+            description=body.desc.strip()[:120],
+            svg_template=body.svg,
+            color=body.color,
+            text_color=body.textColor,
+            is_public=body.public,
+            author_name=author_name,
+        )
+    return {"code": 0, "id": bubble.id}
 
 
 @router.put("/{bubble_id}")
 def update_bubble(bubble_id: int, body: BubbleCreate, user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT user_id FROM bubbles WHERE id = %s", (bubble_id,))
-            row = cur.fetchone()
-            if not row:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
-            if row["user_id"] != user_id:
-                raise HTTPException(status.HTTP_403_FORBIDDEN, "只能编辑自己的气泡")
-            cur.execute(
-                """
-                UPDATE bubbles SET name=%s, description=%s, svg_template=%s,
-                  color=%s, text_color=%s, is_public=%s WHERE id=%s
-                """,
-                (
-                    body.name.strip()[:64] or "未命名",
-                    body.desc.strip()[:120],
-                    body.svg,
-                    body.color,
-                    body.textColor,
-                    1 if body.public else 0,
-                    bubble_id,
-                ),
-            )
-            conn.commit()
+    with get_db_context() as db:
+        bubble = BubbleRepository.get_by_id(db, bubble_id)
+        if not bubble:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
+        if bubble.user_id != user_id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "只能编辑自己的气泡")
+        BubbleRepository.update(
+            db,
+            bubble,
+            name=body.name.strip()[:64] or "未命名",
+            description=body.desc.strip()[:120],
+            svg_template=body.svg,
+            color=body.color,
+            text_color=body.textColor,
+            is_public=body.public,
+        )
     return {"code": 0}
 
 
 @router.delete("/{bubble_id}")
 def delete_bubble(bubble_id: int, user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT user_id FROM bubbles WHERE id = %s", (bubble_id,))
-            row = cur.fetchone()
-            if not row:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
-            if row["user_id"] != user_id:
-                raise HTTPException(status.HTTP_403_FORBIDDEN, "只能删除自己的气泡")
-            cur.execute("DELETE FROM user_current_bubble WHERE bubble_id = %s", (bubble_id,))
-            cur.execute("DELETE FROM imported_bubbles WHERE bubble_id = %s", (bubble_id,))
-            cur.execute("DELETE FROM user_favorites WHERE bubble_id = %s", (bubble_id,))
-            cur.execute("DELETE FROM bubbles WHERE id = %s", (bubble_id,))
-            conn.commit()
+    with get_db_context() as db:
+        bubble = BubbleRepository.get_by_id(db, bubble_id)
+        if not bubble:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
+        if bubble.user_id != user_id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "只能删除自己的气泡")
+        BubbleRepository.delete(db, bubble_id)
     return {"code": 0}
 
 
 @router.post("/visibility")
 def set_visibility(body: VisibilityBody, user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT user_id FROM bubbles WHERE id = %s", (body.id,))
-            row = cur.fetchone()
-            if not row:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
-            if row["user_id"] != user_id:
-                raise HTTPException(status.HTTP_403_FORBIDDEN, "只能修改自己的气泡")
-            cur.execute(
-                "UPDATE bubbles SET is_public = %s WHERE id = %s",
-                (1 if body.public else 0, body.id),
-            )
-            conn.commit()
+    with get_db_context() as db:
+        bubble = BubbleRepository.get_by_id(db, body.id)
+        if not bubble:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
+        if bubble.user_id != user_id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "只能修改自己的气泡")
+        BubbleRepository.update(db, bubble, is_public=body.public)
     return {"code": 0}
 
 
 @router.post("/share")
 def gen_share(body: ShareBody, user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT user_id, share_code FROM bubbles WHERE id = %s", (body.id,))
-            row = cur.fetchone()
-            if not row:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
-            if row["user_id"] != user_id:
-                raise HTTPException(status.HTTP_403_FORBIDDEN, "只能分享自己的气泡")
-            code = row["share_code"]
-            if not code:
-                for _ in range(8):
-                    code = "B" + secrets.token_hex(4).upper()
-                    cur.execute("SELECT id FROM bubbles WHERE share_code = %s", (code,))
-                    if not cur.fetchone():
-                        break
-                cur.execute("UPDATE bubbles SET share_code = %s WHERE id = %s", (code, body.id))
-                conn.commit()
+    with get_db_context() as db:
+        bubble = BubbleRepository.get_by_id(db, body.id)
+        if not bubble:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
+        if bubble.user_id != user_id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "只能分享自己的气泡")
+        code = bubble.share_code
+        if not code:
+            for _ in range(8):
+                code = "B" + secrets.token_hex(4).upper()
+                existing = BubbleRepository.get_by_share_code(db, code)
+                if not existing:
+                    break
+            BubbleRepository.update(db, bubble, share_code=code)
     return {"code": 0, "shareCode": code}
 
 
@@ -248,60 +198,33 @@ def redeem(body: RedeemBody, user=Depends(get_current_user)):
     if not code:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "请输入分享码")
     user_id = user["id"]
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, name, user_id FROM bubbles WHERE share_code = %s", (code,))
-            row = cur.fetchone()
-            if not row:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "分享码无效")
-            if row["user_id"] == user_id:
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, "这是你自己的气泡")
-            cur.execute(
-                "SELECT 1 FROM imported_bubbles WHERE user_id = %s AND bubble_id = %s",
-                (user_id, row["id"]),
-            )
-            if not cur.fetchone():
-                cur.execute(
-                    "INSERT INTO imported_bubbles (user_id, bubble_id) VALUES (%s, %s)",
-                    (user_id, row["id"]),
-                )
-                conn.commit()
-    return {"code": 0, "id": row["id"], "name": row["name"]}
+    with get_db_context() as db:
+        bubble = BubbleRepository.get_by_share_code(db, code)
+        if not bubble:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "分享码无效")
+        if bubble.user_id == user_id:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "这是你自己的气泡")
+        ImportedBubbleRepository.import_bubble(db, user_id, bubble.id)
+    return {"code": 0, "id": bubble.id, "name": bubble.name}
 
 
 @router.post("/current")
 def set_current(style: int | str = Body(..., embed=True), user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id FROM bubbles WHERE id = %s", (style,))
-            if not cur.fetchone():
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
-            cur.execute(
-                "REPLACE INTO user_current_bubble (user_id, bubble_id) VALUES (%s, %s)",
-                (user_id, style),
-            )
-            conn.commit()
+    with get_db_context() as db:
+        bubble = BubbleRepository.get_by_id(db, int(style))
+        if not bubble:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
+        UserCurrentBubbleRepository.set_current(db, user_id, int(style))
     return {"code": 0}
 
 
 @router.post("/favorite")
 def set_favorite(body: FavoriteBody, user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id FROM bubbles WHERE id = %s", (body.id,))
-            if not cur.fetchone():
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
-            if body.favorite:
-                cur.execute(
-                    "INSERT IGNORE INTO user_favorites (user_id, bubble_id) VALUES (%s, %s)",
-                    (user_id, body.id),
-                )
-            else:
-                cur.execute(
-                    "DELETE FROM user_favorites WHERE user_id = %s AND bubble_id = %s",
-                    (user_id, body.id),
-                )
-            conn.commit()
+    with get_db_context() as db:
+        bubble = BubbleRepository.get_by_id(db, body.id)
+        if not bubble:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
+        UserFavoriteRepository.set_favorite(db, user_id, body.id, body.favorite)
     return {"code": 0}

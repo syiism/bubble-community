@@ -2,8 +2,9 @@ import httpx
 
 from fastapi import HTTPException, Request, Response, status
 
-from .db import get_conn
-from .session import SESSION_COOKIE, get_session
+from .modules.database import get_db_context
+from .modules.repositories import UserRepository, SessionRepository
+from .session import SESSION_COOKIE
 
 UC_AVATAR_URL = "https://vossc.com/uc_server/avatar.php"
 
@@ -27,17 +28,17 @@ def _resolve_user(request: Request, user_info: dict | None = None, response: Res
     else:
         session_id = request.cookies.get(SESSION_COOKIE)
         if session_id:
-            session_data = get_session(session_id)
-            if session_data:
-                user_id = session_data["user_id"]
-                username = session_data["username"]
-            else:
-                # bubble_session cookie 存在但 session 已过期/无效。
-                # 不降级到 uc_auth/OcXe_* 等可能属于不同用户的 cookie，
-                # 直接要求重新登录，防止身份静默切换。
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已过期，请重新登录")
-
-        if not session_id:
+            with get_db_context() as db:
+                session = SessionRepository.get(db, session_id)
+                if session and SessionRepository.is_valid(db, session):
+                    SessionRepository.refresh_expiry(db, session)
+                    user_id = session.user_id
+                    username = session.username
+                else:
+                    if session:
+                        SessionRepository.delete(db, session_id)
+                    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已过期，请重新登录")
+        else:
             resolved_via_fallback = True
             uc_auth = request.cookies.get("uc_auth")
             if uc_auth:
@@ -86,45 +87,31 @@ def _resolve_user(request: Request, user_info: dict | None = None, response: Res
                 except Exception as e:
                     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"会话验证失败: {str(e)}")
 
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, username, author_name, avatar_url FROM users WHERE id=%s", (user_id,))
-            row = cur.fetchone()
-            if not row:
-                avatar_url = fetch_avatar_url(user_id)
-                try:
-                    cur.execute(
-                        "INSERT INTO users (id, username, avatar_url) VALUES (%s, %s, %s)",
-                        (user_id, username, avatar_url),
-                    )
-                    conn.commit()
-                    row = {"id": user_id, "username": username, "author_name": None, "avatar_url": avatar_url}
-                except Exception as e:
-                    if "Duplicate entry" in str(e) and "for key 'users.username'" in str(e):
-                        cur.execute("SELECT id, username, author_name, avatar_url FROM users WHERE username=%s", (username,))
-                        existing = cur.fetchone()
-                        if existing:
-                            if not existing.get("avatar_url"):
-                                avatar_url = fetch_avatar_url(user_id)
-                                cur.execute("UPDATE users SET id=%s, avatar_url=%s WHERE id=%s", (user_id, avatar_url, existing["id"]))
-                            else:
-                                cur.execute("UPDATE users SET id=%s WHERE id=%s", (user_id, existing["id"]))
-                            conn.commit()
-                            row = {"id": user_id, "username": username, "author_name": existing.get("author_name"), "avatar_url": existing.get("avatar_url") or avatar_url}
-                    else:
-                        raise
-            elif not row.get("avatar_url"):
-                avatar_url = fetch_avatar_url(user_id)
-                cur.execute("UPDATE users SET avatar_url=%s WHERE id=%s", (avatar_url, user_id))
-                conn.commit()
-                row["avatar_url"] = avatar_url
+    with get_db_context() as db:
+        user = UserRepository.get_by_id(db, user_id)
+        if not user:
+            avatar_url = fetch_avatar_url(user_id)
+            try:
+                user = UserRepository.create(db, user_id, username, avatar_url)
+            except Exception as e:
+                if "Duplicate entry" in str(e) and "for key 'users.username'" in str(e):
+                    existing = UserRepository.get_by_username(db, username)
+                    if existing:
+                        if not existing.avatar_url:
+                            avatar_url = fetch_avatar_url(user_id)
+                            UserRepository.update(db, existing, id=user_id, avatar_url=avatar_url)
+                        else:
+                            UserRepository.update(db, existing, id=user_id)
+                        user = UserRepository.get_by_id(db, user_id)
+                else:
+                    raise
+        elif not user.avatar_url:
+            avatar_url = fetch_avatar_url(user_id)
+            UserRepository.update(db, user, avatar_url=avatar_url)
 
-    # 通过备选链路（uc_auth / OcXe_*）解析后，创建 bubble_session 锁定身份，
-    # 后续请求直接走 session 验证，不再重复走备选链路，避免被其他用户污染过的
-    # Discuz! cookie 影响。
     if resolved_via_fallback and response:
         from .session import create_session as _create_session, SESSION_COOKIE as _COOKIE
-        new_sid = _create_session(user_id, row["username"])
+        new_sid = _create_session(user_id, user.username)
         response.set_cookie(
             key=_COOKIE,
             value=new_sid,
@@ -134,20 +121,19 @@ def _resolve_user(request: Request, user_info: dict | None = None, response: Res
             max_age=7200,
         )
 
-    return row
+    return {
+        "id": user.id,
+        "username": user.username,
+        "author_name": user.author_name,
+        "avatar_url": user.avatar_url,
+    }
 
 
 def get_current_user(request: Request, response: Response) -> dict:
-    """FastAPI dependency — resolves user without consuming the request body.
-    Accepts Response to set a bubble_session cookie when resolving via fallback auth."""
     return _resolve_user(request, response=response)
 
 
 def get_current_user_strict(request: Request) -> dict:
-    """FastAPI dependency — resolves user WITHOUT a Response parameter.
-    Use ONLY for endpoints that return a custom Response object
-    (e.g. Response(content=svg, media_type="image/svg+xml")),
-    because a new Response discards cookies set on the default one."""
     return _resolve_user(request)
 
 

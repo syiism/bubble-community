@@ -7,7 +7,8 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .auth import get_current_user_strict
-from .db import get_conn
+from .modules.database import create_all_tables, get_db_context
+from .modules.repositories import BubbleRepository, UserCurrentBubbleRepository
 from .routers import auth, bubbles, user
 from .svg_util import fill_svg
 
@@ -30,22 +31,7 @@ app.include_router(user.router, prefix="/bubble-community")
 
 @app.on_event("startup")
 def startup():
-    from .session import init_sessions_table
-    init_sessions_table()
-
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                CREATE TABLE IF NOT EXISTS user_favorites (
-                  user_id BIGINT NOT NULL,
-                  bubble_id BIGINT NOT NULL,
-                  favorited_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                  PRIMARY KEY (user_id, bubble_id)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-                """
-            )
-            conn.commit()
+    create_all_tables()
 
 
 @app.get("/bubble-community/api/health")
@@ -57,34 +43,22 @@ def health():
 def get_bubble(user=Depends(get_current_user_strict)):
     user_id = user["id"]
 
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT bubble_id FROM user_current_bubble WHERE user_id = %s",
-                (user_id,),
-            )
-            cur_row = cur.fetchone()
-            if cur_row:
-                bubble_id = cur_row["bubble_id"]
-            else:
-                cur.execute(
-                    "SELECT id FROM bubbles WHERE is_official = 1 ORDER BY id LIMIT 1"
-                )
-                fallback = cur.fetchone()
-                if not fallback:
-                    raise HTTPException(status.HTTP_404_NOT_FOUND, "未设置气泡")
-                bubble_id = fallback["id"]
+    with get_db_context() as db:
+        current_bubble = UserCurrentBubbleRepository.get_by_user_id(db, user_id)
+        if current_bubble:
+            bubble_id = current_bubble.bubble_id
+        else:
+            fallback = BubbleRepository.get_official_first(db)
+            if not fallback:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "未设置气泡")
+            bubble_id = fallback.id
 
-            cur.execute(
-                "SELECT svg_template, color, text_color FROM bubbles WHERE id = %s",
-                (bubble_id,),
-            )
-            row = cur.fetchone()
+        bubble = BubbleRepository.get_by_id(db, bubble_id)
 
-    if not row:
+    if not bubble:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
 
-    svg = fill_svg(row["svg_template"], color=row["color"], text_color=row["text_color"], n=12)
+    svg = fill_svg(bubble.svg_template, color=bubble.color, text_color=bubble.text_color, n=12)
     return Response(
         content=svg,
         media_type="image/svg+xml",
