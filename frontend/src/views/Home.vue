@@ -9,28 +9,21 @@
       </div>
 
       <!-- 吸附式搜索栏 -->
-      <div class="sticky top-16 z-40 -mx-6 px-6 mb-6">
-        <div class="max-w-4xl mx-auto py-3">
-          <div class="relative flex items-center px-2"
-               style="background: rgba(255,255,255,0.4); backdrop-filter: blur(12px); border-radius: 14px;">
-            <svg class="absolute left-5 w-4 h-4 text-muted pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <div class="sticky top-16 z-40 -mx-6 px-6 mb-6"
+           style="background: rgba(255,255,255,0.4); backdrop-filter: blur(12px);">
+        <div class="max-w-4xl mx-auto">
+          <div class="relative flex items-center py-2.5">
+            <svg class="absolute left-0 w-4 h-4 text-muted pointer-events-none ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
             <input v-model="searchQuery" type="text" placeholder="搜索气泡名称 / 作者..."
-                   class="w-full pl-11 pr-10 py-2.5 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted
-                          transition-all duration-200
-                          focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 focus:bg-white" />
+                   class="w-full pl-8 pr-20 py-2 bg-transparent border-0 text-sm text-ink placeholder:text-muted
+                          focus:outline-none focus:ring-0" />
             <button v-if="searchQuery"
-                    class="absolute right-3 px-2 py-1 text-xs font-medium text-muted hover:text-ink bg-surface border border-border rounded-lg transition-colors"
+                    class="absolute right-0 px-3 py-1.5 text-xs font-medium text-muted hover:text-ink bg-white/80 border border-border rounded-lg transition-colors"
                     @click="searchQuery = ''">
               清空
             </button>
-            <svg v-else class="absolute right-4 w-4 h-4 text-muted/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
-              <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
-              <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
-              <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
-            </svg>
           </div>
         </div>
       </div>
