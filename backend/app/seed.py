@@ -27,7 +27,7 @@ def create_all_tables_sync():
 
 
 def migrate_schema():
-    """增量迁移：给已有表补充新字段"""
+    """增量迁移：给已有表补充新字段和索引"""
     from .modules.database import DATABASE_URL
     sync_engine = create_engine(DATABASE_URL.replace("aiomysql", "pymysql"))
     with sync_engine.connect() as conn:
@@ -38,6 +38,15 @@ def migrate_schema():
             conn.execute(text("ALTER TABLE users ADD COLUMN password VARCHAR(255) DEFAULT NULL AFTER avatar_url"))
             conn.commit()
             print("[seed] 已添加 users.password 字段。")
+
+        # 给 share_code 加 UNIQUE 索引（防止并发生成相同分享码）
+        result = conn.execute(
+            text("SHOW INDEX FROM bubbles WHERE Column_name = 'share_code' AND Non_unique = 0")
+        )
+        if not result.fetchone():
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_bubbles_share_code ON bubbles(share_code)"))
+            conn.commit()
+            print("[seed] 已添加 bubbles.share_code UNIQUE 索引。")
 
 
 def seed_official():
