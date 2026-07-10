@@ -269,8 +269,18 @@ async def set_current(style: int | str = Body(..., embed=True), user=Depends(get
         bubble = await BubbleRepository.get_by_id(db, int(style))
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
+        # 记录切换前的气泡，用于更新两边的 uses 计数
+        prev = await UserCurrentBubbleRepository.get_by_user_id(db, user_id)
+        prev_id = prev.bubble_id if prev else None
         await UserCurrentBubbleRepository.set_current(db, user_id, int(style))
-    return {"code": 0}
+        # 返回新旧气泡的 uses 计数，前端可精准更新本地状态
+        new_uses = await BubbleRepository.get_bubble_uses(db, int(style))
+        result = {"code": 0, "uses": new_uses}
+        if prev_id and prev_id != int(style):
+            prev_uses = await BubbleRepository.get_bubble_uses(db, prev_id)
+            result["prevId"] = prev_id
+            result["prevUses"] = prev_uses
+    return result
 
 
 @router.post("/favorite")

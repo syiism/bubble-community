@@ -346,7 +346,15 @@ const saveCurrentStyle = async () => {
   if (!currentId.value) return
   saving.value = true
   try {
-    await api.setCurrent(currentId.value)
+    const data = await api.setCurrent(currentId.value)
+    // 更新新选中气泡的 uses 计数
+    const s = styles.value.find(s => s.id === currentId.value)
+    if (s && data.uses !== undefined) s.uses = data.uses
+    // 如果有前一个气泡，同时更新它的 uses 计数
+    if (data.prevId && data.prevUses !== undefined) {
+      const p = styles.value.find(s => s.id === data.prevId)
+      if (p) p.uses = data.prevUses
+    }
     showToast('已保存，回到阅读翻页即生效')
     // 无需 loadStyles — currentId 已是用户所选，界面立即响应
   } catch (e) {
