@@ -18,6 +18,6 @@ def normalize_placeholders(s: str) -> str:
 def fill_svg(tpl: str, color: str = "", text_color: str = "", n: int = 12) -> str:
     out = normalize_placeholders(tpl)
     out = out.replace("{n}", str(n))
-    out = out.replace("{c}", color or "#8a8f99")
-    out = out.replace("{t}", text_color or "#8a8f99")
+    out = out.replace("{c}", color or "")
+    out = out.replace("{t}", text_color or "")
     return out

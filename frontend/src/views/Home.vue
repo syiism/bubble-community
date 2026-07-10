@@ -17,8 +17,9 @@
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
             <input v-model="searchQuery" type="text" placeholder="搜索气泡名称 / 作者..."
-                   class="w-full pl-8 pr-20 py-2 bg-transparent border-0 text-sm text-ink placeholder:text-muted
-                          focus:outline-none focus:ring-0" />
+                   class="w-full pl-8 pr-20 py-2.5 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted
+                          transition-all duration-200
+                          focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 focus:bg-white" />
             <button v-if="searchQuery"
                     class="absolute right-0 px-3 py-1.5 text-xs font-medium text-muted hover:text-ink bg-white/80 border border-border rounded-lg transition-colors"
                     @click="searchQuery = ''">
