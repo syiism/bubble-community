@@ -36,6 +36,10 @@
             />
           </div>
 
+          <div v-if="errorMsg" class="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
+            {{ errorMsg }}
+          </div>
+
           <button
             type="submit"
             :disabled="loading || !canSubmit"
@@ -74,6 +78,7 @@ const router = useRouter()
 const route = useRoute()
 
 const loading = ref(false)
+const errorMsg = ref('')
 const form = ref({
   username: '',
   password: '',
@@ -87,6 +92,7 @@ const handleSubmit = async () => {
   if (!canSubmit.value || loading.value) return
 
   loading.value = true
+  errorMsg.value = ''
   try {
     await login({
       username: form.value.username.trim(),
@@ -95,7 +101,7 @@ const handleSubmit = async () => {
     const redirect = route.query.redirect || '/'
     await router.push(redirect)
   } catch (err) {
-    console.error('登录失败:', err)
+    errorMsg.value = err.message || '登录失败，请检查用户名和密码'
   } finally {
     loading.value = false
   }
