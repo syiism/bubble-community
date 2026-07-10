@@ -358,7 +358,7 @@ const openEditModal = (b) => { editingBubble.value = b }
 
 const handleEditSubmit = async (data) => {
   try {
-    const res = await api.adminUpdateBubble(data.id, {
+    await api.adminUpdateBubble(data.id, {
       name: data.name,
       desc: data.desc,
       svg: data.svg,
@@ -371,12 +371,14 @@ const handleEditSubmit = async (data) => {
     // 更新本地行
     const idx = bubbles.value.findIndex(x => x.id === data.id)
     if (idx >= 0) {
+      const newOwner = allUsers.value.find(u => u.id === data.userId)
       Object.assign(bubbles.value[idx], {
         name: data.name,
         desc: data.desc,
         public: data.public,
         authorName: data.authorName || '',
         userId: data.userId || 0,
+        username: newOwner ? newOwner.username : bubbles.value[idx].username,
       })
     }
     editingBubble.value = null
