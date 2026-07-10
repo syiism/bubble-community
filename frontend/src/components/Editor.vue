@@ -237,6 +237,11 @@ watch(() => props.style, (newStyle) => {
       public: !!newStyle.public,
       userId: newStyle.userId || newStyle.user_id || 0
     }
+    // admin 模式下根据 userId 预填署名
+    if (props.admin && form.value.userId) {
+      const u = props.userList.find(u => u.id === form.value.userId)
+      if (u) form.value.authorName = u.authorName || u.username || ''
+    }
   } else {
     form.value = {
       name: '',
@@ -250,6 +255,15 @@ watch(() => props.style, (newStyle) => {
   }
   extractedColors.value = []
 }, { immediate: true })
+
+// admin 模式下切换作者时自动填充署名
+watch(() => form.value.userId, (uid) => {
+  if (!props.admin || !uid) return
+  const u = props.userList.find(u => u.id === uid)
+  if (u) {
+    form.value.authorName = u.authorName || u.username || ''
+  }
+})
 
 const previewHtml = computed(() => {
   return svgToImg(form.value.svg, 'h-16 w-auto', form.value.color, form.value.textColor)
