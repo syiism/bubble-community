@@ -2,13 +2,15 @@ import re
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from slowapi.util import get_remote_address
 
 from ..auth import _resolve_user, get_current_user, public_user
+from ..config import UC_LOGIN_URL, UC_USER_URL
+from ..http_client import client
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-UC_LOGIN_URL = "https://vossc.com/member.php"
-UC_USER_URL = "https://vossc.com/home.php"
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.get("/check-username")
@@ -16,22 +18,21 @@ async def check_username(username: str):
     if not username.strip():
         raise HTTPException(status_code=400, detail="用户名不能为空")
 
-    async with httpx.AsyncClient(follow_redirects=True) as client:
-        resp = await client.get(
-            "https://vossc.com/forum.php",
-            params={
-                "mod": "ajax",
-                "inajax": "yes",
-                "infloat": "register",
-                "handlekey": "register",
-                "ajaxmenu": "1",
-                "action": "checkusername",
-                "username": username,
-            },
-        )
-        cdata = re.search(r"<!\[CDATA\[(.*?)\]\]>", resp.text, re.DOTALL)
-        available = bool(cdata and cdata.group(1).strip() == "succeed")
-        return {"code": 0, "available": available}
+    resp = await client.get(
+        "https://vossc.com/forum.php",
+        params={
+            "mod": "ajax",
+            "inajax": "yes",
+            "infloat": "register",
+            "handlekey": "register",
+            "ajaxmenu": "1",
+            "action": "checkusername",
+            "username": username,
+        },
+    )
+    cdata = re.search(r"<!\[CDATA\[(.*?)\]\]>", resp.text, re.DOTALL)
+    available = bool(cdata and cdata.group(1).strip() == "succeed")
+    return {"code": 0, "available": available}
 
 
 @router.post("/register")
@@ -54,10 +55,8 @@ async def register(request: Request, response: Response):
         if not email or "@" not in email:
             raise HTTPException(status_code=400, detail="请输入正确的邮箱地址")
 
-        async with httpx.AsyncClient(follow_redirects=True) as client:
-
-            # ---- Step 1: check username availability ----
-            check_resp = await client.get(
+        async with httpx.AsyncClient(follow_redirects=True) as local_client:
+            check_resp = await local_client.get(
                 "https://vossc.com/forum.php",
                 params={
                     "mod": "ajax",
@@ -75,8 +74,7 @@ async def register(request: Request, response: Response):
             if cdata and "已注册" in cdata.group(1):
                 raise HTTPException(status_code=409, detail="该用户名已注册")
 
-            # ---- Step 2: get register formhash & randomised field IDs ----
-            reg_page = await client.get(
+            reg_page = await local_client.get(
                 "https://vossc.com/member.php",
                 params={"mod": "register", "inajax": "1"},
             )
@@ -91,9 +89,6 @@ async def register(request: Request, response: Response):
                 )
             formhash = formhash_match.group(1)
 
-            # Discuz! X5 uses randomised input IDs (name="") as anti-bot measure.
-            # The POST field names must match these IDs, in the exact order they
-            # appear in the HTML: username, password, confirm-password, email.
             field_ids = re.findall(
                 r'<input[^>]*id="([^"]+)"[^>]*name=""[^>]*>', html
             )
@@ -102,7 +97,6 @@ async def register(request: Request, response: Response):
                     status_code=500, detail="无法解析注册表单字段"
                 )
 
-            # ---- Step 3: submit registration ----
             post_data = {
                 "regsubmit": "yes",
                 "formhash": formhash,
@@ -113,22 +107,20 @@ async def register(request: Request, response: Response):
                 field_ids[2]: password2,
                 field_ids[3]: email,
             }
-            reg_resp = await client.post(
+            reg_resp = await local_client.post(
                 "https://vossc.com/member.php",
                 params={"mod": "register"},
                 data=post_data,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
 
-            # ---- Step 4: check auth cookie (Discuz! auto-logs in) ----
             auth_cookie = None
-            for name, value in dict(client.cookies).items():
+            for name, value in dict(local_client.cookies).items():
                 if name.startswith("OcXe_") and "_auth" in name:
                     auth_cookie = (name, value)
                     break
 
             if not auth_cookie:
-                # Try to extract Discuz! error message from response body
                 err_match = re.search(
                     r"抱歉[^<]*|该用户名[^<]*|Email[^<]*|密码[^<]*",
                     reg_resp.text,
@@ -136,8 +128,7 @@ async def register(request: Request, response: Response):
                 msg = err_match.group(0) if err_match else "注册失败，请稍后重试"
                 raise HTTPException(status_code=400, detail=msg)
 
-            # ---- Step 5: verify user identity and create local session ----
-            user_page = await client.get(
+            user_page = await local_client.get(
                 UC_USER_URL, params={"mod": "space", "uid": "me"}
             )
             uid_match = re.search(
@@ -159,7 +150,7 @@ async def register(request: Request, response: Response):
 
             from ..session import create_session, SESSION_COOKIE
 
-            session_id = create_session(uid, resolved_username)
+            session_id = await create_session(uid, resolved_username)
             response.set_cookie(
                 key=SESSION_COOKIE,
                 value=session_id,
@@ -169,8 +160,7 @@ async def register(request: Request, response: Response):
                 max_age=7200,
             )
 
-            # 将 vossc.com 注册登录返回的 cookie 原样传递给浏览器
-            for name, value in dict(client.cookies).items():
+            for name, value in dict(local_client.cookies).items():
                 if name == SESSION_COOKIE:
                     continue
                 response.set_cookie(
@@ -182,7 +172,7 @@ async def register(request: Request, response: Response):
                     max_age=7200,
                 )
 
-            user = _resolve_user(request, {"uid": uid, "username": resolved_username})
+            user = await _resolve_user(request, {"uid": uid, "username": resolved_username})
 
             return {
                 "code": 0,
@@ -211,7 +201,7 @@ async def login(request: Request, response: Response):
         if not username or not password:
             raise HTTPException(status_code=400, detail="用户名和密码不能为空")
 
-        async with httpx.AsyncClient(follow_redirects=True) as client:
+        async with httpx.AsyncClient(follow_redirects=True) as local_client:
             login_params = {
                 "mod": "logging",
                 "action": "login",
@@ -221,7 +211,7 @@ async def login(request: Request, response: Response):
                 "ajaxtarget": "fwin_content_login",
             }
 
-            login_page = await client.get(UC_LOGIN_URL, params=login_params)
+            login_page = await local_client.get(UC_LOGIN_URL, params=login_params)
 
             formhash_match = re.search(r'name="formhash" value="([^"]+)"', login_page.text)
             loginhash_match = re.search(r'loginhash=([A-Za-z0-9]+)', login_page.text)
@@ -251,7 +241,7 @@ async def login(request: Request, response: Response):
                 "cookietime": cookietime,
             }
 
-            login_response = await client.post(
+            login_response = await local_client.post(
                 UC_LOGIN_URL,
                 params=post_params,
                 data=post_data,
@@ -261,13 +251,13 @@ async def login(request: Request, response: Response):
             if login_response.status_code != 200:
                 raise HTTPException(status_code=500, detail="登录请求失败")
 
-            discuz_cookies = [(k, v) for k, v in dict(client.cookies).items() if k.startswith("OcXe_")]
+            discuz_cookies = [(k, v) for k, v in dict(local_client.cookies).items() if k.startswith("OcXe_")]
 
             if not discuz_cookies:
                 raise HTTPException(status_code=401, detail="登录失败，请检查用户名和密码")
 
             user_info = None
-            user_page = await client.get(UC_USER_URL, params={"mod": "space", "uid": "me"})
+            user_page = await local_client.get(UC_USER_URL, params={"mod": "space", "uid": "me"})
             uid_match = re.search(r'discuz_uid\s*=\s*[\'"](\d+)[\'"]', user_page.text)
             username_match = re.search(r'欢迎您回来，\s*([^<]+)', user_page.text)
 
@@ -285,24 +275,21 @@ async def login(request: Request, response: Response):
 
             from ..session import create_session, delete_session, SESSION_COOKIE
 
-            # 删除当前浏览器中旧的 session，防止同一浏览器多标签页间的
-            # bubble_session cookie 被新登录覆盖后，旧标签页仍能使用旧 session
             old_session_id = request.cookies.get(SESSION_COOKIE)
             if old_session_id:
-                delete_session(old_session_id)
+                await delete_session(old_session_id)
 
-            session_id = create_session(user_info["uid"], user_info["username"])
+            session_id = await create_session(user_info["uid"], user_info["username"])
             response.set_cookie(
                 key=SESSION_COOKIE,
                 value=session_id,
                 path="/",
                 httponly=True,
                 samesite="lax",
-                max_age=7200,  # 2 hours
+                max_age=7200,
             )
 
-            # 将 vossc.com 登录返回的 cookie 原样传递给浏览器
-            for name, value in dict(client.cookies).items():
+            for name, value in dict(local_client.cookies).items():
                 if name == SESSION_COOKIE:
                     continue
                 response.set_cookie(
@@ -314,7 +301,7 @@ async def login(request: Request, response: Response):
                     max_age=7200,
                 )
 
-            user = _resolve_user(request, user_info)
+            user = await _resolve_user(request, user_info)
 
             return {"code": 0, "message": "登录成功", "user": public_user(user)}
 
@@ -325,8 +312,7 @@ async def login(request: Request, response: Response):
 
 
 @router.get("/me")
-def me(user=Depends(get_current_user), response: Response = None):
-    # 禁止缓存，避免浏览器返回过期的用户信息
+async def me(user=Depends(get_current_user), response: Response = None):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
@@ -334,13 +320,12 @@ def me(user=Depends(get_current_user), response: Response = None):
 
 
 @router.post("/logout")
-def logout(request: Request, response: Response):
+async def logout(request: Request, response: Response):
     from ..session import SESSION_COOKIE, delete_session
     session_id = request.cookies.get(SESSION_COOKIE)
     if session_id:
-        delete_session(session_id)
+        await delete_session(session_id)
     response.delete_cookie(SESSION_COOKIE, path="/")
-    # 清除所有 Discuz! 相关 cookie，避免旧 cookie 导致静默切换用户
     for name in list(request.cookies.keys()):
         if name == "uc_auth" or name.startswith("OcXe_"):
             response.delete_cookie(name, path="/")

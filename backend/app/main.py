@@ -4,9 +4,13 @@ from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .auth import get_current_user_strict
+from .http_client import client, avatar_client
 from .modules.database import create_all_tables, get_db_context
 from .modules.repositories import BubbleRepository, UserCurrentBubbleRepository
 from .routers import auth, bubbles, user
@@ -15,6 +19,10 @@ from .svg_util import fill_svg
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 
 app = FastAPI(title="段评气泡社区 API", version="1.0.0")
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,30 +38,36 @@ app.include_router(user.router, prefix="/bubble-community")
 
 
 @app.on_event("startup")
-def startup():
-    create_all_tables()
+async def startup():
+    await create_all_tables()
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await client.aclose()
+    await avatar_client.aclose()
 
 
 @app.get("/bubble-community/api/health")
-def health():
+async def health():
     return {"name": "段评气泡社区 API", "docs": "/bubble-community/docs"}
 
 
 @app.get("/bubble-community/api/get-bubble")
-def get_bubble(user=Depends(get_current_user_strict)):
+async def get_bubble(user=Depends(get_current_user_strict)):
     user_id = user["id"]
 
-    with get_db_context() as db:
-        current_bubble = UserCurrentBubbleRepository.get_by_user_id(db, user_id)
+    async with get_db_context() as db:
+        current_bubble = await UserCurrentBubbleRepository.get_by_user_id(db, user_id)
         if current_bubble:
             bubble_id = current_bubble.bubble_id
         else:
-            fallback = BubbleRepository.get_official_first(db)
+            fallback = await BubbleRepository.get_official_first(db)
             if not fallback:
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "未设置气泡")
             bubble_id = fallback.id
 
-        bubble = BubbleRepository.get_by_id(db, bubble_id)
+        bubble = await BubbleRepository.get_by_id(db, bubble_id)
 
     if not bubble:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
@@ -84,5 +98,5 @@ if os.path.isdir(FRONTEND_DIST):
     app.mount("/bubble-community", SPAStaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
 else:
     @app.get("/bubble-community")
-    def root_fallback():
+    async def root_fallback():
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "前端未构建，请先执行 pnpm build")

@@ -69,21 +69,24 @@ def _row_to_style(row, user_id, imported_set, favorite_set):
 
 
 @router.get("")
-def list_bubbles(user=Depends(get_current_user)):
+async def list_bubbles(user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_db_context() as db:
-        current_bubble = UserCurrentBubbleRepository.get_by_user_id(db, user_id)
+    async with get_db_context() as db:
+        current_bubble = await UserCurrentBubbleRepository.get_by_user_id(db, user_id)
         current_bubble_id = current_bubble.bubble_id if current_bubble else 0
 
-        bubbles = BubbleRepository.get_visible_bubbles(db, user_id)
-        imported_set = ImportedBubbleRepository.get_imported_ids(db, user_id)
-        favorite_set = UserFavoriteRepository.get_favorite_ids(db, user_id)
-        user_info = UserRepository.get_by_id(db, user_id)
+        bubbles = await BubbleRepository.get_visible_bubbles(db, user_id)
+        imported_set = await ImportedBubbleRepository.get_imported_ids(db, user_id)
+        favorite_set = await UserFavoriteRepository.get_favorite_ids(db, user_id)
+        user_info = await UserRepository.get_by_id(db, user_id)
+
+        bubble_ids = [b.id for b in bubbles]
+        uses_map = await BubbleRepository.get_bubble_uses_batch(db, bubble_ids)
 
         styles = []
         for b in bubbles:
             style = _row_to_style(b, user_id, imported_set, favorite_set)
-            style["uses"] = BubbleRepository.get_bubble_uses(db, b.id)
+            style["uses"] = uses_map.get(b.id, 0)
             styles.append(style)
 
         current_id = current_bubble_id if current_bubble_id else (styles[0]["id"] if styles else 0)
@@ -103,14 +106,14 @@ def list_bubbles(user=Depends(get_current_user)):
 
 
 @router.post("")
-def create_bubble(body: BubbleCreate, user=Depends(get_current_user)):
+async def create_bubble(body: BubbleCreate, user=Depends(get_current_user)):
     if not body.svg.strip():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "请填写 SVG")
     user_id = user["id"]
-    with get_db_context() as db:
-        user_info = UserRepository.get_by_id(db, user_id)
+    async with get_db_context() as db:
+        user_info = await UserRepository.get_by_id(db, user_id)
         author_name = (user_info.author_name if user_info else "") or ""
-        bubble = BubbleRepository.create(
+        bubble = await BubbleRepository.create(
             db,
             user_id=user_id,
             name=body.name.strip()[:64] or "未命名",
@@ -125,15 +128,15 @@ def create_bubble(body: BubbleCreate, user=Depends(get_current_user)):
 
 
 @router.put("/{bubble_id}")
-def update_bubble(bubble_id: int, body: BubbleCreate, user=Depends(get_current_user)):
+async def update_bubble(bubble_id: int, body: BubbleCreate, user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_db_context() as db:
-        bubble = BubbleRepository.get_by_id(db, bubble_id)
+    async with get_db_context() as db:
+        bubble = await BubbleRepository.get_by_id(db, bubble_id)
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
         if bubble.user_id != user_id:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "只能编辑自己的气泡")
-        BubbleRepository.update(
+        await BubbleRepository.update(
             db,
             bubble,
             name=body.name.strip()[:64] or "未命名",
@@ -147,36 +150,36 @@ def update_bubble(bubble_id: int, body: BubbleCreate, user=Depends(get_current_u
 
 
 @router.delete("/{bubble_id}")
-def delete_bubble(bubble_id: int, user=Depends(get_current_user)):
+async def delete_bubble(bubble_id: int, user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_db_context() as db:
-        bubble = BubbleRepository.get_by_id(db, bubble_id)
+    async with get_db_context() as db:
+        bubble = await BubbleRepository.get_by_id(db, bubble_id)
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
         if bubble.user_id != user_id:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "只能删除自己的气泡")
-        BubbleRepository.delete(db, bubble_id)
+        await BubbleRepository.delete(db, bubble_id)
     return {"code": 0}
 
 
 @router.post("/visibility")
-def set_visibility(body: VisibilityBody, user=Depends(get_current_user)):
+async def set_visibility(body: VisibilityBody, user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_db_context() as db:
-        bubble = BubbleRepository.get_by_id(db, body.id)
+    async with get_db_context() as db:
+        bubble = await BubbleRepository.get_by_id(db, body.id)
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
         if bubble.user_id != user_id:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "只能修改自己的气泡")
-        BubbleRepository.update(db, bubble, is_public=body.public)
+        await BubbleRepository.update(db, bubble, is_public=body.public)
     return {"code": 0}
 
 
 @router.post("/share")
-def gen_share(body: ShareBody, user=Depends(get_current_user)):
+async def gen_share(body: ShareBody, user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_db_context() as db:
-        bubble = BubbleRepository.get_by_id(db, body.id)
+    async with get_db_context() as db:
+        bubble = await BubbleRepository.get_by_id(db, body.id)
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
         if bubble.user_id != user_id:
@@ -185,46 +188,46 @@ def gen_share(body: ShareBody, user=Depends(get_current_user)):
         if not code:
             for _ in range(8):
                 code = "B" + secrets.token_hex(4).upper()
-                existing = BubbleRepository.get_by_share_code(db, code)
+                existing = await BubbleRepository.get_by_share_code(db, code)
                 if not existing:
                     break
-            BubbleRepository.update(db, bubble, share_code=code)
+            await BubbleRepository.update(db, bubble, share_code=code)
     return {"code": 0, "shareCode": code}
 
 
 @router.post("/redeem")
-def redeem(body: RedeemBody, user=Depends(get_current_user)):
+async def redeem(body: RedeemBody, user=Depends(get_current_user)):
     code = body.code.strip().upper()
     if not code:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "请输入分享码")
     user_id = user["id"]
-    with get_db_context() as db:
-        bubble = BubbleRepository.get_by_share_code(db, code)
+    async with get_db_context() as db:
+        bubble = await BubbleRepository.get_by_share_code(db, code)
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "分享码无效")
         if bubble.user_id == user_id:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "这是你自己的气泡")
-        ImportedBubbleRepository.import_bubble(db, user_id, bubble.id)
+        await ImportedBubbleRepository.import_bubble(db, user_id, bubble.id)
     return {"code": 0, "id": bubble.id, "name": bubble.name}
 
 
 @router.post("/current")
-def set_current(style: int | str = Body(..., embed=True), user=Depends(get_current_user)):
+async def set_current(style: int | str = Body(..., embed=True), user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_db_context() as db:
-        bubble = BubbleRepository.get_by_id(db, int(style))
+    async with get_db_context() as db:
+        bubble = await BubbleRepository.get_by_id(db, int(style))
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
-        UserCurrentBubbleRepository.set_current(db, user_id, int(style))
+        await UserCurrentBubbleRepository.set_current(db, user_id, int(style))
     return {"code": 0}
 
 
 @router.post("/favorite")
-def set_favorite(body: FavoriteBody, user=Depends(get_current_user)):
+async def set_favorite(body: FavoriteBody, user=Depends(get_current_user)):
     user_id = user["id"]
-    with get_db_context() as db:
-        bubble = BubbleRepository.get_by_id(db, body.id)
+    async with get_db_context() as db:
+        bubble = await BubbleRepository.get_by_id(db, body.id)
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
-        UserFavoriteRepository.set_favorite(db, user_id, body.id, body.favorite)
+        await UserFavoriteRepository.set_favorite(db, user_id, body.id, body.favorite)
     return {"code": 0}

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
-from sqlalchemy import and_, or_, func
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_, func, select, delete, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .user import User
 from .bubble import Bubble
@@ -12,71 +12,83 @@ from .session_model import Session
 
 class UserRepository:
     @staticmethod
-    def get_by_id(db: Session, user_id: int) -> User | None:
-        return db.query(User).filter(User.id == user_id).first()
+    async def get_by_id(db: AsyncSession, user_id: int) -> User | None:
+        result = await db.execute(select(User).filter(User.id == user_id))
+        return result.scalar_one_or_none()
 
     @staticmethod
-    def get_by_username(db: Session, username: str) -> User | None:
-        return db.query(User).filter(User.username == username).first()
+    async def get_by_username(db: AsyncSession, username: str) -> User | None:
+        result = await db.execute(select(User).filter(User.username == username))
+        return result.scalar_one_or_none()
 
     @staticmethod
-    def get_by_author_name(db: Session, author_name: str) -> User | None:
-        return db.query(User).filter(User.author_name == author_name).first()
+    async def get_by_author_name(db: AsyncSession, author_name: str) -> User | None:
+        result = await db.execute(select(User).filter(User.author_name == author_name))
+        return result.scalar_one_or_none()
 
     @staticmethod
-    def create(db: Session, user_id: int, username: str, avatar_url: str | None = None) -> User:
+    async def create(db: AsyncSession, user_id: int, username: str, avatar_url: str | None = None) -> User:
         user = User(id=user_id, username=username, avatar_url=avatar_url)
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
         return user
 
     @staticmethod
-    def update(db: Session, user: User, **kwargs) -> User:
+    async def update(db: AsyncSession, user: User, **kwargs) -> User:
         for key, value in kwargs.items():
             setattr(user, key, value)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
         return user
 
     @staticmethod
-    def update_author_name(db: Session, user_id: int, author_name: str | None) -> None:
-        db.query(User).filter(User.id == user_id).update({"author_name": author_name})
-        db.query(Bubble).filter(Bubble.user_id == user_id).update({"author_name": author_name or ""})
-        db.commit()
+    async def update_author_name(db: AsyncSession, user_id: int, author_name: str | None) -> None:
+        await db.execute(update(User).where(User.id == user_id).values({"author_name": author_name}))
+        await db.execute(update(Bubble).where(Bubble.user_id == user_id).values({"author_name": author_name or ""}))
+        await db.commit()
 
 
 class BubbleRepository:
     @staticmethod
-    def get_by_id(db: Session, bubble_id: int) -> Bubble | None:
-        return db.query(Bubble).filter(Bubble.id == bubble_id).first()
+    async def get_by_id(db: AsyncSession, bubble_id: int) -> Bubble | None:
+        result = await db.execute(select(Bubble).filter(Bubble.id == bubble_id))
+        return result.scalar_one_or_none()
 
     @staticmethod
-    def get_by_share_code(db: Session, share_code: str) -> Bubble | None:
-        return db.query(Bubble).filter(Bubble.share_code == share_code).first()
+    async def get_by_share_code(db: AsyncSession, share_code: str) -> Bubble | None:
+        result = await db.execute(select(Bubble).filter(Bubble.share_code == share_code))
+        return result.scalar_one_or_none()
 
     @staticmethod
-    def get_official_bubbles(db: Session) -> list[Bubble]:
-        return db.query(Bubble).filter(Bubble.is_official == True).all()
+    async def get_official_bubbles(db: AsyncSession) -> list[Bubble]:
+        result = await db.execute(select(Bubble).filter(Bubble.is_official == True))
+        return result.scalars().all()
 
     @staticmethod
-    def get_official_first(db: Session) -> Bubble | None:
-        return db.query(Bubble).filter(Bubble.is_official == True).first()
+    async def get_official_first(db: AsyncSession) -> Bubble | None:
+        result = await db.execute(select(Bubble).filter(Bubble.is_official == True))
+        return result.scalar_one_or_none()
 
     @staticmethod
-    def get_user_bubbles(db: Session, user_id: int) -> list[Bubble]:
-        return db.query(Bubble).filter(Bubble.user_id == user_id).all()
+    async def get_user_bubbles(db: AsyncSession, user_id: int) -> list[Bubble]:
+        result = await db.execute(select(Bubble).filter(Bubble.user_id == user_id))
+        return result.scalars().all()
 
     @staticmethod
-    def get_public_bubbles(db: Session) -> list[Bubble]:
-        return db.query(Bubble).filter(Bubble.is_public == True).all()
+    async def get_public_bubbles(db: AsyncSession) -> list[Bubble]:
+        result = await db.execute(select(Bubble).filter(Bubble.is_public == True))
+        return result.scalars().all()
 
     @staticmethod
-    def get_visible_bubbles(db: Session, user_id: int) -> list[Bubble]:
-        imported_ids = [ib.bubble_id for ib in db.query(ImportedBubble).filter(ImportedBubble.user_id == user_id).all()]
-        current_bubble_id = db.query(UserCurrentBubble.bubble_id).filter(UserCurrentBubble.user_id == user_id).scalar()
+    async def get_visible_bubbles(db: AsyncSession, user_id: int) -> list[Bubble]:
+        imported_result = await db.execute(select(ImportedBubble.bubble_id).filter(ImportedBubble.user_id == user_id))
+        imported_ids = [row[0] for row in imported_result.all()]
 
-        query = db.query(Bubble).filter(
+        current_result = await db.execute(select(UserCurrentBubble.bubble_id).filter(UserCurrentBubble.user_id == user_id))
+        current_bubble_id = current_result.scalar()
+
+        query = select(Bubble).filter(
             or_(
                 Bubble.is_official == True,
                 Bubble.is_public == True,
@@ -85,24 +97,41 @@ class BubbleRepository:
             )
         )
 
+        result = await db.execute(query)
+        bubbles = result.scalars().all()
+
         if current_bubble_id:
-            existing_ids = {b.id for b in query.all()}
+            existing_ids = {b.id for b in bubbles}
             if current_bubble_id not in existing_ids:
-                current_bubble = db.query(Bubble).filter(Bubble.id == current_bubble_id).first()
+                current_result = await db.execute(select(Bubble).filter(Bubble.id == current_bubble_id))
+                current_bubble = current_result.scalar_one_or_none()
                 if current_bubble:
-                    result = query.all()
-                    result.append(current_bubble)
-                    return result
+                    bubbles.append(current_bubble)
 
-        return query.order_by(Bubble.is_official.desc(), Bubble.id.desc()).all()
+        return sorted(bubbles, key=lambda x: (-x.is_official, -x.id))
 
     @staticmethod
-    def get_bubble_uses(db: Session, bubble_id: int) -> int:
-        return db.query(func.count(UserCurrentBubble.user_id)).filter(UserCurrentBubble.bubble_id == bubble_id).scalar()
+    async def get_bubble_uses(db: AsyncSession, bubble_id: int) -> int:
+        result = await db.execute(select(func.count(UserCurrentBubble.user_id)).filter(UserCurrentBubble.bubble_id == bubble_id))
+        return result.scalar()
 
     @staticmethod
-    def create(
-        db: Session,
+    async def get_bubble_uses_batch(db: AsyncSession, bubble_ids: list[int]) -> dict[int, int]:
+        if not bubble_ids:
+            return {}
+        result = await db.execute(
+            select(
+                UserCurrentBubble.bubble_id,
+                func.count(UserCurrentBubble.user_id).label("count")
+            )
+            .filter(UserCurrentBubble.bubble_id.in_(bubble_ids))
+            .group_by(UserCurrentBubble.bubble_id)
+        )
+        return {row[0]: row[1] for row in result.all()}
+
+    @staticmethod
+    async def create(
+        db: AsyncSession,
         user_id: int,
         name: str,
         description: str,
@@ -123,33 +152,34 @@ class BubbleRepository:
             author_name=author_name,
         )
         db.add(bubble)
-        db.commit()
-        db.refresh(bubble)
+        await db.commit()
+        await db.refresh(bubble)
         return bubble
 
     @staticmethod
-    def update(db: Session, bubble: Bubble, **kwargs) -> Bubble:
+    async def update(db: AsyncSession, bubble: Bubble, **kwargs) -> Bubble:
         for key, value in kwargs.items():
             setattr(bubble, key, value)
-        db.commit()
-        db.refresh(bubble)
+        await db.commit()
+        await db.refresh(bubble)
         return bubble
 
     @staticmethod
-    def delete(db: Session, bubble_id: int) -> None:
-        db.query(UserCurrentBubble).filter(UserCurrentBubble.bubble_id == bubble_id).delete()
-        db.query(ImportedBubble).filter(ImportedBubble.bubble_id == bubble_id).delete()
-        db.query(UserFavorite).filter(UserFavorite.bubble_id == bubble_id).delete()
-        db.query(Bubble).filter(Bubble.id == bubble_id).delete()
-        db.commit()
+    async def delete(db: AsyncSession, bubble_id: int) -> None:
+        await db.execute(delete(UserCurrentBubble).where(UserCurrentBubble.bubble_id == bubble_id))
+        await db.execute(delete(ImportedBubble).where(ImportedBubble.bubble_id == bubble_id))
+        await db.execute(delete(UserFavorite).where(UserFavorite.bubble_id == bubble_id))
+        await db.execute(delete(Bubble).where(Bubble.id == bubble_id))
+        await db.commit()
 
     @staticmethod
-    def count_official(db: Session) -> int:
-        return db.query(func.count(Bubble.id)).filter(Bubble.is_official == True).scalar()
+    async def count_official(db: AsyncSession) -> int:
+        result = await db.execute(select(func.count(Bubble.id)).filter(Bubble.is_official == True))
+        return result.scalar()
 
     @staticmethod
-    def create_official(
-        db: Session,
+    async def create_official(
+        db: AsyncSession,
         name: str,
         description: str,
         svg_template: str,
@@ -173,97 +203,105 @@ class BubbleRepository:
 
 class UserCurrentBubbleRepository:
     @staticmethod
-    def get_by_user_id(db: Session, user_id: int) -> UserCurrentBubble | None:
-        return db.query(UserCurrentBubble).filter(UserCurrentBubble.user_id == user_id).first()
+    async def get_by_user_id(db: AsyncSession, user_id: int) -> UserCurrentBubble | None:
+        result = await db.execute(select(UserCurrentBubble).filter(UserCurrentBubble.user_id == user_id))
+        return result.scalar_one_or_none()
 
     @staticmethod
-    def set_current(db: Session, user_id: int, bubble_id: int) -> None:
-        existing = db.query(UserCurrentBubble).filter(UserCurrentBubble.user_id == user_id).first()
+    async def set_current(db: AsyncSession, user_id: int, bubble_id: int) -> None:
+        result = await db.execute(select(UserCurrentBubble).filter(UserCurrentBubble.user_id == user_id))
+        existing = result.scalar_one_or_none()
         if existing:
             existing.bubble_id = bubble_id
         else:
             db.add(UserCurrentBubble(user_id=user_id, bubble_id=bubble_id))
-        db.commit()
+        await db.commit()
 
 
 class ImportedBubbleRepository:
     @staticmethod
-    def get_imported_ids(db: Session, user_id: int) -> set[int]:
-        return {ib.bubble_id for ib in db.query(ImportedBubble).filter(ImportedBubble.user_id == user_id).all()}
+    async def get_imported_ids(db: AsyncSession, user_id: int) -> set[int]:
+        result = await db.execute(select(ImportedBubble.bubble_id).filter(ImportedBubble.user_id == user_id))
+        return {row[0] for row in result.all()}
 
     @staticmethod
-    def is_imported(db: Session, user_id: int, bubble_id: int) -> bool:
-        return db.query(ImportedBubble).filter(
+    async def is_imported(db: AsyncSession, user_id: int, bubble_id: int) -> bool:
+        result = await db.execute(select(ImportedBubble).filter(
             and_(ImportedBubble.user_id == user_id, ImportedBubble.bubble_id == bubble_id)
-        ).first() is not None
+        ))
+        return result.scalar_one_or_none() is not None
 
     @staticmethod
-    def import_bubble(db: Session, user_id: int, bubble_id: int) -> None:
-        if not ImportedBubbleRepository.is_imported(db, user_id, bubble_id):
+    async def import_bubble(db: AsyncSession, user_id: int, bubble_id: int) -> None:
+        if not await ImportedBubbleRepository.is_imported(db, user_id, bubble_id):
             db.add(ImportedBubble(user_id=user_id, bubble_id=bubble_id))
-            db.commit()
+            await db.commit()
 
 
 class UserFavoriteRepository:
     @staticmethod
-    def get_favorite_ids(db: Session, user_id: int) -> set[int]:
-        return {uf.bubble_id for uf in db.query(UserFavorite).filter(UserFavorite.user_id == user_id).all()}
+    async def get_favorite_ids(db: AsyncSession, user_id: int) -> set[int]:
+        result = await db.execute(select(UserFavorite.bubble_id).filter(UserFavorite.user_id == user_id))
+        return {row[0] for row in result.all()}
 
     @staticmethod
-    def is_favorited(db: Session, user_id: int, bubble_id: int) -> bool:
-        return db.query(UserFavorite).filter(
+    async def is_favorited(db: AsyncSession, user_id: int, bubble_id: int) -> bool:
+        result = await db.execute(select(UserFavorite).filter(
             and_(UserFavorite.user_id == user_id, UserFavorite.bubble_id == bubble_id)
-        ).first() is not None
+        ))
+        return result.scalar_one_or_none() is not None
 
     @staticmethod
-    def set_favorite(db: Session, user_id: int, bubble_id: int, favorite: bool) -> None:
+    async def set_favorite(db: AsyncSession, user_id: int, bubble_id: int, favorite: bool) -> None:
         if favorite:
-            if not UserFavoriteRepository.is_favorited(db, user_id, bubble_id):
+            if not await UserFavoriteRepository.is_favorited(db, user_id, bubble_id):
                 db.add(UserFavorite(user_id=user_id, bubble_id=bubble_id))
         else:
-            db.query(UserFavorite).filter(
+            await db.execute(delete(UserFavorite).where(
                 and_(UserFavorite.user_id == user_id, UserFavorite.bubble_id == bubble_id)
-            ).delete()
-        db.commit()
+            ))
+        await db.commit()
 
     @staticmethod
-    def count_favorites(db: Session, user_id: int) -> int:
-        return db.query(func.count(UserFavorite.bubble_id)).filter(UserFavorite.user_id == user_id).scalar()
+    async def count_favorites(db: AsyncSession, user_id: int) -> int:
+        result = await db.execute(select(func.count(UserFavorite.bubble_id)).filter(UserFavorite.user_id == user_id))
+        return result.scalar()
 
 
 class SessionRepository:
     SESSION_EXPIRE = timedelta(hours=2)
 
     @staticmethod
-    def create(db: Session, session_id: str, user_id: int, username: str) -> Session:
+    async def create(db: AsyncSession, session_id: str, user_id: int, username: str) -> Session:
         expires_at = datetime.now() + SessionRepository.SESSION_EXPIRE
         session = Session(id=session_id, user_id=user_id, username=username, expires_at=expires_at)
         db.add(session)
-        db.commit()
-        db.refresh(session)
+        await db.commit()
+        await db.refresh(session)
         return session
 
     @staticmethod
-    def get(db: Session, session_id: str) -> Session | None:
-        return db.query(Session).filter(Session.id == session_id).first()
+    async def get(db: AsyncSession, session_id: str) -> Session | None:
+        result = await db.execute(select(Session).filter(Session.id == session_id))
+        return result.scalar_one_or_none()
 
     @staticmethod
-    def delete(db: Session, session_id: str) -> None:
-        db.query(Session).filter(Session.id == session_id).delete()
-        db.commit()
+    async def delete(db: AsyncSession, session_id: str) -> None:
+        await db.execute(delete(Session).where(Session.id == session_id))
+        await db.commit()
 
     @staticmethod
-    def is_valid(db: Session, session: Session) -> bool:
+    def is_valid(session: Session) -> bool:
         if not session:
             return False
         return datetime.now() < session.expires_at
 
     @staticmethod
-    def refresh_expiry(db: Session, session: Session) -> None:
+    async def refresh_expiry(db: AsyncSession, session: Session) -> None:
         session.expires_at = datetime.now() + SessionRepository.SESSION_EXPIRE
-        db.commit()
+        await db.commit()
 
     @staticmethod
-    def cleanup_expired(db: Session) -> None:
-        db.query(Session).filter(Session.expires_at < datetime.now()).delete()
-        db.commit()
+    async def cleanup_expired(db: AsyncSession) -> None:
+        await db.execute(delete(Session).where(Session.expires_at < datetime.now()))
+        await db.commit()
