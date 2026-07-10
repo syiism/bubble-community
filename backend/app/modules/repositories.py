@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from sqlalchemy import and_, or_, func, select, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import load_only
 
 from .user import User
 from .bubble import Bubble
@@ -282,7 +283,7 @@ class SessionRepository:
 
     @staticmethod
     async def get(db: AsyncSession, session_id: str) -> Session | None:
-        result = await db.execute(select(Session).filter(Session.id == session_id))
+        result = await db.execute(select(Session).options(load_only(Session.id, Session.user_id, Session.username, Session.expires_at)).filter(Session.id == session_id))
         return result.scalar_one_or_none()
 
     @staticmethod

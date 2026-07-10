@@ -1,4 +1,3 @@
-from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 
@@ -25,10 +24,8 @@ async def get_db() -> AsyncSession:
         yield session
 
 
-@asynccontextmanager
-async def get_db_context():
-    async with AsyncSessionLocal() as session:
-        yield session
+def get_db_context():
+    return AsyncSessionLocal()
 
 
 async def create_all_tables():

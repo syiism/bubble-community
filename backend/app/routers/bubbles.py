@@ -3,7 +3,7 @@ import secrets
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from app.auth import get_current_user
+from app.auth import get_current_user, get_current_user_strict
 from app.modules.database import get_db_context
 from app.modules.repositories import (
     BubbleRepository,
@@ -103,6 +103,37 @@ async def list_bubbles(user=Depends(get_current_user)):
             "favoritesCount": len(favorite_set),
             "styles": styles,
         }
+
+
+@router.get("/get-bubble")
+async def get_bubble(user=Depends(get_current_user_strict)):
+    user_id = user["id"]
+
+    async with get_db_context() as db:
+        current_bubble = await UserCurrentBubbleRepository.get_by_user_id(db, user_id)
+        if current_bubble:
+            bubble_id = current_bubble.bubble_id
+        else:
+            fallback = await BubbleRepository.get_official_first(db)
+            if not fallback:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "未设置气泡")
+            bubble_id = fallback.id
+
+        bubble = await BubbleRepository.get_by_id(db, bubble_id)
+
+    if not bubble:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
+
+    svg = fill_svg(bubble.svg_template, color=bubble.color, text_color=bubble.text_color, n=12)
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 @router.post("")
