@@ -99,12 +99,20 @@
           <div class="lg:col-span-1">
             <div class="bg-surface border border-border rounded-xl p-5 sticky top-24 scroll-animate scroll-animate-delay-3">
               <div class="flex items-center gap-3 mb-4">
-                <div class="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center overflow-hidden">
+                <div class="relative w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center overflow-hidden cursor-pointer group"
+                     @click="$refs.avatarInput.click()">
                   <img v-if="userAvatar" :src="userAvatar" :alt="userName" class="w-full h-full object-cover" />
                   <svg v-else class="w-6 h-6 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                     <circle cx="12" cy="7" r="4"></circle>
                   </svg>
+                  <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
+                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                      <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                  </div>
+                  <input ref="avatarInput" type="file" accept="image/*" class="hidden" @change="onAvatarChange" />
                 </div>
                 <div>
                   <div class="text-sm font-medium text-ink">{{ userName }}</div>
@@ -186,7 +194,7 @@ import { ref, computed, onMounted } from 'vue'
 import BubbleList from '@/components/BubbleList.vue'
 import Editor from '@/components/Editor.vue'
 import { api } from '@/api'
-import { getUser } from '@/stores/auth'
+import { getUser, refreshUser } from '@/stores/auth'
 
 const styles = ref([])
 const searchQuery = ref('')
@@ -281,6 +289,22 @@ const handleEditorSubmit = async (data) => {
     closeEditor()
   } catch (e) {
     showToast(e.message || '保存失败')
+  }
+}
+
+const onAvatarChange = async (e) => {
+  const file = e.target?.files?.[0]
+  if (!file) return
+  e.target.value = ''
+  try {
+    const data = await api.uploadAvatar(file)
+    if (data.avatarUrl) {
+      userAvatar.value = data.avatarUrl
+      await refreshUser()
+    }
+    showToast('头像已更新')
+  } catch (err) {
+    showToast(err.message || '上传失败')
   }
 }
 

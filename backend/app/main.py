@@ -60,6 +60,10 @@ class SPAStaticFiles(StaticFiles):
 
 
 if os.path.isdir(FRONTEND_DIST):
+    # 头像目录优先挂载，避免被 SPA 兜底拦截
+    AVATAR_DIR = os.path.join(os.path.dirname(__file__), "avatars")
+    os.makedirs(AVATAR_DIR, exist_ok=True)
+    app.mount("/bubble-community/avatars", StaticFiles(directory=AVATAR_DIR), name="avatars")
     app.mount("/bubble-community", SPAStaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
 else:
     @app.get("/bubble-community")

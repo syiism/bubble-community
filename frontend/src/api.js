@@ -45,6 +45,18 @@ export const api = {
   setCurrent: (style) => request('POST', '/bubble-community/api/bubbles/current', { style }),
   setFavorite: (id, favorite) => request('POST', '/bubble-community/api/bubbles/favorite', { id, favorite }),
   setAuthorName: (name) => request('POST', '/bubble-community/api/user/author-name', { name }),
+  uploadAvatar: (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return fetch('/bubble-community/api/user/avatar', {
+      method: 'POST', body: form, credentials: 'include',
+    }).then(async res => {
+      const text = await res.text()
+      const data = text ? JSON.parse(text) : {}
+      if (!res.ok) throw new Error(data.detail || data.message || '上传失败')
+      return data
+    })
+  },
   forgetPassword: (data) => request('POST', '/bubble-community/api/auth/forget', data),
   // 管理后台
   adminStats: () => request('GET', '/bubble-community/api/admin/stats'),
