@@ -9,11 +9,11 @@
       </div>
 
       <!-- 吸附式搜索栏 -->
-      <div class="sticky top-16 z-40 -mx-6 px-6 mb-6"
-           style="background: rgba(255,255,255,0.88); backdrop-filter: blur(12px); box-shadow: 0 1px 0 0 rgba(0,0,0,0.06);">
+      <div class="sticky top-16 z-40 -mx-6 px-6 mb-6">
         <div class="max-w-4xl mx-auto py-3">
-          <div class="relative flex items-center">
-            <svg class="absolute left-4 w-4 h-4 text-muted pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <div class="relative flex items-center px-2"
+               style="background: rgba(255,255,255,0.4); backdrop-filter: blur(12px); border-radius: 14px;">
+            <svg class="absolute left-5 w-4 h-4 text-muted pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
             <input v-model="searchQuery" type="text" placeholder="搜索气泡名称 / 作者..."

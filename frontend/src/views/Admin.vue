@@ -273,7 +273,7 @@ const loadUsers = async () => {
 
 const loadAllUsers = async () => {
   try {
-    const data = await api.adminUsers(1, 1000, '', '')
+    const data = await api.adminUsers(1, 100, '', '')
     allUsers.value = data.users || []
   } catch (e) { console.error(e) }
 }
