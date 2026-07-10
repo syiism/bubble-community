@@ -51,11 +51,11 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-ink mb-2">邮箱</label>
+            <label class="block text-sm font-medium text-ink mb-2">邮箱 <span class="text-muted">(可选)</span></label>
             <input
               v-model="form.email"
               type="email"
-              placeholder="请输入邮箱地址"
+              placeholder="选填，用于接收通知"
               class="w-full px-4 py-3 rounded-xl border border-border bg-canvas focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all"
               :class="{ 'opacity-50': loading }"
               :disabled="loading"
@@ -143,7 +143,6 @@ const form = ref({
 
 const canSubmit = computed(() => {
   return form.value.username.trim()
-    && form.value.email.trim()
     && form.value.password
     && form.value.password2
 })
@@ -182,10 +181,7 @@ const handleSubmit = async () => {
     error.value = '两次输入的密码不一致'
     return
   }
-  if (!form.value.email.includes('@')) {
-    error.value = '请输入正确的邮箱地址'
-    return
-  }
+
   if (usernameStatus.value === 'taken') {
     error.value = '该用户名已被注册'
     return
