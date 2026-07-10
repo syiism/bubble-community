@@ -4,9 +4,9 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from slowapi.util import get_remote_address
 
-from ..auth import _resolve_user, get_current_user, public_user
-from ..config import UC_LOGIN_URL, UC_USER_URL
-from ..http_client import client
+from app.auth import _resolve_user, get_current_user, public_user
+from app.config import UC_LOGIN_URL, UC_USER_URL
+from app.http_client import client
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 

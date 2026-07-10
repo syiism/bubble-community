@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from ..auth import get_current_user
-from ..modules.database import get_db_context
-from ..modules.repositories import UserRepository
+from app.auth import get_current_user
+from app.modules.database import get_db_context
+from app.modules.repositories import UserRepository
 
 router = APIRouter(prefix="/api/user", tags=["user"])
 
