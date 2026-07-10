@@ -3,6 +3,7 @@ import secrets
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from pydantic import BaseModel
 
+from app.svg_util import fill_svg
 from app.auth import get_current_user, get_current_user_strict
 from app.modules.database import get_db_context
 from app.modules.repositories import (

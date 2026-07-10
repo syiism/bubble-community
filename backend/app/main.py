@@ -1,20 +1,16 @@
 import os
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .auth import get_current_user_strict
 from .http_client import client, avatar_client
-from .modules.database import create_all_tables, get_db_context
-from .modules.repositories import BubbleRepository, UserCurrentBubbleRepository
+from .modules.database import create_all_tables
 from .routers import auth, bubbles, user
-from .svg_util import fill_svg
 
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 
