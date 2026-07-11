@@ -40,9 +40,8 @@ async def register(request: Request, response: Response):
         from ..modules.database import get_db_context
         from ..modules.repositories import UserRepository
         from ..password_util import hash_password
-        from ..auth import create_token, TOKEN_COOKIE, TOKEN_MAX_AGE
+        from ..auth import create_token, TOKEN_COOKIE, TOKEN_MAX_AGE, _device_key
         from ..session import create_session
-        import uuid
 
         async with get_db_context() as db:
             existing = await UserRepository.get_by_username(db, username)
@@ -60,12 +59,13 @@ async def register(request: Request, response: Response):
             db.add(new_user)
             await db.commit()
 
-        session_id = str(uuid.uuid4())
         device_info = request.headers.get("User-Agent", "")
         client_ip = request.client.host if request.client else ""
+        session_id = _device_key(uid, client_ip, device_info)
 
         token = await create_token(uid, username, session_id)
-        await create_session(uid, username, device_info, client_ip)
+        await create_session(uid, username, device_info, client_ip,
+                             session_id=session_id)
 
         response.set_cookie(
             key=TOKEN_COOKIE,
@@ -125,17 +125,17 @@ async def login(request: Request, response: Response):
         user_id = user.id
         resolved_username = user.username
 
-        import uuid
-        from ..auth import create_token, TOKEN_COOKIE, TOKEN_MAX_AGE
+        from ..auth import create_token, TOKEN_COOKIE, TOKEN_MAX_AGE, _device_key
         from ..session import create_session
 
-        # 生成新 session（多设备支持：不删除旧 token）
-        session_id = str(uuid.uuid4())
+        # 基于 IP + User-Agent 生成设备标识（多设备支持）
         device_info = request.headers.get("User-Agent", "")
         client_ip = request.client.host if request.client else ""
+        session_id = _device_key(user_id, client_ip, device_info)
 
         token = await create_token(user_id, resolved_username, session_id)
-        await create_session(user_id, resolved_username, device_info, client_ip)
+        await create_session(user_id, resolved_username, device_info, client_ip,
+                             session_id=session_id)
 
         response.set_cookie(
             key=TOKEN_COOKIE,
@@ -149,8 +149,8 @@ async def login(request: Request, response: Response):
         import logging
         _log = logging.getLogger("auth")
         _log.info(
-            "[login] user=%s uid=%s sid=%s",
-            username, user_id, session_id,
+            "[login] user=%s uid=%s sid=%s ip=%s",
+            username, user_id, session_id, client_ip,
         )
 
         return {

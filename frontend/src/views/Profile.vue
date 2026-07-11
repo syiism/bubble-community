@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-20 pb-20">
+  <div class="pb-20" style="padding-top: calc(5rem + env(safe-area-inset-top, 0px))">
     <div class="max-w-4xl mx-auto px-6">
       <div class="scroll-animate">
         <h1 class="text-2xl sm:text-3xl font-serif font-medium text-ink tracking-tight mb-4">个人中心</h1>

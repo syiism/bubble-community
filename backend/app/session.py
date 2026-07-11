@@ -7,8 +7,10 @@ SESSION_COOKIE = "bubble_session"
 
 
 async def create_session(user_id: int, username: str,
-                         device_info: str = None, ip_address: str = None) -> str:
-    session_id = str(uuid.uuid4())
+                         device_info: str = None, ip_address: str = None,
+                         session_id: str = None) -> str:
+    if session_id is None:
+        session_id = str(uuid.uuid4())
     async with get_db_context() as db:
         await SessionRepository.create(db, session_id, user_id, username,
                                        device_info, ip_address)

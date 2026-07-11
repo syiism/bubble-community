@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -13,6 +14,12 @@ TOKEN_MAX_AGE = int(timedelta(days=JWT_EXPIRE_DAYS).total_seconds())
 _log = logging.getLogger("auth")
 
 REDIS_KEY_PREFIX = "bubble_tokens"
+
+
+def _device_key(uid: int, ip: str, ua: str) -> str:
+    """基于用户 ID + IP + User-Agent 生成设备标识。"""
+    raw = f"{uid}:{ip}:{ua}"
+    return hashlib.md5(raw.encode()).hexdigest()[:16]
 
 
 def _create_jwt(uid: int, username: str, sid: str) -> str:
@@ -39,7 +46,7 @@ async def create_token(uid: int, username: str, sid: str) -> str:
 
 
 async def delete_token(uid: int, sid: str) -> None:
-    """从 Redis Hash 删除指定 session 的 token，单设备注销。"""
+    """从 Redis Hash 删除指定设备 session 的 token。"""
     redis = get_redis()
     await redis.hdel(f"{REDIS_KEY_PREFIX}:{uid}", sid)
     _log.info("Token deleted for uid=%s sid=%s", uid, sid)
@@ -53,7 +60,7 @@ async def delete_all_tokens(uid: int) -> None:
 
 
 async def list_user_sessions(uid: int) -> list[str]:
-    """返回用户在 Redis 中的所有活跃 session ID 列表。"""
+    """返回用户在 Redis 中的所有活跃设备 key 列表。"""
     redis = get_redis()
     keys = await redis.hkeys(f"{REDIS_KEY_PREFIX}:{uid}")
     return keys
@@ -79,13 +86,27 @@ async def _resolve_user(request: Request) -> dict:
     username = payload.get("username", "")
     sid = payload.get("sid", "")
 
-    # 验证 Redis Hash 中该 session 的 token 与 cookie 一致（多设备支持）
+    # 验证 Redis Hash 中该设备的 token 与 cookie 一致（多设备支持）
     redis = get_redis()
+    key = f"{REDIS_KEY_PREFIX}:{uid}"
+
     if sid:
-        stored = await redis.hget(f"{REDIS_KEY_PREFIX}:{uid}", sid)
+        stored = await redis.hget(key, sid)
     else:
-        # 兼容旧 token（无 sid），回退到旧 key 格式
+        # 兼容旧 token（无 sid）：尝试旧 key 格式
         stored = await redis.get(f"bubble_token_{uid}")
+        if stored == token:
+            # 旧 token 有效，基于当前请求信息迁移到新格式
+            client_ip = request.client.host if request.client else ""
+            ua = request.headers.get("User-Agent", "")
+            new_sid = _device_key(uid, client_ip, ua)
+            await redis.hset(key, new_sid, token)
+            await redis.expire(key, timedelta(days=JWT_EXPIRE_DAYS))
+            await redis.delete(f"bubble_token_{uid}")
+            _log.info("Migrated old token for uid=%s to device key %s", uid, new_sid)
+            sid = new_sid
+            stored = token
+
     if stored != token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已失效，请重新登录")
 

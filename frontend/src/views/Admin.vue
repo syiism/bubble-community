@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-20 pb-32">
+  <div class="pb-32" style="padding-top: calc(5rem + env(safe-area-inset-top, 0px))">
     <div class="max-w-6xl mx-auto px-6">
 
       <!-- 标题 -->

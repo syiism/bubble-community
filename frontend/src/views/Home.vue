@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-20 pb-32">
+  <div class="pb-32" style="padding-top: calc(5rem + env(safe-area-inset-top, 0px))">
     <div class="max-w-4xl mx-auto px-6">
       <div class="mb-12 scroll-animate">
         <h1 class="text-2xl sm:text-3xl font-serif font-medium text-ink tracking-tight mb-4">段评气泡社区</h1>
@@ -9,8 +9,8 @@
       </div>
 
       <!-- 吸附式搜索栏 -->
-      <div class="sticky top-16 z-40 -mx-6 px-6 mb-6 bg-surface/40 backdrop-blur-md"
-           style="backdrop-filter: blur(12px);">
+      <div class="sticky z-40 -mx-6 px-6 mb-6 bg-surface/40 backdrop-blur-md"
+           style="top: calc(4rem + env(safe-area-inset-top, 0px)); backdrop-filter: blur(12px);">
         <div class="max-w-4xl mx-auto">
           <div class="relative flex items-center py-2.5">
             <svg class="absolute left-0 w-4 h-4 text-muted pointer-events-none ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -97,7 +97,7 @@
           </div>
 
           <div class="md:col-span-1">
-            <div class="bg-surface border border-border rounded-xl p-5 sticky top-24 scroll-animate scroll-animate-delay-3">
+            <div class="bg-surface border border-border rounded-xl p-5 scroll-animate scroll-animate-delay-3" style="position: sticky; top: calc(6rem + env(safe-area-inset-top, 0px));">
               <div class="flex items-center gap-3 mb-4">
                 <div class="relative w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center overflow-hidden cursor-pointer"
                      @click="$refs.avatarInput.click()">
