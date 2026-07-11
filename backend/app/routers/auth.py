@@ -40,7 +40,7 @@ async def register(request: Request, response: Response):
         from ..modules.database import get_db_context
         from ..modules.repositories import UserRepository
         from ..password_util import hash_password
-        from ..session import create_session, SESSION_COOKIE
+        from ..auth import create_token, TOKEN_COOKIE, TOKEN_MAX_AGE
 
         async with get_db_context() as db:
             existing = await UserRepository.get_by_username(db, username)
@@ -58,14 +58,14 @@ async def register(request: Request, response: Response):
             db.add(new_user)
             await db.commit()
 
-        session_id = await create_session(uid, username)
+        token = await create_token(uid, username)
         response.set_cookie(
-            key=SESSION_COOKIE,
-            value=session_id,
+            key=TOKEN_COOKIE,
+            value=token,
             path="/",
             httponly=True,
             samesite="lax",
-            max_age=7200,
+            max_age=TOKEN_MAX_AGE,
         )
 
         return {
@@ -117,20 +117,34 @@ async def login(request: Request, response: Response):
         user_id = user.id
         resolved_username = user.username
 
-        from ..session import create_session, delete_session, SESSION_COOKIE
+        from ..auth import create_token, delete_token, TOKEN_COOKIE, TOKEN_MAX_AGE
 
-        old_session_id = request.cookies.get(SESSION_COOKIE)
-        if old_session_id:
-            await delete_session(old_session_id)
+        # 如果已登录，先清除旧 token（单设备登录）
+        old_token = request.cookies.get(TOKEN_COOKIE)
+        if old_token:
+            try:
+                import jwt
+                from ..config import JWT_SECRET
+                old_payload = jwt.decode(old_token, JWT_SECRET, algorithms=["HS256"])
+                await delete_token(old_payload["uid"])
+            except Exception:
+                pass
 
-        session_id = await create_session(user_id, resolved_username)
+        token = await create_token(user_id, resolved_username)
         response.set_cookie(
-            key=SESSION_COOKIE,
-            value=session_id,
+            key=TOKEN_COOKIE,
+            value=token,
             path="/",
             httponly=True,
             samesite="lax",
-            max_age=7200,
+            max_age=TOKEN_MAX_AGE,
+        )
+
+        import logging
+        _log = logging.getLogger("auth")
+        _log.info(
+            "[login] user=%s uid=%s",
+            username, user_id,
         )
 
         return {
@@ -188,9 +202,15 @@ async def me(user=Depends(get_current_user), response: Response = None):
 
 @router.post("/logout")
 async def logout(request: Request, response: Response):
-    from ..session import SESSION_COOKIE, delete_session
-    session_id = request.cookies.get(SESSION_COOKIE)
-    if session_id:
-        await delete_session(session_id)
-    response.delete_cookie(SESSION_COOKIE, path="/")
+    from ..auth import TOKEN_COOKIE, delete_token
+    token = request.cookies.get(TOKEN_COOKIE)
+    if token:
+        try:
+            import jwt
+            from ..config import JWT_SECRET
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            await delete_token(payload["uid"])
+        except Exception:
+            pass
+    response.delete_cookie(TOKEN_COOKIE, path="/")
     return {"code": 0, "message": "退出成功"}

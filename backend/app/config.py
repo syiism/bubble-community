@@ -15,3 +15,11 @@ DB_NAME = os.getenv("DB_NAME", "bubble_community")
 UC_LOGIN_URL = os.getenv("UC_LOGIN_URL", "https://vossc.com/member.php")
 UC_USER_URL = os.getenv("UC_USER_URL", "https://vossc.com/home.php")
 UC_AVATAR_URL = os.getenv("UC_AVATAR_URL", "https://vossc.com/uc_server/avatar.php")
+
+REDIS_HOST = os.getenv("REDIS_HOST", "127.0.0.1")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
+REDIS_DB = int(os.getenv("REDIS_DB", "1"))
+
+JWT_SECRET = os.getenv("JWT_SECRET", "cTZL7UGNklfWYwk7684PJpq1DnVp6yLxSNXogTql")
+JWT_EXPIRE_DAYS = int(os.getenv("JWT_EXPIRE_DAYS", "30"))

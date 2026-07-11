@@ -288,8 +288,9 @@ class ImportedBubbleRepository:
     async def import_bubble(db: AsyncSession, user_id: int, bubble_id: int) -> None:
         stmt = mysql_insert(ImportedBubble).values(
             user_id=user_id, bubble_id=bubble_id
-        ).on_duplicate_key_update(
-            user_id=mysql_insert(ImportedBubble).inserted.user_id,  # no-op，防重复
+        )
+        stmt = stmt.on_duplicate_key_update(
+            user_id=stmt.inserted.user_id,  # no-op，防重复
         )
         await db.execute(stmt)
         await db.commit()
@@ -313,8 +314,9 @@ class UserFavoriteRepository:
         if favorite:
             stmt = mysql_insert(UserFavorite).values(
                 user_id=user_id, bubble_id=bubble_id
-            ).on_duplicate_key_update(
-                user_id=mysql_insert(UserFavorite).inserted.user_id,  # no-op，防重复
+            )
+            stmt = stmt.on_duplicate_key_update(
+                user_id=stmt.inserted.user_id,  # no-op，防重复
             )
             await db.execute(stmt)
         else:

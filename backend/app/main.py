@@ -1,4 +1,14 @@
+import logging
 import os
+
+# 配置日志：输出到 stderr，包含时间戳和模块名
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+# 降低 SQLAlchemy 日志噪音
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +20,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .http_client import client, avatar_client
 from .modules.database import create_all_tables
+from .redis_client import init_redis, close_redis
 from .routers import auth, bubbles, user, admin
 
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "dist")
@@ -37,12 +48,14 @@ app.include_router(admin.router, prefix="/bubble-community")
 @app.on_event("startup")
 async def startup():
     await create_all_tables()
+    await init_redis()
 
 
 @app.on_event("shutdown")
 async def shutdown():
     await client.aclose()
     await avatar_client.aclose()
+    await close_redis()
 
 
 @app.get("/bubble-community/health")

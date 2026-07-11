@@ -50,9 +50,8 @@ router.beforeEach((to) => {
       return { name: 'home' }
     }
   }
-  if ((to.name === 'login' || to.name === 'register') && isAuthenticated.value) {
-    return { name: 'home' }
-  }
+  // 允许已登录用户访问登录/注册页，方便切换账号
+  // （在同一浏览器中，如果前一个用户未退出，新用户需要能登录）
 })
 
 export default router
