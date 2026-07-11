@@ -291,7 +291,15 @@ class ImportedBubbleRepository:
             user_id=stmt.inserted.user_id,  # no-op，防重复
         )
         await db.execute(stmt)
-        await db.commit()
+        await db.flush()
+
+    @staticmethod
+    async def remove_imported(db: AsyncSession, user_id: int, bubble_id: int) -> None:
+        stmt = delete(ImportedBubble).filter(
+            and_(ImportedBubble.user_id == user_id, ImportedBubble.bubble_id == bubble_id)
+        )
+        await db.execute(stmt)
+        await db.flush()
 
 
 class UserFavoriteRepository:

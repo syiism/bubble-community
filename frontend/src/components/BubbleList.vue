@@ -38,6 +38,7 @@
           @copy-share="handleCopyShare"
           @toggle-public="handleTogglePublic"
           @toggle-favorite="handleToggleFavorite"
+          @remove-import="handleRemoveImport"
         />
       </div>
     </div>
@@ -59,7 +60,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select', 'edit', 'delete', 'share', 'copyShare', 'togglePublic', 'toggleFavorite'])
+const emit = defineEmits(['select', 'edit', 'delete', 'share', 'copyShare', 'togglePublic', 'toggleFavorite', 'removeImport'])
 
 const sortBy = ref('new')
 
@@ -107,4 +108,5 @@ const handleShare = (style) => emit('share', style)
 const handleCopyShare = (code) => emit('copyShare', code)
 const handleTogglePublic = (id, isPublic) => emit('togglePublic', id, isPublic)
 const handleToggleFavorite = (id, favorite) => emit('toggleFavorite', id, favorite)
+const handleRemoveImport = (style) => emit('removeImport', style)
 </script>

@@ -4,40 +4,40 @@
 
 /* ===== Light Theme (default) ===== */
 :root {
-  --color-canvas: #F7F6F3;
-  --color-surface: #FFFFFF;
-  --color-border: #EAEAEA;
-  --color-ink: #111111;
-  --color-charcoal: #2F3437;
-  --color-muted: #787774;
-  --color-accent: #b8693d;
-  --color-pale-red: #FDEBEC;
-  --color-pale-blue: #E1F3FE;
-  --color-pale-green: #EDF3EC;
-  --color-pale-yellow: #FBF3DB;
-  --color-paleText-red: #9F2F2D;
-  --color-paleText-blue: #1F6C9F;
-  --color-paleText-green: #346538;
-  --color-paleText-yellow: #956400;
+  --color-canvas: 247 246 243;
+  --color-surface: 255 255 255;
+  --color-border: 234 234 234;
+  --color-ink: 17 17 17;
+  --color-charcoal: 47 52 55;
+  --color-muted: 120 119 116;
+  --color-accent: 184 105 61;
+  --color-pale-red: 253 235 236;
+  --color-pale-blue: 225 243 254;
+  --color-pale-green: 237 243 236;
+  --color-pale-yellow: 251 243 219;
+  --color-paleText-red: 159 47 45;
+  --color-paleText-blue: 31 108 159;
+  --color-paleText-green: 52 101 56;
+  --color-paleText-yellow: 149 100 0;
 }
 
 /* ===== Dark Theme ===== */
 .dark {
-  --color-canvas: #1a1a2e;
-  --color-surface: #252540;
-  --color-border: #333355;
-  --color-ink: #e8e8ec;
-  --color-charcoal: #a0a0b0;
-  --color-muted: #8888aa;
-  --color-accent: #d4895d;
-  --color-pale-red: #3d2025;
-  --color-pale-blue: #1a2a3d;
-  --color-pale-green: #1d3320;
-  --color-pale-yellow: #3d3520;
-  --color-paleText-red: #e88888;
-  --color-paleText-blue: #7ab8e0;
-  --color-paleText-green: #7ab880;
-  --color-paleText-yellow: #d4b840;
+  --color-canvas: 26 26 46;
+  --color-surface: 37 37 64;
+  --color-border: 51 51 85;
+  --color-ink: 232 232 236;
+  --color-charcoal: 160 160 176;
+  --color-muted: 136 136 170;
+  --color-accent: 212 137 93;
+  --color-pale-red: 61 32 37;
+  --color-pale-blue: 26 42 61;
+  --color-pale-green: 29 51 32;
+  --color-pale-yellow: 61 53 32;
+  --color-paleText-red: 232 136 136;
+  --color-paleText-blue: 122 184 224;
+  --color-paleText-green: 122 184 128;
+  --color-paleText-yellow: 212 184 64;
 }
 
 * {
@@ -51,8 +51,8 @@ html {
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--color-canvas);
-  color: var(--color-ink);
+  background: rgb(var(--color-canvas));
+  color: rgb(var(--color-ink));
   font-family: 'SF Pro Display', 'Geist Sans', 'Helvetica Neue', 'Switzer', sans-serif;
   line-height: 1.6;
 }
@@ -120,12 +120,12 @@ html, body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: rgb(var(--color-border));
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-muted);
+  background: rgb(var(--color-muted));
 }
 
 /* Dark mode native form elements */

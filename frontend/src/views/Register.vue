@@ -68,14 +68,18 @@
               v-model="form.password2"
               type="password"
               placeholder="请再次输入密码"
-              class="w-full px-4 py-3 rounded-xl border border-border bg-canvas focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-              :class="{ 'opacity-50': loading }"
+              class="w-full px-4 py-3 rounded-xl border bg-canvas outline-none transition-all"
+              :class="{
+                'opacity-50': loading,
+                'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20': passwordMismatch,
+                'border-border focus:border-accent focus:ring-2 focus:ring-accent/20': !passwordMismatch,
+              }"
               :disabled="loading"
             />
-          </div>
-
-          <div v-if="error" class="bg-pale-red border border-red-200 text-paleText-red text-sm rounded-xl px-4 py-3">
-            {{ error }}
+            <p v-if="passwordMismatch" class="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              两次输入的密码不一致
+            </p>
           </div>
 
           <button
@@ -110,16 +114,18 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { ElMessageBox } from 'element-plus'
 import { register as registerUser } from '@/stores/auth'
 import { api } from '@/api'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const route = useRoute()
+const toast = useToast()
 
 const loading = ref(false)
 const usernameChecking = ref(false)
 const usernameStatus = ref(null) // null | 'checking' | 'available' | 'taken'
-const error = ref('')
 let usernameTimer = null
 
 const form = ref({
@@ -130,6 +136,10 @@ const form = ref({
 
 const canSubmit = computed(() => {
   return form.value.username.trim().length >= 1
+})
+
+const passwordMismatch = computed(() => {
+  return form.value.password2.length > 0 && form.value.password !== form.value.password2
 })
 
 const onUsernameInput = () => {
@@ -157,19 +167,17 @@ const onUsernameInput = () => {
 const handleSubmit = async () => {
   if (!canSubmit.value || loading.value) return
 
-  error.value = ''
-
   if (form.value.password.length < 6) {
-    error.value = '密码长度不能少于 6 个字符'
+    toast.show('密码长度不能少于 6 个字符')
     return
   }
   if (form.value.password !== form.value.password2) {
-    error.value = '两次输入的密码不一致'
+    toast.show('两次输入的密码不一致')
     return
   }
 
   if (usernameStatus.value === 'taken') {
-    error.value = '该用户名已被注册'
+    toast.show('该用户名已被注册')
     return
   }
 
@@ -180,10 +188,13 @@ const handleSubmit = async () => {
       password: form.value.password,
       password2: form.value.password2,
     })
+    await ElMessageBox.alert('账号注册成功！现在可以登录了。', '注册成功', {
+      confirmButtonText: '去登录', type: 'success', center: true
+    })
     const redirect = route.query.redirect || '/'
     await router.push(redirect)
   } catch (err) {
-    error.value = err.message || '注册失败，请稍后重试'
+    toast.show(err.message || '注册失败，请稍后重试')
   } finally {
     loading.value = false
   }

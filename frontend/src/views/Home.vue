@@ -156,6 +156,7 @@
           @copy-share="handleCopyShare"
           @toggle-public="handleTogglePublic"
           @toggle-favorite="handleToggleFavorite"
+          @remove-import="handleRemoveImport"
         />
       </template>
     </div>
@@ -181,7 +182,7 @@
   </div>
 
   <Editor
-    v-if="showEditor"
+    v-model="showEditor"
     :style="editingStyle"
     @close="closeEditor"
     @submit="handleEditorSubmit"
@@ -191,10 +192,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { ElMessageBox, ElNotification } from 'element-plus'
 import BubbleList from '@/components/BubbleList.vue'
 import Editor from '@/components/Editor.vue'
 import { api } from '@/api'
 import { getUser, refreshUser } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 
 const styles = ref([])
 const searchQuery = ref('')
@@ -220,9 +223,7 @@ const saving = ref(false)
 const savingAuthor = ref(false)
 const loading = ref(false)
 
-const props = defineProps({
-  toastRef: { type: Object, default: null }
-})
+const { show: showToast } = useToast()
 
 const myStylesCount = computed(() => styles.value.filter(s => s.mine).length)
 const publicStylesCount = computed(() => styles.value.filter(s => s.mine && s.public).length)
@@ -233,11 +234,6 @@ const currentBubbleName = computed(() => {
   const s = styles.value.find(s => s.id === currentId.value)
   return s ? s.name : '未选择'
 })
-
-const showToast = (msg) => {
-  if (props.toastRef) props.toastRef.show(msg)
-  else alert(msg)
-}
 
 const loadStyles = async () => {
   loading.value = true
@@ -309,8 +305,14 @@ const onAvatarChange = async (e) => {
 }
 
 const handleDelete = async (style) => {
-  const extra = style.uses > 0 ? `\n当前有 ${style.uses} 人正在使用它，删除后他们的气泡会回退为默认样式。` : ''
-  if (!confirm(`确定删除这个气泡样式？${extra}`)) return
+  const extra = style.uses > 0 ? `<br>当前有 ${style.uses} 人正在使用它，删除后他们的气泡会回退为默认样式。` : ''
+  try {
+    await ElMessageBox.confirm(
+      `确定删除这个气泡样式？${extra}`,
+      '删除确认',
+      { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true }
+    )
+  } catch { return }
   try {
     await api.deleteBubble(style.id)
     styles.value = styles.value.filter(s => s.id !== style.id)
@@ -328,16 +330,51 @@ const handleShare = async (style) => {
     const data = await api.genShare(style.id)
     const s = styles.value.find(s => s.id === style.id)
     if (s && data.shareCode) s.shareCode = data.shareCode
-    showToast('分享码已生成')
+    await ElMessageBox.alert(
+      `<div style="text-align:center">
+        <p style="margin-bottom:12px;color:var(--el-text-color-regular)">分享码已生成，复制下方代码分享给他人</p>
+        <code style="display:inline-block;padding:12px 24px;background:var(--el-fill-color-light);border-radius:8px;font-size:22px;font-weight:700;letter-spacing:6px;color:var(--el-color-primary);user-select:all">${data.shareCode}</code>
+        <p style="margin-top:12px;font-size:12px;color:var(--el-text-color-secondary)">对方可在"输入分享码使用"中粘贴使用</p>
+      </div>`,
+      '分享码',
+      { dangerouslyUseHTMLString: true, confirmButtonText: '关闭', center: true }
+    )
   } catch (e) {
     showToast(e.message || '生成失败')
   }
 }
 
-const handleCopyShare = (code) => {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(code).then(() => showToast('已复制分享码'), () => showToast('复制失败，请手动复制'))
-  } else {
+const handleCopyShare = async (code) => {
+  if (!code) {
+    showToast('分享码为空，请先生成')
+    return
+  }
+  // 弹窗展示分享码并自动复制
+  try {
+    // 先复制到剪贴板
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(code)
+    } else {
+      const ta = document.createElement('textarea')
+      ta.value = code
+      ta.style.position = 'fixed'
+      ta.style.left = '-9999px'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    // 弹窗展示
+    await ElMessageBox.alert(
+      `<div style="text-align:center">
+        <p style="margin-bottom:12px;color:var(--el-text-color-regular)">分享码已复制到剪贴板</p>
+        <code style="display:inline-block;padding:12px 24px;background:var(--el-fill-color-light);border-radius:8px;font-size:22px;font-weight:700;letter-spacing:6px;color:var(--el-color-primary);user-select:all">${code}</code>
+        <p style="margin-top:12px;font-size:12px;color:var(--el-text-color-secondary)">发送给好友即可导入你的气泡样式</p>
+      </div>`,
+      '复制分享码',
+      { dangerouslyUseHTMLString: true, confirmButtonText: '关闭', center: true }
+    )
+  } catch {
     showToast('复制失败，请手动复制')
   }
 }
@@ -373,6 +410,24 @@ const handleToggleFavorite = async (id, favorite) => {
     if (s) s.favorited = prevFav
     showToast(e.message || '操作失败')
     await loadStyles()
+  }
+}
+
+const handleRemoveImport = async (style) => {
+  try {
+    await ElMessageBox.confirm(`确定移除导入的气泡「${style.name}」？`, '移除导入', {
+      confirmButtonText: '确定移除', cancelButtonText: '取消', type: 'warning'
+    })
+  } catch { return }
+  try {
+    await api.removeImported(style.id)
+    styles.value = styles.value.filter(s => s.id !== style.id)
+    if (currentId.value === style.id) {
+      currentId.value = styles.value.length ? styles.value[0].id : 0
+    }
+    showToast('已移除')
+  } catch (e) {
+    showToast(e.message || '移除失败')
   }
 }
 
@@ -433,7 +488,7 @@ const redeem = async () => {
         styles.value.unshift(res.style)
       }
     }
-    showToast(`已添加：${res.name || ''}`)
+    ElNotification({ title: '导入成功', message: `已添加「${res.name || ''}」到你的气泡列表`, type: 'success', duration: 4000 })
     redeemCode.value = ''
   } catch (e) {
     showToast(e.message || '分享码无效')

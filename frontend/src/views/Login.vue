@@ -36,10 +36,6 @@
             />
           </div>
 
-          <div v-if="errorMsg" class="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-            {{ errorMsg }}
-          </div>
-
           <button
             type="submit"
             :disabled="loading || !canSubmit"
@@ -72,13 +68,15 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { ElNotification } from 'element-plus'
 import { login } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const route = useRoute()
+const toast = useToast()
 
 const loading = ref(false)
-const errorMsg = ref('')
 const form = ref({
   username: '',
   password: '',
@@ -92,7 +90,6 @@ const handleSubmit = async () => {
   if (!canSubmit.value || loading.value) return
 
   loading.value = true
-  errorMsg.value = ''
   try {
     await login({
       username: form.value.username.trim(),
@@ -101,7 +98,7 @@ const handleSubmit = async () => {
     const redirect = route.query.redirect || '/'
     await router.push(redirect)
   } catch (err) {
-    errorMsg.value = err.message || '登录失败，请检查用户名和密码'
+    ElNotification({ title: '登录失败', message: err.message || '请检查用户名和密码', type: 'error', duration: 4000 })
   } finally {
     loading.value = false
   }

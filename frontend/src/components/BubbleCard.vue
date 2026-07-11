@@ -55,27 +55,27 @@
     </div>
     
     <div v-if="bubble.mine" class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border">
-      <button 
+      <button
         class="px-3 py-1.5 text-xs font-medium text-ink bg-surface border border-border rounded-lg hover:bg-canvas transition-colors"
         @click.stop="$emit('edit', bubble)"
       >
         编辑
       </button>
-      <button 
+      <button
         class="px-3 py-1.5 text-xs font-medium text-ink bg-surface border border-border rounded-lg hover:bg-canvas transition-colors"
         @click.stop="$emit('share', bubble)"
       >
         生成分享码
       </button>
-      <button 
+      <button
         class="px-3 py-1.5 text-xs font-medium text-paleText-red bg-pale-red border border-transparent rounded-lg hover:bg-red-50 transition-colors"
         @click.stop="$emit('delete', bubble)"
       >
         删除
       </button>
       <label class="flex items-center gap-2 text-xs text-muted cursor-pointer">
-        <input 
-          type="checkbox" 
+        <input
+          type="checkbox"
           :checked="bubble.public"
           @change.stop="$emit('togglePublic', bubble.id, !bubble.public)"
           class="w-3.5 h-3.5 rounded border-border"
@@ -83,12 +83,20 @@
         公开分享
       </label>
     </div>
-    
+
+    <div v-if="bubble.imported" class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border">
+      <button
+        class="px-3 py-1.5 text-xs font-medium text-paleText-red bg-pale-red border border-transparent rounded-lg hover:bg-red-50 transition-colors"
+        @click.stop="$emit('removeImport', bubble)"
+      >
+        移除
+      </button>
+    </div>
+
     <div v-if="bubble.shareCode" class="mt-4 pt-4 border-t border-border">
       <div class="flex gap-3 items-center">
-        <code class="flex-1 bg-canvas rounded-lg px-3 py-2 text-sm font-mono font-semibold text-accent tracking-wider">
-          {{ bubble.shareCode }}
-        </code>
+        <code class="flex-1 bg-canvas rounded-lg px-3 py-2 text-sm font-mono font-semibold text-accent tracking-wider"
+              @click.stop>{{ bubble.shareCode }}</code>
         <button 
           class="px-3 py-2 text-xs font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors"
           @click.stop="$emit('copyShare', bubble.shareCode)"
@@ -115,7 +123,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['select', 'edit', 'delete', 'share', 'copyShare', 'togglePublic', 'toggleFavorite'])
+defineEmits(['select', 'edit', 'delete', 'share', 'copyShare', 'togglePublic', 'toggleFavorite', 'removeImport'])
 
 const previewLarge = computed(() => {
   return svgToImg(props.bubble.svg, 'h-14 w-auto', props.bubble.color, props.bubble.textColor)

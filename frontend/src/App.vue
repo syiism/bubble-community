@@ -2,18 +2,16 @@
   <div class="min-h-screen bg-canvas">
     <Navbar />
     <main class="pb-20">
-      <router-view v-slot="{ Component }">
-        <component :is="Component" :toast-ref="toastRef" />
-      </router-view>
+      <router-view />
     </main>
-    <Toast ref="toastRef" />
+    <Toast />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
 import Navbar from './components/Navbar.vue'
 import Toast from './components/Toast.vue'
+import { provideToast } from '@/composables/useToast'
 
-const toastRef = ref(null)
+provideToast()
 </script>

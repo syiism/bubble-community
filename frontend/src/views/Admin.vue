@@ -242,20 +242,25 @@
     </div>
 
     <!-- 编辑气泡 — 复用 Editor 组件 -->
-    <Editor v-if="editingBubble"
+    <Editor v-model="showBubbleEditor"
             :style="editingBubble"
             :admin="true"
             :user-list="allUsers"
-            @close="editingBubble = null"
+            @close="showBubbleEditor = false; editingBubble = null"
             @submit="handleEditSubmit"
+            @toast="toast.show"
     />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { ElMessageBox } from 'element-plus'
 import { api } from '@/api'
 import Editor from '@/components/Editor.vue'
+import { useToast } from '@/composables/useToast'
+
+const toast = useToast()
 
 const tabs = [
   { key: 'users', label: '用户管理' },
@@ -338,23 +343,35 @@ const toggleAllBubbles = () => {
 const batchDeleteUsers = async () => {
   const n = selectedUsers.value.size
   if (!n) return
-  if (!confirm(`确定删除选中的 ${n} 个用户？\n（管理员和当前账号会自动跳过）`)) return
+  try {
+    await ElMessageBox.confirm(
+      `确定删除选中的 ${n} 个用户？<br>（管理员和当前账号会自动跳过）`,
+      '批量删除用户',
+      { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true }
+    )
+  } catch { return }
   try {
     await api.adminBatchDeleteUsers([...selectedUsers.value])
     selectedUsers.value = new Set()
     await loadUsers()
-  } catch (e) { alert(e.message || '操作失败') }
+  } catch (e) { toast.show(e.message || '操作失败') }
 }
 
 const batchDeleteBubbles = async () => {
   const n = selectedBubbles.value.size
   if (!n) return
-  if (!confirm(`确定删除选中的 ${n} 个气泡？`)) return
+  try {
+    await ElMessageBox.confirm(
+      `确定删除选中的 ${n} 个气泡？`,
+      '批量删除气泡',
+      { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch { return }
   try {
     await api.adminBatchDeleteBubbles([...selectedBubbles.value])
     selectedBubbles.value = new Set()
     await loadBubbles()
-  } catch (e) { alert(e.message || '操作失败') }
+  } catch (e) { toast.show(e.message || '操作失败') }
 }
 
 // ===== 气泡管理 =====
@@ -392,45 +409,70 @@ const fmtDate = (iso) => {
 
 // ===== 用户操作 =====
 const setRole = async (userId, username, role) => {
-  if (!confirm(`确定将 ${username} 设为管理员？`)) return
+  try {
+    await ElMessageBox.confirm(`确定将 ${username} 设为管理员？`, '设置管理员', {
+      confirmButtonText: '确定', cancelButtonText: '取消', type: 'info'
+    })
+  } catch { return }
   try { await api.adminSetRole(userId, role); await loadUsers() }
-  catch (e) { alert(e.message || '操作失败') }
+  catch (e) { toast.show(e.message || '操作失败') }
 }
 
 const resetPassword = async (userId, username) => {
-  const pwd = prompt(`输入 ${username} 的新密码（至少 6 位）：`)
-  if (!pwd) return
-  if (pwd.length < 6) { alert('密码长度不能少于 6 个字符'); return }
-  try { await api.adminSetPassword(userId, pwd); alert(`用户 ${username} 的密码已重置`) }
-  catch (e) { alert(e.message || '操作失败') }
+  try {
+    const { value: pwd } = await ElMessageBox.prompt(
+      `输入 ${username} 的新密码（至少 6 位）：`,
+      '重置密码',
+      { confirmButtonText: '确定', cancelButtonText: '取消', inputType: 'password', inputValidator: (v) => v && v.length >= 6 ? true : '密码长度不能少于 6 个字符' }
+    )
+    if (!pwd) return
+    try { await api.adminSetPassword(userId, pwd); toast.show(`用户 ${username} 的密码已重置`) }
+    catch (e) { toast.show(e.message || '操作失败') }
+  } catch { /* 用户取消 */ }
 }
 
 const deleteUser = async (u) => {
-  if (!confirm(`确定删除用户「${u.username}」(ID:${u.id})？\n该用户的气泡、收藏等所有数据将被一并删除，不可撤销。`)) return
+  try {
+    await ElMessageBox.confirm(
+      `确定删除用户「${u.username}」(ID:${u.id})？<br>该用户的气泡、收藏等所有数据将被一并删除，不可撤销。`,
+      '删除用户',
+      { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true }
+    )
+  } catch { return }
   try {
     await api.adminDeleteUser(u.id)
     users.value = users.value.filter(x => x.id !== u.id)
     usersTotal.value = Math.max(0, usersTotal.value - 1)
-  } catch (e) { alert(e.message || '操作失败') }
+  } catch (e) { toast.show(e.message || '操作失败') }
 }
 
 // ===== 气泡操作 =====
 const toggleVisibility = async (b) => {
   try { const d = await api.adminSetBubbleVisibility(b.id, !b.public); b.public = d.public }
-  catch (e) { alert(e.message || '操作失败') }
+  catch (e) { toast.show(e.message || '操作失败') }
 }
 
 const deleteBubble = async (b) => {
   const label = b.name || `#${b.id}`
-  if (!confirm(`确定删除气泡「${label}」？\n此操作不可撤销。`)) return
+  try {
+    await ElMessageBox.confirm(
+      `确定删除气泡「${label}」？<br>此操作不可撤销。`,
+      '删除气泡',
+      { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true }
+    )
+  } catch { return }
   try { await api.adminDeleteBubble(b.id); bubbles.value = bubbles.value.filter(x => x.id !== b.id) }
-  catch (e) { alert(e.message || '操作失败') }
+  catch (e) { toast.show(e.message || '操作失败') }
 }
 
 // ===== 编辑气泡 =====
+const showBubbleEditor = ref(false)
 const editingBubble = ref(null)
 
-const openEditModal = (b) => { editingBubble.value = b }
+const openEditModal = (b) => {
+  editingBubble.value = b
+  showBubbleEditor.value = true
+}
 
 const handleEditSubmit = async (data) => {
   try {
@@ -458,7 +500,8 @@ const handleEditSubmit = async (data) => {
       })
     }
     editingBubble.value = null
-  } catch (e) { alert(e.message || '保存失败') }
+    showBubbleEditor.value = false
+  } catch (e) { toast.show(e.message || '保存失败') }
 }
 
 // ===== 初始化 =====

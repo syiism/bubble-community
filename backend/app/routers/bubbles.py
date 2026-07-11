@@ -262,6 +262,14 @@ async def redeem(body: RedeemBody, user=Depends(get_current_user)):
     return {"code": 0, "id": bubble.id, "name": bubble.name, "style": style}
 
 
+@router.post("/remove-imported")
+async def remove_imported(bubble_id: int = Body(..., embed=True), user=Depends(get_current_user)):
+    user_id = user["id"]
+    async with get_db_context() as db:
+        await ImportedBubbleRepository.remove_imported(db, user_id, bubble_id)
+    return {"code": 0}
+
+
 @router.post("/current")
 async def set_current(style: int | str = Body(..., embed=True), user=Depends(get_current_user)):
     user_id = user["id"]

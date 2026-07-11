@@ -42,6 +42,7 @@ export const api = {
   setVisibility: (id, pub) => request('POST', '/bubble-community/api/bubbles/visibility', { id, public: pub }),
   genShare: (id) => request('POST', '/bubble-community/api/bubbles/share', { id }),
   redeem: (code) => request('POST', '/bubble-community/api/bubbles/redeem', { code }),
+  removeImported: (bubbleId) => request('POST', '/bubble-community/api/bubbles/remove-imported', { bubble_id: bubbleId }),
   setCurrent: (style) => request('POST', '/bubble-community/api/bubbles/current', { style }),
   setFavorite: (id, favorite) => request('POST', '/bubble-community/api/bubbles/favorite', { id, favorite }),
   setAuthorName: (name) => request('POST', '/bubble-community/api/user/author-name', { name }),

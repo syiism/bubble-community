@@ -245,9 +245,6 @@
               >
                 {{ passwordSaving ? '保存中...' : '设置密码' }}
               </button>
-              <p v-if="passwordMessage" class="text-sm" :class="passwordMessageType === 'error' ? 'text-red-500' : 'text-green-600'">
-                {{ passwordMessage }}
-              </p>
             </div>
           </div>
 
@@ -315,9 +312,13 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { ElMessageBox } from 'element-plus'
 import { api } from '@/api'
 import { getUser, refreshUser } from '@/stores/auth'
 import { svgToImg } from '@/utils/svgHelper'
+import { useToast } from '@/composables/useToast'
+
+const toast = useToast()
 
 const user = ref(getUser() || { username: '', authorName: '' })
 const authorName = ref('')
@@ -330,8 +331,6 @@ const loading = ref(false)
 // 密码设置
 const passwordForm = ref({ newPassword: '', confirmPassword: '' })
 const passwordSaving = ref(false)
-const passwordMessage = ref('')
-const passwordMessageType = ref('')
 const canSavePassword = computed(() => {
   const np = passwordForm.value.newPassword
   const cp = passwordForm.value.confirmPassword
@@ -340,18 +339,15 @@ const canSavePassword = computed(() => {
 
 const savePassword = async () => {
   passwordSaving.value = true
-  passwordMessage.value = ''
   try {
     await api.forgetPassword({
       new_password: passwordForm.value.newPassword,
       confirm_password: passwordForm.value.confirmPassword,
     })
-    passwordMessage.value = '密码设置成功'
-    passwordMessageType.value = 'success'
     passwordForm.value = { newPassword: '', confirmPassword: '' }
+    toast.show('密码设置成功')
   } catch (e) {
-    passwordMessage.value = e.message || '设置失败'
-    passwordMessageType.value = 'error'
+    toast.show(e.message || '设置失败')
   } finally {
     passwordSaving.value = false
   }
@@ -382,7 +378,7 @@ const onAvatarChange = async (e) => {
       await refreshUser()
     }
   } catch (err) {
-    alert(err.message || '上传失败')
+    toast.show(err.message || '上传失败')
   }
 }
 
@@ -392,9 +388,9 @@ const saveAuthorName = async () => {
     const res = await api.setAuthorName(authorName.value.trim())
     authorName.value = res.authorName || ''
     user.value = { ...user.value, authorName: res.authorName || '' }
-    alert('设置已保存')
+    toast.show('设置已保存')
   } catch (e) {
-    alert(e.message || '保存失败')
+    toast.show(e.message || '保存失败')
   } finally {
     saving.value = false
   }
@@ -418,22 +414,30 @@ const loadSessions = async () => {
 }
 
 const revokeSession = async (sessionId) => {
-  if (!confirm('确定要退出该设备？')) return
+  try {
+    await ElMessageBox.confirm('确定要退出该设备？', '退出设备', {
+      confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
+    })
+  } catch { return }
   try {
     await api.revokeSession(sessionId)
     sessions.value = sessions.value.filter(s => s.id !== sessionId)
   } catch (e) {
-    alert(e.message || '操作失败')
+    toast.show(e.message || '操作失败')
   }
 }
 
 const logoutAllDevices = async () => {
-  if (!confirm('确定要退出所有其他设备？当前设备不受影响。')) return
+  try {
+    await ElMessageBox.confirm('确定要退出所有其他设备？当前设备不受影响。', '退出所有设备', {
+      confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
+    })
+  } catch { return }
   try {
     await api.logoutAll()
     await loadSessions()
   } catch (e) {
-    alert(e.message || '操作失败')
+    toast.show(e.message || '操作失败')
   }
 }
 
@@ -469,7 +473,7 @@ onMounted(async () => {
     styles.value = data.styles || []
     loadSessions()
   } catch (e) {
-    alert(e.message || '加载失败')
+    toast.show(e.message || '加载失败')
   } finally {
     loading.value = false
   }

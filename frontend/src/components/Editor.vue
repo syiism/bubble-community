@@ -1,211 +1,214 @@
 <template>
-  <div class="fixed inset-0 z-50 bg-ink/20 backdrop-blur-sm flex items-end sm:items-center justify-center"
-       @click.self="$emit('close')">
-    <div
-      class="bg-surface w-full sm:w-[90%] sm:max-w-2xl sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto animate-slide-up"
-      :style="dragStyle"
-      @touchstart="onTouchStart"
-      @touchmove="onTouchMove"
-      @touchend="onTouchEnd"
-    >
-      <!-- 拖动指示条（仅移动端） -->
-      <div class="sm:hidden flex justify-center pt-3 pb-1">
-        <div class="w-10 h-1 rounded-full bg-border"></div>
+  <el-dialog
+    v-model="visible"
+    :title="isEditing ? '编辑气泡' : '添加气泡'"
+    width="720px"
+    :close-on-click-modal="false"
+    top="5vh"
+    class="editor-dialog"
+    @closed="$emit('close')"
+  >
+    <div class="space-y-6">
+      <div>
+        <label class="block text-sm font-medium text-ink mb-2">名称</label>
+        <input
+          v-model="form.name"
+          type="text"
+          placeholder="如 我的爱心"
+          class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+        />
       </div>
-      <div class="sticky top-0 bg-surface border-b border-border px-6 py-4 flex items-center justify-between">
-        <h2 class="text-lg font-medium text-ink">{{ isEditing ? '编辑气泡' : '添加气泡' }}</h2>
-        <button
-          class="text-sm text-muted hover:text-ink transition-colors"
-          @click="$emit('close')"
-        >
-          取消
-        </button>
-      </div>
-      
-      <div class="p-6 space-y-6">
-        <div>
-          <label class="block text-sm font-medium text-ink mb-2">名称</label>
-          <input 
-            v-model="form.name"
-            type="text" 
-            placeholder="如 我的爱心"
-            class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
-          />
-        </div>
-        
-        <div v-if="admin">
-          <label class="block text-sm font-medium text-ink mb-2">作者（用户名）</label>
-          <select v-model="form.userId"
-                  class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink
-                         focus:outline-none focus:border-accent transition-colors">
-            <option :value="0">—</option>
-            <option v-for="u in userList" :key="u.id" :value="u.id">{{ u.username }}</option>
-          </select>
-        </div>
 
-        <div>
-          <label class="block text-sm font-medium text-ink mb-2">描述（选填）</label>
-          <input 
-            v-model="form.desc"
-            type="text" 
-            placeholder="如 圆润可爱 · 适合轻松向"
-            maxlength="60"
-            class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
-          />
+      <div v-if="admin">
+        <label class="block text-sm font-medium text-ink mb-2">作者（用户名）</label>
+        <select v-model="form.userId"
+                class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink
+                       focus:outline-none focus:border-accent transition-colors">
+          <option :value="0">—</option>
+          <option v-for="u in userList" :key="u.id" :value="u.id">{{ u.username }}</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-ink mb-2">描述（选填）</label>
+        <input
+          v-model="form.desc"
+          type="text"
+          placeholder="如 圆润可爱 · 适合轻松向"
+          maxlength="60"
+          class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+        />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-ink mb-2">SVG 模板</label>
+        <div class="text-xs text-muted mb-2">
+          数字用 {n}；颜色用 {c}/{t}，也兼容 ${displayText}、{{color}} 等；粘贴自带颜色的也可以，会自动变可调
         </div>
-        
-        <div>
-          <label class="block text-sm font-medium text-ink mb-2">SVG 模板</label>
-          <div class="text-xs text-muted mb-2">
-            数字用 {n}；颜色用 {c}/{t}，也兼容 ${displayText}、{{color}} 等；粘贴自带颜色的也可以，会自动变可调
-          </div>
-          <textarea 
+        <div class="relative">
+          <textarea
             v-model="form.svg"
-            rows="6"
+            rows="12"
             placeholder='<svg ...>...{n}...</svg>'
             @input="preview"
             @change="autoMap"
             class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm font-mono text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors resize-none"
           ></textarea>
-        </div>
-        
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-ink mb-2">气泡颜色</label>
-            <div class="flex items-center gap-2">
-              <input 
-                type="color" 
-                :value="form.color || '#b8693d'"
-                @input="updateColor('color', $event.target.value)"
-                class="w-10 h-10 rounded-lg border border-border cursor-pointer"
-              />
-              <input 
-                v-model="form.color"
-                type="text" 
-                placeholder="留空=默认"
-                @input="updateColor('color', form.color)"
-                class="flex-1 px-3 py-2 bg-canvas border border-border rounded-lg text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
-              />
-              <button 
-                class="px-3 py-2 text-xs font-medium text-muted bg-surface border border-border rounded-lg hover:bg-canvas transition-colors"
-                @click="clearColor('color')"
-              >
-                默认
-              </button>
-            </div>
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium text-ink mb-2">文字颜色</label>
-            <div class="flex items-center gap-2">
-              <input 
-                type="color" 
-                :value="form.textColor || '#ffffff'"
-                @input="updateColor('textColor', $event.target.value)"
-                class="w-10 h-10 rounded-lg border border-border cursor-pointer"
-              />
-              <input 
-                v-model="form.textColor"
-                type="text" 
-                placeholder="留空=默认"
-                @input="updateColor('textColor', form.textColor)"
-                class="flex-1 px-3 py-2 bg-canvas border border-border rounded-lg text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
-              />
-              <button 
-                class="px-3 py-2 text-xs font-medium text-muted bg-surface border border-border rounded-lg hover:bg-canvas transition-colors"
-                @click="clearColor('textColor')"
-              >
-                默认
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <div class="flex items-center gap-4">
-          <button 
-            class="px-4 py-2 text-sm font-medium text-ink bg-surface border border-border rounded-lg hover:bg-canvas transition-colors"
-            @click="extractColors"
+          <button
+            v-if="form.svg.trim()"
+            class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-lg bg-surface border border-border text-muted hover:text-ink hover:bg-canvas transition-colors"
+            title="复制 SVG 内容"
+            @click="copySvg"
           >
-            识别模板里的固定颜色
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
           </button>
-          <span class="text-xs text-muted">把写死的颜色一键变成可调</span>
         </div>
-        
-        <div v-if="extractedColors.length">
-          <div class="flex flex-wrap gap-2">
-            <div 
-              v-for="(color, idx) in extractedColors" 
-              :key="idx"
-              class="flex items-center gap-2 px-3 py-2 bg-canvas border border-border rounded-lg"
-            >
-              <div 
-                class="w-4 h-4 rounded border border-border"
-                :style="{ backgroundColor: color }"
-              ></div>
-              <code class="text-xs font-mono text-ink">{{ color }}</code>
-              <button 
-                class="px-2 py-0.5 text-xs font-medium text-paleText-blue bg-pale-blue rounded hover:bg-blue-50 transition-colors"
-                @click="applyColor(color, 'c')"
-              >
-                →气泡色
-              </button>
-              <button 
-                class="px-2 py-0.5 text-xs font-medium text-paleText-green bg-pale-green rounded hover:bg-green-50 transition-colors"
-                @click="applyColor(color, 't')"
-              >
-                →文字色
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <div>
-          <label class="block text-sm font-medium text-ink mb-2">预览</label>
-          <div class="bg-canvas rounded-xl p-6 flex items-center justify-center min-h-[80px]">
-            <span v-html="previewHtml"></span>
-          </div>
-        </div>
-        
-        <div class="flex items-center gap-3">
-          <input 
-            type="checkbox" 
-            v-model="form.public"
-            class="w-4 h-4 rounded border-border text-accent focus:ring-accent"
-          />
-          <span class="text-sm text-ink">所有人共用（公开给全站用户）</span>
-        </div>
-        
-        <p class="text-xs text-muted">
-          {{ isEditing 
-            ? (form.public 
-              ? '保存修改后：所有使用此气泡的人（公开 + 凭分享码）下次读正文都会同步更新。'
-              : '保存修改后：仅凭分享码使用此气泡的人会同步更新（未公开）。')
-            : '保存后此气泡加入你的列表；勾选公开则全站可见。'
-          }}
-        </p>
-        
-        <button 
-          :disabled="!form.svg.trim() || loading"
-          :class="[
-            'w-full py-3 rounded-xl text-sm font-medium transition-colors',
-            form.svg.trim() && !loading
-              ? 'bg-ink text-white hover:bg-charcoal'
-              : 'bg-border text-muted cursor-not-allowed'
-          ]"
-          @click="submit"
-        >
-          {{ loading ? '保存中...' : (isEditing ? '保存修改' : '创建') }}
-        </button>
       </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-ink mb-2">气泡颜色</label>
+          <div class="flex items-center gap-2">
+            <input
+              type="color"
+              :value="form.color || '#b8693d'"
+              @input="updateColor('color', $event.target.value)"
+              class="w-10 h-10 rounded-lg border border-border cursor-pointer"
+            />
+            <input
+              v-model="form.color"
+              type="text"
+              placeholder="留空=默认"
+              @input="updateColor('color', form.color)"
+              class="flex-1 px-3 py-2 bg-canvas border border-border rounded-lg text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+            />
+            <button
+              class="px-3 py-2 text-xs font-medium text-muted bg-surface border border-border rounded-lg hover:bg-canvas transition-colors"
+              @click="clearColor('color')"
+            >
+              默认
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-ink mb-2">文字颜色</label>
+          <div class="flex items-center gap-2">
+            <input
+              type="color"
+              :value="form.textColor || '#ffffff'"
+              @input="updateColor('textColor', $event.target.value)"
+              class="w-10 h-10 rounded-lg border border-border cursor-pointer"
+            />
+            <input
+              v-model="form.textColor"
+              type="text"
+              placeholder="留空=默认"
+              @input="updateColor('textColor', form.textColor)"
+              class="flex-1 px-3 py-2 bg-canvas border border-border rounded-lg text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+            />
+            <button
+              class="px-3 py-2 text-xs font-medium text-muted bg-surface border border-border rounded-lg hover:bg-canvas transition-colors"
+              @click="clearColor('textColor')"
+            >
+              默认
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <button
+          class="px-4 py-2 text-sm font-medium text-ink bg-surface border border-border rounded-lg hover:bg-canvas transition-colors"
+          @click="extractColors"
+        >
+          识别模板里的固定颜色
+        </button>
+        <span class="text-xs text-muted">把写死的颜色一键变成可调</span>
+      </div>
+
+      <div v-if="extractedColors.length">
+        <div class="flex flex-wrap gap-2">
+          <div
+            v-for="(color, idx) in extractedColors"
+            :key="idx"
+            class="flex items-center gap-2 px-3 py-2 bg-canvas border border-border rounded-lg"
+          >
+            <div
+              class="w-4 h-4 rounded border border-border"
+              :style="{ backgroundColor: color }"
+            ></div>
+            <code class="text-xs font-mono text-ink">{{ color }}</code>
+            <button
+              class="px-2 py-0.5 text-xs font-medium text-paleText-blue bg-pale-blue rounded hover:bg-blue-50 transition-colors"
+              @click="applyColor(color, 'c')"
+            >
+              →气泡色
+            </button>
+            <button
+              class="px-2 py-0.5 text-xs font-medium text-paleText-green bg-pale-green rounded hover:bg-green-50 transition-colors"
+              @click="applyColor(color, 't')"
+            >
+              →文字色
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-ink mb-2">预览</label>
+        <div class="bg-canvas rounded-xl p-6 flex items-center justify-center min-h-[80px]">
+          <span v-html="previewHtml"></span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <input
+          type="checkbox"
+          v-model="form.public"
+          class="w-4 h-4 rounded border-border text-accent focus:ring-accent"
+        />
+        <span class="text-sm text-ink">所有人共用（公开给全站用户）</span>
+      </div>
+
+      <p class="text-xs text-muted">
+        {{ isEditing
+          ? (form.public
+            ? '保存修改后：所有使用此气泡的人（公开 + 凭分享码）下次读正文都会同步更新。'
+            : '保存修改后：仅凭分享码使用此气泡的人会同步更新（未公开）。')
+          : '保存后此气泡加入你的列表；勾选公开则全站可见。'
+        }}
+      </p>
+
+      <button
+        :disabled="!form.svg.trim() || loading"
+        :class="[
+          'w-full py-3 rounded-xl text-sm font-medium transition-colors',
+          form.svg.trim() && !loading
+            ? 'bg-ink text-white hover:bg-charcoal'
+            : 'bg-border text-muted cursor-not-allowed'
+        ]"
+        @click="submit"
+      >
+        {{ loading ? '保存中...' : (isEditing ? '保存修改' : '创建') }}
+      </button>
     </div>
-  </div>
+  </el-dialog>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { ElNotification } from 'element-plus'
 import { svgToImg, normalizePlaceholders, autoMapColors, extractColors as extract } from '@/utils/svgHelper'
 
 const props = defineProps({
+  modelValue: {
+    type: Boolean,
+    default: false
+  },
   style: {
     type: Object,
     default: null
@@ -220,7 +223,12 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'submit'])
+const emit = defineEmits(['update:modelValue', 'close', 'submit', 'toast'])
+
+const visible = computed({
+  get: () => props.modelValue,
+  set: (val) => emit('update:modelValue', val)
+})
 
 const isEditing = computed(() => !!props.style)
 
@@ -236,45 +244,6 @@ const form = ref({
 
 const loading = ref(false)
 const extractedColors = ref([])
-
-// 移动端下滑关闭手势
-const touchStartY = ref(0)
-const touchCurrentY = ref(0)
-const isDragging = ref(false)
-const SWIPE_THRESHOLD = 100
-
-const dragStyle = computed(() => {
-  if (!isDragging.value) return {}
-  const offset = Math.max(0, touchCurrentY.value - touchStartY.value)
-  return {
-    transform: `translateY(${offset}px)`,
-    transition: 'none',
-  }
-})
-
-const onTouchStart = (e) => {
-  // 仅移动端（sm 以下）启用下滑关闭
-  if (window.innerWidth >= 640) return
-  touchStartY.value = e.touches[0].clientY
-  touchCurrentY.value = e.touches[0].clientY
-  isDragging.value = true
-}
-
-const onTouchMove = (e) => {
-  if (!isDragging.value) return
-  touchCurrentY.value = e.touches[0].clientY
-}
-
-const onTouchEnd = () => {
-  if (!isDragging.value) return
-  isDragging.value = false
-  const offset = touchCurrentY.value - touchStartY.value
-  if (offset > SWIPE_THRESHOLD) {
-    emit('close')
-  }
-  touchStartY.value = 0
-  touchCurrentY.value = 0
-}
 
 watch(() => props.style, (newStyle) => {
   if (newStyle) {
@@ -329,6 +298,28 @@ const clearColor = (field) => {
 
 const preview = () => {}
 
+const copySvg = async () => {
+  const svg = form.value.svg
+  if (!svg.trim()) return
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(svg)
+    } else {
+      const ta = document.createElement('textarea')
+      ta.value = svg
+      ta.style.position = 'fixed'
+      ta.style.left = '-9999px'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    ElNotification({ title: '已复制', message: 'SVG 内容已复制到剪贴板', type: 'success', duration: 3000 })
+  } catch {
+    ElNotification({ title: '复制失败', message: '请手动选中 SVG 内容复制', type: 'error', duration: 3000 })
+  }
+}
+
 const autoMap = () => {
   const result = autoMapColors(form.value.svg)
   form.value.svg = result.svg
@@ -363,9 +354,9 @@ const submit = () => {
     emit('toast', '请填写 SVG')
     return
   }
-  
+
   loading.value = true
-  
+
   setTimeout(() => {
     emit('submit', {
       ...form.value,
@@ -376,19 +367,76 @@ const submit = () => {
 }
 </script>
 
-<style scoped>
-@keyframes slideUp {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+<style>
+/* Element Plus 弹窗适配深色/浅色主题 */
+/* 使用非 scoped 样式，因为 el-dialog 通过 Teleport 渲染到 body */
+.editor-dialog {
+  border-radius: 16px;
+  --el-dialog-bg-color: rgb(var(--color-surface));
 }
 
-.animate-slide-up {
-  animation: slideUp 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.editor-dialog .el-dialog__header {
+  border-bottom: 1px solid rgb(var(--color-border));
+  padding: 16px 24px;
+}
+
+.editor-dialog .el-dialog__title {
+  font-size: 18px;
+  font-weight: 500;
+  color: rgb(var(--color-ink));
+}
+
+.editor-dialog .el-dialog__headerbtn {
+  top: 16px;
+  right: 24px;
+  font-size: 18px;
+}
+
+.editor-dialog .el-dialog__headerbtn .el-dialog__close {
+  color: rgb(var(--color-muted));
+}
+
+.editor-dialog .el-dialog__headerbtn .el-dialog__close:hover {
+  color: rgb(var(--color-ink));
+}
+
+.editor-dialog .el-dialog__body {
+  padding: 24px;
+}
+
+.editor-dialog .el-dialog__footer {
+  display: none;
+}
+
+/* 移动端底部弹出 */
+@media (max-width: 640px) {
+  .editor-dialog {
+    border-radius: 12px 12px 0 0;
+    margin-bottom: 0 !important;
+    margin-top: auto !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    top: auto !important;
+    left: 0 !important;
+    width: 100% !important;
+    max-height: 90vh;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  .editor-dialog.el-dialog {
+    --el-dialog-width: 100%;
+  }
+
+  .editor-dialog .el-dialog__header {
+    flex-shrink: 0;
+  }
+
+  .editor-dialog .el-dialog__body {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 </style>

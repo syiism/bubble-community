@@ -3,3 +3,4 @@ backend/.venv/
 backend/uv.lock
 frontend/node_modules/
 **/__pycache__
+.env
