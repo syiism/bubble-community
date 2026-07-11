@@ -64,18 +64,27 @@
                 </svg>
                 添加新气泡
               </button>
-              <button 
+              <button
                 class="w-full flex items-center gap-3 px-4 py-3 bg-canvas rounded-xl text-sm text-ink hover:bg-border/50 transition-colors"
                 @click="showSaved = !showSaved"
+              >
+                <svg class="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                </svg>
+                我的收藏
+              </button>
+              <button
+                class="w-full flex items-center gap-3 px-4 py-3 bg-canvas rounded-xl text-sm text-ink hover:bg-border/50 transition-colors"
+                @click="showImported = !showImported"
               >
                 <svg class="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                   <polyline points="7 10 12 15 17 10"></polyline>
                   <line x1="12" y1="15" x2="12" y2="3"></line>
                 </svg>
-                我的收藏
+                我的导入
               </button>
-              <button 
+              <button
                 class="w-full flex items-center gap-3 px-4 py-3 bg-canvas rounded-xl text-sm text-ink hover:bg-border/50 transition-colors"
                 @click="showStats = !showStats"
               >
@@ -156,7 +165,35 @@
               暂无收藏，去首页收藏喜欢的气泡吧
             </div>
           </div>
-          
+
+          <div v-if="showImported" class="bg-surface border border-border rounded-2xl p-6 scroll-animate">
+            <h2 class="text-lg font-medium text-ink mb-6">我的导入</h2>
+            <div v-if="importedStyles.length" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div
+                v-for="style in importedStyles"
+                :key="style.id"
+                class="bg-canvas rounded-xl p-4 cursor-pointer hover:shadow-subtle transition-all"
+                @click="$router.push('/')"
+              >
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 bg-surface rounded-lg flex items-center justify-center border border-border">
+                    <span v-html="getPreview(style)"></span>
+                  </div>
+                  <div class="flex-1">
+                    <div class="text-sm font-medium text-ink">{{ style.name }}</div>
+                    <div class="text-xs text-muted">{{ style.desc || (style.official ? '官方样式' : '社区样式') }}</div>
+                  </div>
+                  <div v-if="style.uses > 0" class="text-xs text-muted">
+                    {{ style.uses }} 人在用
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="text-center py-8 text-sm text-muted">
+              暂无导入，去首页通过分享码导入气泡吧
+            </div>
+          </div>
+
           <div v-if="showStats" class="bg-surface border border-border rounded-2xl p-6 scroll-animate">
             <h2 class="text-lg font-medium text-ink mb-6">数据统计</h2>
             <div class="grid grid-cols-2 gap-4">
@@ -324,6 +361,7 @@ const user = ref(getUser() || { username: '', authorName: '' })
 const authorName = ref('')
 const saving = ref(false)
 const showSaved = ref(false)
+const showImported = ref(false)
 const showStats = ref(false)
 const styles = ref([])
 const loading = ref(false)
@@ -362,6 +400,7 @@ const stats = computed(() => ({
 
 const myStyles = computed(() => styles.value.filter(s => s.mine))
 const favoriteStyles = computed(() => styles.value.filter(s => s.favorited))
+const importedStyles = computed(() => styles.value.filter(s => s.imported))
 
 const getPreview = (style) => {
   return svgToImg(style.svg, 'h-8 w-auto', style.color, style.textColor)
