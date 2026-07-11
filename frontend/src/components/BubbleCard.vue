@@ -35,18 +35,30 @@
 
     <div class="relative bg-canvas rounded-lg p-4 flex items-center justify-center mb-4 min-h-[60px] bubble-preview">
       <span v-html="previewLarge"></span>
-      <button
-        :class="[
-          'absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors',
-          bubble.favorited ? 'text-paleText-red bg-pale-red' : 'text-muted bg-surface hover:bg-border/50'
-        ]"
-        :title="bubble.favorited ? '取消收藏' : '收藏'"
-        @click.stop="$emit('toggleFavorite', bubble.id, !bubble.favorited)"
-      >
-        <svg class="w-4 h-4" viewBox="0 0 24 24" :fill="bubble.favorited ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
-          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-        </svg>
-      </button>
+      <div class="absolute top-2 right-2 flex items-center gap-1.5">
+        <button
+          class="w-8 h-8 rounded-full flex items-center justify-center transition-colors text-muted bg-surface hover:bg-border/50"
+          title="复制SVG代码"
+          @click.stop="copySvg"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        </button>
+        <button
+          :class="[
+            'w-8 h-8 rounded-full flex items-center justify-center transition-colors',
+            bubble.favorited ? 'text-paleText-red bg-pale-red' : 'text-muted bg-surface hover:bg-border/50'
+          ]"
+          :title="bubble.favorited ? '取消收藏' : '收藏'"
+          @click.stop="$emit('toggleFavorite', bubble.id, !bubble.favorited)"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" :fill="bubble.favorited ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>
+        </button>
+      </div>
     </div>
     
     <div class="text-xs text-muted mb-2">正文中的实际大小</div>
@@ -110,6 +122,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { ElNotification } from 'element-plus'
 import { svgToImg } from '@/utils/svgHelper'
 
 const props = defineProps({
@@ -132,4 +145,29 @@ const previewLarge = computed(() => {
 const previewSmall = computed(() => {
   return svgToImg(props.bubble.svg, 'h-5 w-auto inline-block align-middle ml-1', props.bubble.color, props.bubble.textColor)
 })
+
+const copySvg = async () => {
+  const svg = props.bubble.rawSvg || props.bubble.svg
+  if (!svg) {
+    ElNotification({ title: '复制失败', message: 'SVG内容为空', type: 'error', duration: 3000 })
+    return
+  }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(svg)
+    } else {
+      const ta = document.createElement('textarea')
+      ta.value = svg
+      ta.style.position = 'fixed'
+      ta.style.left = '-9999px'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    ElNotification({ title: '已复制', message: 'SVG代码已复制到剪贴板', type: 'success', duration: 3000 })
+  } catch {
+    ElNotification({ title: '复制失败', message: '请手动复制SVG代码', type: 'error', duration: 3000 })
+  }
+}
 </script>
