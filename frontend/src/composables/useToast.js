@@ -1,24 +1,14 @@
-import { ref, provide, inject } from 'vue'
+import { ElNotification } from 'element-plus'
 
-const TOAST_KEY = '$$bubble_toast'
-
-export function provideToast() {
-  const message = ref('')
-  const visible = ref(false)
-  let timer = null
-
-  function show(msg) {
-    message.value = msg
-    visible.value = true
-    clearTimeout(timer)
-    timer = setTimeout(() => {
-      visible.value = false
-    }, 2200)
-  }
-
-  provide(TOAST_KEY, { message, visible, show })
+function notify(msg) {
+  const message = msg || ''
+  const isError = /失败|错误|无效|不存在|不能|已被|请先|请检查|请填写/.test(message)
+  const isWarning = /为空|不一致/.test(message)
+  const type = isError ? 'error' : isWarning ? 'warning' : 'success'
+  const title = isError ? '操作失败' : isWarning ? '提示' : '操作成功'
+  ElNotification({ title, message, type, duration: 3000 })
 }
 
 export function useToast() {
-  return inject(TOAST_KEY) || { message: ref(''), visible: ref(false), show: () => {} }
+  return { show: notify }
 }

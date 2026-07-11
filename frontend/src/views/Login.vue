@@ -70,11 +70,9 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElNotification } from 'element-plus'
 import { login } from '@/stores/auth'
-import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const route = useRoute()
-const toast = useToast()
 
 const loading = ref(false)
 const form = ref({

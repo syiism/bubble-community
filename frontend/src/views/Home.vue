@@ -491,7 +491,7 @@ const redeem = async () => {
     ElNotification({ title: '导入成功', message: `已添加「${res.name || ''}」到你的气泡列表`, type: 'success', duration: 4000 })
     redeemCode.value = ''
   } catch (e) {
-    showToast(e.message || '分享码无效')
+    ElNotification({ title: '导入失败', message: e.message || '分享码无效', type: 'error', duration: 4000 })
   } finally {
     redeeming.value = false
   }
