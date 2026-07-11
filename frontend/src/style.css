@@ -2,10 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== Light Theme (default) ===== */
 :root {
-  --paper: #F6F1E7;
-  --ink: #3a352c;
-  --accent: #b8693d;
+  --color-canvas: #F7F6F3;
+  --color-surface: #FFFFFF;
+  --color-border: #EAEAEA;
+  --color-ink: #111111;
+  --color-charcoal: #2F3437;
+  --color-muted: #787774;
+  --color-accent: #b8693d;
+  --color-pale-red: #FDEBEC;
+  --color-pale-blue: #E1F3FE;
+  --color-pale-green: #EDF3EC;
+  --color-pale-yellow: #FBF3DB;
+  --color-paleText-red: #9F2F2D;
+  --color-paleText-blue: #1F6C9F;
+  --color-paleText-green: #346538;
+  --color-paleText-yellow: #956400;
+}
+
+/* ===== Dark Theme ===== */
+.dark {
+  --color-canvas: #1a1a2e;
+  --color-surface: #252540;
+  --color-border: #333355;
+  --color-ink: #e8e8ec;
+  --color-charcoal: #a0a0b0;
+  --color-muted: #8888aa;
+  --color-accent: #d4895d;
+  --color-pale-red: #3d2025;
+  --color-pale-blue: #1a2a3d;
+  --color-pale-green: #1d3320;
+  --color-pale-yellow: #3d3520;
+  --color-paleText-red: #e88888;
+  --color-paleText-blue: #7ab8e0;
+  --color-paleText-green: #7ab880;
+  --color-paleText-yellow: #d4b840;
 }
 
 * {
@@ -16,8 +48,8 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: #F7F6F3;
-  color: #111111;
+  background: var(--color-canvas);
+  color: var(--color-ink);
   font-family: 'SF Pro Display', 'Geist Sans', 'Helvetica Neue', 'Switzer', sans-serif;
   line-height: 1.6;
 }
@@ -42,26 +74,34 @@ html, body {
   animation: fadeUp 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.scroll-animate-delay-1 {
-  animation-delay: 80ms;
+.scroll-animate-delay-1 { animation-delay: 80ms; }
+.scroll-animate-delay-2 { animation-delay: 160ms; }
+.scroll-animate-delay-3 { animation-delay: 240ms; }
+.scroll-animate-delay-4 { animation-delay: 320ms; }
+.scroll-animate-delay-5 { animation-delay: 400ms; }
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-animate {
+    animation: none;
+    opacity: 1;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-.scroll-animate-delay-2 {
-  animation-delay: 160ms;
+/* ===== Safe Area Insets for notched devices ===== */
+.p-safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.p-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-.scroll-animate-delay-3 {
-  animation-delay: 240ms;
-}
-
-.scroll-animate-delay-4 {
-  animation-delay: 320ms;
-}
-
-.scroll-animate-delay-5 {
-  animation-delay: 400ms;
-}
-
+/* ===== Scrollbar ===== */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -72,10 +112,17 @@ html, body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #EAEAEA;
+  background: var(--color-border);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #D0D0D0;
+  background: var(--color-muted);
+}
+
+/* Dark mode native form elements */
+.dark input,
+.dark select,
+.dark textarea {
+  color-scheme: dark;
 }

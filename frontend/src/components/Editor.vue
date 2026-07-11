@@ -1,9 +1,20 @@
 <template>
-  <div class="fixed inset-0 z-50 bg-ink/20 backdrop-blur-sm flex items-end sm:items-center justify-center">
-    <div class="bg-surface w-full sm:w-[90%] sm:max-w-2xl sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto animate-slide-up">
+  <div class="fixed inset-0 z-50 bg-ink/20 backdrop-blur-sm flex items-end sm:items-center justify-center"
+       @click.self="$emit('close')">
+    <div
+      class="bg-surface w-full sm:w-[90%] sm:max-w-2xl sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto animate-slide-up"
+      :style="dragStyle"
+      @touchstart="onTouchStart"
+      @touchmove="onTouchMove"
+      @touchend="onTouchEnd"
+    >
+      <!-- 拖动指示条（仅移动端） -->
+      <div class="sm:hidden flex justify-center pt-3 pb-1">
+        <div class="w-10 h-1 rounded-full bg-border"></div>
+      </div>
       <div class="sticky top-0 bg-surface border-b border-border px-6 py-4 flex items-center justify-between">
         <h2 class="text-lg font-medium text-ink">{{ isEditing ? '编辑气泡' : '添加气泡' }}</h2>
-        <button 
+        <button
           class="text-sm text-muted hover:text-ink transition-colors"
           @click="$emit('close')"
         >
@@ -225,6 +236,45 @@ const form = ref({
 
 const loading = ref(false)
 const extractedColors = ref([])
+
+// 移动端下滑关闭手势
+const touchStartY = ref(0)
+const touchCurrentY = ref(0)
+const isDragging = ref(false)
+const SWIPE_THRESHOLD = 100
+
+const dragStyle = computed(() => {
+  if (!isDragging.value) return {}
+  const offset = Math.max(0, touchCurrentY.value - touchStartY.value)
+  return {
+    transform: `translateY(${offset}px)`,
+    transition: 'none',
+  }
+})
+
+const onTouchStart = (e) => {
+  // 仅移动端（sm 以下）启用下滑关闭
+  if (window.innerWidth >= 640) return
+  touchStartY.value = e.touches[0].clientY
+  touchCurrentY.value = e.touches[0].clientY
+  isDragging.value = true
+}
+
+const onTouchMove = (e) => {
+  if (!isDragging.value) return
+  touchCurrentY.value = e.touches[0].clientY
+}
+
+const onTouchEnd = () => {
+  if (!isDragging.value) return
+  isDragging.value = false
+  const offset = touchCurrentY.value - touchStartY.value
+  if (offset > SWIPE_THRESHOLD) {
+    emit('close')
+  }
+  touchStartY.value = 0
+  touchCurrentY.value = 0
+}
 
 watch(() => props.style, (newStyle) => {
   if (newStyle) {

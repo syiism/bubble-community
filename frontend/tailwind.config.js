@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{vue,js,ts,jsx,tsx}",
@@ -12,24 +13,24 @@ export default {
         mono: ['Geist Mono', 'SF Mono', 'JetBrains Mono', 'monospace'],
       },
       colors: {
-        canvas: '#F7F6F3',
-        surface: '#FFFFFF',
-        border: '#EAEAEA',
-        ink: '#111111',
-        charcoal: '#2F3437',
-        muted: '#787774',
-        accent: '#b8693d',
+        canvas: 'var(--color-canvas)',
+        surface: 'var(--color-surface)',
+        border: 'var(--color-border)',
+        ink: 'var(--color-ink)',
+        charcoal: 'var(--color-charcoal)',
+        muted: 'var(--color-muted)',
+        accent: 'var(--color-accent)',
         pale: {
-          red: '#FDEBEC',
-          blue: '#E1F3FE',
-          green: '#EDF3EC',
-          yellow: '#FBF3DB',
+          red: 'var(--color-pale-red)',
+          blue: 'var(--color-pale-blue)',
+          green: 'var(--color-pale-green)',
+          yellow: 'var(--color-pale-yellow)',
         },
         paleText: {
-          red: '#9F2F2D',
-          blue: '#1F6C9F',
-          green: '#346538',
-          yellow: '#956400',
+          red: 'var(--color-paleText-red)',
+          blue: 'var(--color-paleText-blue)',
+          green: 'var(--color-paleText-green)',
+          yellow: 'var(--color-paleText-yellow)',
         }
       },
       boxShadow: {

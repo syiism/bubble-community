@@ -335,9 +335,14 @@ class SessionRepository:
     SESSION_EXPIRE = timedelta(hours=2)
 
     @staticmethod
-    async def create(db: AsyncSession, session_id: str, user_id: int, username: str) -> Session:
+    async def create(db: AsyncSession, session_id: str, user_id: int, username: str,
+                     device_info: str = None, ip_address: str = None) -> Session:
         expires_at = datetime.now() + SessionRepository.SESSION_EXPIRE
-        session = Session(id=session_id, user_id=user_id, username=username, expires_at=expires_at)
+        session = Session(
+            id=session_id, user_id=user_id, username=username,
+            device_info=device_info, ip_address=ip_address,
+            expires_at=expires_at, last_seen_at=datetime.now(),
+        )
         db.add(session)
         await db.commit()
         await db.refresh(session)
@@ -345,7 +350,13 @@ class SessionRepository:
 
     @staticmethod
     async def get(db: AsyncSession, session_id: str) -> Session | None:
-        result = await db.execute(select(Session).options(load_only(Session.id, Session.user_id, Session.username, Session.expires_at)).filter(Session.id == session_id))
+        result = await db.execute(
+            select(Session).options(
+                load_only(Session.id, Session.user_id, Session.username,
+                          Session.device_info, Session.ip_address,
+                          Session.expires_at, Session.created_at, Session.last_seen_at)
+            ).filter(Session.id == session_id)
+        )
         return result.scalar_one_or_none()
 
     @staticmethod
@@ -353,15 +364,46 @@ class SessionRepository:
         """带行锁读取 session，防止并发刷新/删除竞态。"""
         result = await db.execute(
             select(Session)
-            .options(load_only(Session.id, Session.user_id, Session.username, Session.expires_at))
+            .options(load_only(Session.id, Session.user_id, Session.username,
+                               Session.device_info, Session.ip_address,
+                               Session.expires_at, Session.created_at, Session.last_seen_at))
             .filter(Session.id == session_id)
             .with_for_update()
         )
         return result.scalar_one_or_none()
 
     @staticmethod
+    async def list_by_user(db: AsyncSession, user_id: int) -> list[Session]:
+        """列出用户所有未过期的 session。"""
+        result = await db.execute(
+            select(Session).options(
+                load_only(Session.id, Session.user_id, Session.username,
+                          Session.device_info, Session.ip_address,
+                          Session.expires_at, Session.created_at, Session.last_seen_at)
+            ).filter(Session.user_id == user_id, Session.expires_at > datetime.now())
+            .order_by(Session.last_seen_at.desc())
+        )
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def touch(db: AsyncSession, session_id: str) -> None:
+        """更新 session 的最后活跃时间。"""
+        await db.execute(
+            Session.__table__.update()
+            .where(Session.id == session_id)
+            .values(last_seen_at=datetime.now())
+        )
+        await db.commit()
+
+    @staticmethod
     async def delete(db: AsyncSession, session_id: str) -> None:
         await db.execute(delete(Session).where(Session.id == session_id))
+        await db.commit()
+
+    @staticmethod
+    async def delete_by_user(db: AsyncSession, user_id: int) -> None:
+        """删除用户所有 session。"""
+        await db.execute(delete(Session).where(Session.user_id == user_id))
         await db.commit()
 
     @staticmethod
@@ -373,6 +415,7 @@ class SessionRepository:
     @staticmethod
     async def refresh_expiry(db: AsyncSession, session: Session) -> None:
         session.expires_at = datetime.now() + SessionRepository.SESSION_EXPIRE
+        session.last_seen_at = datetime.now()
         await db.commit()
 
     @staticmethod

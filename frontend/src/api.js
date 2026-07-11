@@ -70,4 +70,8 @@ export const api = {
   adminDeleteBubble: (id) => request('DELETE', `/bubble-community/api/admin/bubbles/${id}`),
   adminSetBubbleVisibility: (id, pub) => request('PUT', `/bubble-community/api/admin/bubbles/${id}/visibility`, { public: pub }),
   adminUpdateBubble: (id, data) => request('PUT', `/bubble-community/api/admin/bubbles/${id}`, data),
+  // 多设备会话管理
+  listSessions: () => request('GET', '/bubble-community/api/auth/sessions'),
+  revokeSession: (sessionId) => request('POST', '/bubble-community/api/auth/sessions/revoke', { session_id: sessionId }),
+  logoutAll: () => request('POST', '/bubble-community/api/auth/sessions/logout-all'),
 }

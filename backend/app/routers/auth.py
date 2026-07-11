@@ -41,6 +41,8 @@ async def register(request: Request, response: Response):
         from ..modules.repositories import UserRepository
         from ..password_util import hash_password
         from ..auth import create_token, TOKEN_COOKIE, TOKEN_MAX_AGE
+        from ..session import create_session
+        import uuid
 
         async with get_db_context() as db:
             existing = await UserRepository.get_by_username(db, username)
@@ -58,7 +60,13 @@ async def register(request: Request, response: Response):
             db.add(new_user)
             await db.commit()
 
-        token = await create_token(uid, username)
+        session_id = str(uuid.uuid4())
+        device_info = request.headers.get("User-Agent", "")
+        client_ip = request.client.host if request.client else ""
+
+        token = await create_token(uid, username, session_id)
+        await create_session(uid, username, device_info, client_ip)
+
         response.set_cookie(
             key=TOKEN_COOKIE,
             value=token,
@@ -117,20 +125,18 @@ async def login(request: Request, response: Response):
         user_id = user.id
         resolved_username = user.username
 
-        from ..auth import create_token, delete_token, TOKEN_COOKIE, TOKEN_MAX_AGE
+        import uuid
+        from ..auth import create_token, TOKEN_COOKIE, TOKEN_MAX_AGE
+        from ..session import create_session
 
-        # 如果已登录，先清除旧 token（单设备登录）
-        old_token = request.cookies.get(TOKEN_COOKIE)
-        if old_token:
-            try:
-                import jwt
-                from ..config import JWT_SECRET
-                old_payload = jwt.decode(old_token, JWT_SECRET, algorithms=["HS256"])
-                await delete_token(old_payload["uid"])
-            except Exception:
-                pass
+        # 生成新 session（多设备支持：不删除旧 token）
+        session_id = str(uuid.uuid4())
+        device_info = request.headers.get("User-Agent", "")
+        client_ip = request.client.host if request.client else ""
 
-        token = await create_token(user_id, resolved_username)
+        token = await create_token(user_id, resolved_username, session_id)
+        await create_session(user_id, resolved_username, device_info, client_ip)
+
         response.set_cookie(
             key=TOKEN_COOKIE,
             value=token,
@@ -143,8 +149,8 @@ async def login(request: Request, response: Response):
         import logging
         _log = logging.getLogger("auth")
         _log.info(
-            "[login] user=%s uid=%s",
-            username, user_id,
+            "[login] user=%s uid=%s sid=%s",
+            username, user_id, session_id,
         )
 
         return {
@@ -202,15 +208,118 @@ async def me(user=Depends(get_current_user), response: Response = None):
 
 @router.post("/logout")
 async def logout(request: Request, response: Response):
-    from ..auth import TOKEN_COOKIE, delete_token
+    from ..auth import TOKEN_COOKIE, delete_token, _decode_jwt
+    from ..session import delete_session
     token = request.cookies.get(TOKEN_COOKIE)
     if token:
         try:
-            import jwt
-            from ..config import JWT_SECRET
-            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-            await delete_token(payload["uid"])
+            payload = _decode_jwt(token)
+            uid = payload["uid"]
+            sid = payload.get("sid", "")
+            if sid:
+                await delete_token(uid, sid)
+                await delete_session(sid)
+            else:
+                # 兼容旧 token（无 sid）
+                await delete_token(uid, "")
         except Exception:
             pass
     response.delete_cookie(TOKEN_COOKIE, path="/")
     return {"code": 0, "message": "退出成功"}
+
+
+@router.get("/sessions")
+async def list_my_sessions(request: Request, user=Depends(get_current_user)):
+    """列出当前用户的所有活跃会话。"""
+    from ..session import get_user_sessions
+    from ..auth import _decode_jwt, TOKEN_COOKIE
+
+    sessions = await get_user_sessions(user["id"])
+    current_sid = ""
+    token = request.cookies.get(TOKEN_COOKIE)
+    if token:
+        try:
+            payload = _decode_jwt(token)
+            current_sid = payload.get("sid", "")
+        except Exception:
+            pass
+
+    return {
+        "code": 0,
+        "sessions": [
+            {**s, "is_current": s["id"] == current_sid}
+            for s in sessions
+        ],
+    }
+
+
+@router.post("/sessions/revoke")
+async def revoke_session(request: Request, user=Depends(get_current_user)):
+    """撤销指定 session（远程注销设备）。"""
+    try:
+        body = await request.json()
+        session_id = body.get("session_id", "")
+    except Exception:
+        raise HTTPException(status_code=400, detail="请求格式错误")
+
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id 不能为空")
+
+    from ..auth import _decode_jwt, TOKEN_COOKIE, delete_token
+    from ..session import delete_session
+
+    # 防止撤销当前设备
+    token = request.cookies.get(TOKEN_COOKIE)
+    if token:
+        try:
+            payload = _decode_jwt(token)
+            if payload.get("sid") == session_id:
+                raise HTTPException(status_code=400, detail="不能撤销当前设备，请使用退出登录")
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+    await delete_token(user["id"], session_id)
+    try:
+        await delete_session(session_id)
+    except Exception:
+        pass
+
+    return {"code": 0, "message": "已撤销该设备"}
+
+
+@router.post("/sessions/logout-all")
+async def logout_all_devices(request: Request, user=Depends(get_current_user)):
+    """退出所有其他设备，保留当前设备。"""
+    from datetime import timedelta
+    from ..auth import _decode_jwt, TOKEN_COOKIE, delete_all_tokens
+    from ..config import JWT_EXPIRE_DAYS
+    from ..modules.database import get_db_context
+    from ..modules.repositories import SessionRepository
+    from ..redis_client import get_redis
+
+    current_sid = ""
+    token = request.cookies.get(TOKEN_COOKIE)
+    if token:
+        try:
+            payload = _decode_jwt(token)
+            current_sid = payload.get("sid", "")
+        except Exception:
+            pass
+
+    # 删除所有 Redis token
+    await delete_all_tokens(user["id"])
+
+    # 删除所有 DB session
+    async with get_db_context() as db:
+        await SessionRepository.delete_by_user(db, user["id"])
+
+    # 重新注册当前 session
+    if current_sid and token:
+        redis = get_redis()
+        key = f"bubble_tokens:{user['id']}"
+        await redis.hset(key, current_sid, token)
+        await redis.expire(key, timedelta(days=JWT_EXPIRE_DAYS))
+
+    return {"code": 0, "message": "其他设备已全部退出"}

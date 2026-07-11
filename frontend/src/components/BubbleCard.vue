@@ -29,7 +29,7 @@
           bubble.id === currentId ? 'border-accent bg-accent' : 'border-border'
         ]"
       >
-        <div v-if="bubble.id === currentId" class="w-2 h-2 rounded-full bg-white"></div>
+        <div v-if="bubble.id === currentId" class="w-2 h-2 rounded-full bg-surface"></div>
       </div>
     </div>
 

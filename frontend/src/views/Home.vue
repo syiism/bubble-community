@@ -9,8 +9,8 @@
       </div>
 
       <!-- 吸附式搜索栏 -->
-      <div class="sticky top-16 z-40 -mx-6 px-6 mb-6"
-           style="background: rgba(255,255,255,0.4); backdrop-filter: blur(12px);">
+      <div class="sticky top-16 z-40 -mx-6 px-6 mb-6 bg-surface/40 backdrop-blur-md"
+           style="backdrop-filter: blur(12px);">
         <div class="max-w-4xl mx-auto">
           <div class="relative flex items-center py-2.5">
             <svg class="absolute left-0 w-4 h-4 text-muted pointer-events-none ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -19,9 +19,9 @@
             <input v-model="searchQuery" type="text" placeholder="搜索气泡名称 / 作者..."
                    class="w-full pl-8 pr-20 py-2.5 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted
                           transition-all duration-200
-                          focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 focus:bg-white" />
+                          focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 focus:bg-surface" />
             <button v-if="searchQuery"
-                    class="absolute right-0 px-3 py-1.5 text-xs font-medium text-muted hover:text-ink bg-white/80 border border-border rounded-lg transition-colors"
+                    class="absolute right-0 px-3 py-1.5 text-xs font-medium text-muted hover:text-ink bg-surface/80 border border-border rounded-lg transition-colors"
                     @click="searchQuery = ''">
               清空
             </button>
@@ -32,8 +32,8 @@
       <div v-if="loading && !styles.length" class="text-center py-20 text-sm text-muted">加载中…</div>
 
       <template v-else>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div class="lg:col-span-2 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div class="md:col-span-2 space-y-4">
             <div class="bg-surface border border-border rounded-xl p-5 scroll-animate scroll-animate-delay-1">
               <div class="flex items-center justify-between mb-4">
                 <h2 class="text-base font-medium text-ink">我的气泡</h2>
@@ -96,7 +96,7 @@
             </div>
           </div>
 
-          <div class="lg:col-span-1">
+          <div class="md:col-span-1">
             <div class="bg-surface border border-border rounded-xl p-5 sticky top-24 scroll-animate scroll-animate-delay-3">
               <div class="flex items-center gap-3 mb-4">
                 <div class="relative w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center overflow-hidden cursor-pointer"
@@ -107,7 +107,7 @@
                     <circle cx="12" cy="7" r="4"></circle>
                   </svg>
                   <!-- 右下角笔图标 -->
-                  <div class="absolute bottom-0 right-0 w-4 h-4 bg-white rounded-full shadow-sm flex items-center justify-center">
+                  <div class="absolute bottom-0 right-0 w-4 h-4 bg-surface rounded-full shadow-sm flex items-center justify-center">
                     <svg class="w-2.5 h-2.5 text-ink" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                       <path d="M16.84 2.73c-.39 0-.77.15-1.07.44l-2.12 2.12 5.3 5.3 2.12-2.12c.6-.6.6-1.56 0-2.16l-3.18-3.18c-.28-.28-.66-.44-1.05-.44M2 18.08V22h3.92l11.3-11.3-5.3-5.3L2 18.08Z"/>
                     </svg>
@@ -163,7 +163,7 @@
 
   <div
     v-if="filteredStyles.length"
-    class="fixed bottom-0 left-0 right-0 z-30 bg-surface/95 backdrop-blur border-t border-border"
+    class="fixed bottom-0 left-0 right-0 z-30 bg-surface/95 backdrop-blur border-t border-border p-safe-bottom"
   >
     <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
       <div class="flex-1 min-w-0">
