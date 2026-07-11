@@ -20,7 +20,7 @@
               <input
                 v-model="form.username"
                 type="text"
-                placeholder="3~15 个字符"
+                placeholder="1~15 个字符"
                 class="w-full px-4 py-3 rounded-xl border bg-canvas focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all"
                 :class="[
                   usernameStatus === 'taken' ? 'border-red-400' : usernameStatus === 'available' ? 'border-green-400' : 'border-border',
@@ -135,8 +135,9 @@ const canSubmit = computed(() => {
 const onUsernameInput = () => {
   clearTimeout(usernameTimer)
   const val = form.value.username.trim()
-  if (val.length < 3) {
+  if (val.length < 1) {
     usernameStatus.value = null
+    usernameChecking.value = false
     return
   }
   usernameChecking.value = true

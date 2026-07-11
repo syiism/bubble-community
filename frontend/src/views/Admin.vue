@@ -272,7 +272,7 @@ const statCards = computed(() => {
   return [
     { label: '用户总数', value: s.totalUsers },
     { label: '气泡总数', value: s.totalBubbles },
-    { label: '官方气泡', value: s.officialBubbles },
+    { label: '在线用户', value: s.onlineUsers },
     { label: '管理员', value: s.adminCount },
     { label: '总收藏数', value: s.totalFavorites },
     { label: '使用中气泡', value: s.activeBubbles },

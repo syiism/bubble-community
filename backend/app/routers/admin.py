@@ -48,9 +48,6 @@ async def admin_stats(user=Depends(require_admin)):
 
         total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
         total_bubbles = (await db.execute(select(func.count(Bubble.id)))).scalar() or 0
-        official_count = (await db.execute(
-            select(func.count(Bubble.id)).filter(Bubble.is_official == True)
-        )).scalar() or 0
         admin_count = (await db.execute(
             select(func.count(User.id)).filter(User.role == "admin")
         )).scalar() or 0
@@ -67,12 +64,26 @@ async def admin_stats(user=Depends(require_admin)):
             )).all()
         ))
 
+    # 在线用户数（Redis 中有活跃 session 的用户数）
+    online_count = 0
+    try:
+        from app.redis_client import get_redis
+        redis = get_redis()
+        cursor = 0
+        while True:
+            cursor, keys = await redis.scan(cursor, match="bubble_tokens:*", count=100)
+            online_count += len(keys)
+            if cursor == 0:
+                break
+    except Exception:
+        pass
+
     return {
         "code": 0,
         "stats": {
             "totalUsers": total_users,
             "totalBubbles": total_bubbles,
-            "officialBubbles": official_count,
+            "onlineUsers": online_count,
             "adminCount": admin_count,
             "totalFavorites": fav_count,
             "activeBubbles": active_bubbles,
