@@ -33,7 +33,7 @@
       </div>
     </div>
 
-    <div class="relative bg-canvas rounded-lg p-4 flex items-center justify-center mb-4 min-h-[60px]">
+    <div class="relative bg-canvas rounded-lg p-4 flex items-center justify-center mb-4 min-h-[60px] bubble-preview">
       <span v-html="previewLarge"></span>
       <button
         :class="[
@@ -50,7 +50,7 @@
     </div>
     
     <div class="text-xs text-muted mb-2">正文中的实际大小</div>
-    <div class="bg-canvas rounded-lg p-3 text-sm text-ink leading-relaxed">
+    <div class="bg-canvas rounded-lg p-3 text-sm text-ink leading-relaxed bubble-preview">
       他抬头望向天边的晚霞，久久没有说话<span v-html="previewSmall"></span>。
     </div>
     

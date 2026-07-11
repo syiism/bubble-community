@@ -45,6 +45,9 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  color-scheme: light dark;
+}
 html, body {
   margin: 0;
   padding: 0;
@@ -52,6 +55,11 @@ html, body {
   color: var(--color-ink);
   font-family: 'SF Pro Display', 'Geist Sans', 'Helvetica Neue', 'Switzer', sans-serif;
   line-height: 1.6;
+}
+
+/* 防止气泡预览 SVG 在深色模式下被浏览器反转颜色 */
+.bubble-preview svg {
+  color-scheme: normal;
 }
 
 #app {
