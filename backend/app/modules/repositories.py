@@ -78,7 +78,6 @@ class UserRepository:
 
     @staticmethod
     async def delete_user(db: AsyncSession, user_id: int) -> None:
-        from .session_model import Session
         from .user_current_bubble import UserCurrentBubble
         from .user_favorite import UserFavorite
         from .imported_bubble import ImportedBubble
@@ -87,7 +86,6 @@ class UserRepository:
         result = await db.execute(select(Bubble.id).filter(Bubble.user_id == user_id))
         bubble_ids = [row[0] for row in result.all()]
         # 删除用户级的关联
-        await db.execute(delete(Session).where(Session.user_id == user_id))
         await db.execute(delete(UserCurrentBubble).where(UserCurrentBubble.user_id == user_id))
         await db.execute(delete(UserFavorite).where(UserFavorite.user_id == user_id))
         await db.execute(delete(ImportedBubble).where(ImportedBubble.user_id == user_id))

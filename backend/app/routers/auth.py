@@ -41,14 +41,12 @@ async def register(request: Request, response: Response):
         from ..modules.repositories import UserRepository
         from ..password_util import hash_password
         from ..auth import create_token, TOKEN_COOKIE, TOKEN_MAX_AGE, _device_key
-        from ..session import create_session
 
         async with get_db_context() as db:
             existing = await UserRepository.get_by_username(db, username)
             if existing:
                 raise HTTPException(status_code=409, detail="该用户名已注册")
 
-            # 获取当前最大用户 ID 并 +1 作为新 ID
             from sqlalchemy import func, select
             from ..modules.user import User
             max_id = await db.execute(select(func.max(User.id)))
@@ -63,9 +61,8 @@ async def register(request: Request, response: Response):
         client_ip = request.client.host if request.client else ""
         session_id = _device_key(uid, client_ip, device_info)
 
-        token = await create_token(uid, username, session_id)
-        await create_session(uid, username, device_info, client_ip,
-                             session_id=session_id)
+        token = await create_token(uid, username, session_id,
+                                   device_info=device_info, ip=client_ip)
 
         response.set_cookie(
             key=TOKEN_COOKIE,
@@ -115,7 +112,6 @@ async def login(request: Request, response: Response):
         if not user:
             raise HTTPException(status_code=401, detail="用户名或密码错误")
 
-        # 如果用户有密码则校验，无密码（旧账户）允许登录
         if user.password:
             if not password:
                 raise HTTPException(status_code=401, detail="用户名或密码错误")
@@ -126,16 +122,13 @@ async def login(request: Request, response: Response):
         resolved_username = user.username
 
         from ..auth import create_token, TOKEN_COOKIE, TOKEN_MAX_AGE, _device_key
-        from ..session import create_session
 
-        # 基于 IP + User-Agent 生成设备标识（多设备支持）
         device_info = request.headers.get("User-Agent", "")
         client_ip = request.client.host if request.client else ""
         session_id = _device_key(user_id, client_ip, device_info)
 
-        token = await create_token(user_id, resolved_username, session_id)
-        await create_session(user_id, resolved_username, device_info, client_ip,
-                             session_id=session_id)
+        token = await create_token(user_id, resolved_username, session_id,
+                                   device_info=device_info, ip=client_ip)
 
         response.set_cookie(
             key=TOKEN_COOKIE,
@@ -209,7 +202,6 @@ async def me(user=Depends(get_current_user), response: Response = None):
 @router.post("/logout")
 async def logout(request: Request, response: Response):
     from ..auth import TOKEN_COOKIE, delete_token, _decode_jwt
-    from ..session import delete_session
     token = request.cookies.get(TOKEN_COOKIE)
     if token:
         try:
@@ -218,10 +210,6 @@ async def logout(request: Request, response: Response):
             sid = payload.get("sid", "")
             if sid:
                 await delete_token(uid, sid)
-                await delete_session(sid)
-            else:
-                # 兼容旧 token（无 sid）
-                await delete_token(uid, "")
         except Exception:
             pass
     response.delete_cookie(TOKEN_COOKIE, path="/")
@@ -230,9 +218,8 @@ async def logout(request: Request, response: Response):
 
 @router.get("/sessions")
 async def list_my_sessions(request: Request, user=Depends(get_current_user)):
-    """列出当前用户的所有活跃会话。"""
-    from ..session import get_user_sessions
-    from ..auth import _decode_jwt, TOKEN_COOKIE
+    """列出当前用户的所有活跃会话（从 Redis 读取）。"""
+    from ..auth import get_user_sessions, _decode_jwt, TOKEN_COOKIE
 
     sessions = await get_user_sessions(user["id"])
     current_sid = ""
@@ -243,6 +230,10 @@ async def list_my_sessions(request: Request, user=Depends(get_current_user)):
             current_sid = payload.get("sid", "")
         except Exception:
             pass
+
+    # 部分掩码 IP
+    for s in sessions:
+        s["ip_address"] = _mask_ip(s.get("ip_address", ""))
 
     return {
         "code": 0,
@@ -255,7 +246,7 @@ async def list_my_sessions(request: Request, user=Depends(get_current_user)):
 
 @router.post("/sessions/revoke")
 async def revoke_session(request: Request, user=Depends(get_current_user)):
-    """撤销指定 session（远程注销设备）。"""
+    """撤销指定设备 session（远程注销）。"""
     try:
         body = await request.json()
         session_id = body.get("session_id", "")
@@ -266,9 +257,7 @@ async def revoke_session(request: Request, user=Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="session_id 不能为空")
 
     from ..auth import _decode_jwt, TOKEN_COOKIE, delete_token
-    from ..session import delete_session
 
-    # 防止撤销当前设备
     token = request.cookies.get(TOKEN_COOKIE)
     if token:
         try:
@@ -281,11 +270,6 @@ async def revoke_session(request: Request, user=Depends(get_current_user)):
             pass
 
     await delete_token(user["id"], session_id)
-    try:
-        await delete_session(session_id)
-    except Exception:
-        pass
-
     return {"code": 0, "message": "已撤销该设备"}
 
 
@@ -293,33 +277,43 @@ async def revoke_session(request: Request, user=Depends(get_current_user)):
 async def logout_all_devices(request: Request, user=Depends(get_current_user)):
     """退出所有其他设备，保留当前设备。"""
     from datetime import timedelta
-    from ..auth import _decode_jwt, TOKEN_COOKIE, delete_all_tokens
+    from ..auth import (_decode_jwt, TOKEN_COOKIE, delete_all_tokens,
+                        create_token, _device_key, _session_data)
     from ..config import JWT_EXPIRE_DAYS
-    from ..modules.database import get_db_context
-    from ..modules.repositories import SessionRepository
     from ..redis_client import get_redis
 
     current_sid = ""
+    current_token = ""
     token = request.cookies.get(TOKEN_COOKIE)
     if token:
         try:
             payload = _decode_jwt(token)
             current_sid = payload.get("sid", "")
+            current_token = token
         except Exception:
             pass
 
-    # 删除所有 Redis token
+    # 删除所有设备
     await delete_all_tokens(user["id"])
 
-    # 删除所有 DB session
-    async with get_db_context() as db:
-        await SessionRepository.delete_by_user(db, user["id"])
-
-    # 重新注册当前 session
-    if current_sid and token:
+    # 重新注册当前设备
+    if current_sid and current_token:
+        device_info = request.headers.get("User-Agent", "")
+        client_ip = request.client.host if request.client else ""
         redis = get_redis()
         key = f"bubble_tokens:{user['id']}"
-        await redis.hset(key, current_sid, token)
+        await redis.hset(key, current_sid,
+                         _session_data(current_token, device_info, client_ip))
         await redis.expire(key, timedelta(days=JWT_EXPIRE_DAYS))
 
     return {"code": 0, "message": "其他设备已全部退出"}
+
+
+def _mask_ip(ip: str) -> str:
+    """部分掩码 IP 地址的最后一节以保护隐私。"""
+    if not ip:
+        return ""
+    parts = ip.rsplit(".", 1)
+    if len(parts) == 2:
+        return f"{parts[0]}.***"
+    return ip

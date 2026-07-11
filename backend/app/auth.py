@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -34,19 +35,43 @@ def _create_jwt(uid: int, username: str, sid: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
 
-async def create_token(uid: int, username: str, sid: str) -> str:
-    """创建 JWT，写入 Redis Hash（多设备支持），返回 token 字符串。"""
+def _session_data(token: str, device_info: str, ip: str) -> str:
+    """序列化 session 元数据为 JSON，与 token 一起存入 Redis。"""
+    now = datetime.now(timezone.utc).isoformat()
+    return json.dumps({
+        "token": token,
+        "device_info": device_info or "",
+        "ip": ip or "",
+        "created_at": now,
+        "last_seen_at": now,
+    }, ensure_ascii=False)
+
+
+def _parse_session(raw: str | None) -> dict | None:
+    """解析 Redis 中存储的 session JSON。"""
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        # 兼容旧格式（纯 token 字符串）
+        return {"token": raw, "device_info": "", "ip": "", "created_at": "", "last_seen_at": ""}
+
+
+async def create_token(uid: int, username: str, sid: str,
+                       device_info: str = "", ip: str = "") -> str:
+    """创建 JWT，连同设备信息写入 Redis Hash。返回 token 字符串。"""
     token = _create_jwt(uid, username, sid)
     redis = get_redis()
     key = f"{REDIS_KEY_PREFIX}:{uid}"
-    await redis.hset(key, sid, token)
+    await redis.hset(key, sid, _session_data(token, device_info, ip))
     await redis.expire(key, timedelta(days=JWT_EXPIRE_DAYS))
     _log.info("Token created for uid=%s sid=%s", uid, sid)
     return token
 
 
 async def delete_token(uid: int, sid: str) -> None:
-    """从 Redis Hash 删除指定设备 session 的 token。"""
+    """从 Redis Hash 删除指定设备的 session。"""
     redis = get_redis()
     await redis.hdel(f"{REDIS_KEY_PREFIX}:{uid}", sid)
     _log.info("Token deleted for uid=%s sid=%s", uid, sid)
@@ -59,11 +84,35 @@ async def delete_all_tokens(uid: int) -> None:
     _log.info("All tokens deleted for uid=%s", uid)
 
 
-async def list_user_sessions(uid: int) -> list[str]:
-    """返回用户在 Redis 中的所有活跃设备 key 列表。"""
+async def get_user_sessions(uid: int) -> list[dict]:
+    """返回用户所有活跃设备 session 列表（从 Redis 读取）。"""
     redis = get_redis()
-    keys = await redis.hkeys(f"{REDIS_KEY_PREFIX}:{uid}")
-    return keys
+    raw = await redis.hgetall(f"{REDIS_KEY_PREFIX}:{uid}")
+    result = []
+    for sid, data in raw.items():
+        session = _parse_session(data)
+        if session:
+            result.append({
+                "id": sid,
+                "device_info": session.get("device_info", ""),
+                "ip_address": session.get("ip", ""),
+                "created_at": session.get("created_at", ""),
+                "last_seen_at": session.get("last_seen_at", ""),
+            })
+    result.sort(key=lambda s: s.get("last_seen_at", ""), reverse=True)
+    return result
+
+
+async def touch_session(uid: int, sid: str) -> None:
+    """更新 session 的最后活跃时间。"""
+    redis = get_redis()
+    raw = await redis.hget(f"{REDIS_KEY_PREFIX}:{uid}", sid)
+    if raw:
+        session = _parse_session(raw)
+        if session:
+            session["last_seen_at"] = datetime.now(timezone.utc).isoformat()
+            await redis.hset(f"{REDIS_KEY_PREFIX}:{uid}", sid,
+                             json.dumps(session, ensure_ascii=False))
 
 
 def _decode_jwt(token: str) -> dict:
@@ -86,21 +135,21 @@ async def _resolve_user(request: Request) -> dict:
     username = payload.get("username", "")
     sid = payload.get("sid", "")
 
-    # 验证 Redis Hash 中该设备的 token 与 cookie 一致（多设备支持）
     redis = get_redis()
     key = f"{REDIS_KEY_PREFIX}:{uid}"
 
     if sid:
-        stored = await redis.hget(key, sid)
+        raw = await redis.hget(key, sid)
+        session = _parse_session(raw)
+        stored = session["token"] if session else None
     else:
-        # 兼容旧 token（无 sid）：尝试旧 key 格式
+        # 兼容旧 token（无 sid）
         stored = await redis.get(f"bubble_token_{uid}")
         if stored == token:
-            # 旧 token 有效，基于当前请求信息迁移到新格式
             client_ip = request.client.host if request.client else ""
             ua = request.headers.get("User-Agent", "")
             new_sid = _device_key(uid, client_ip, ua)
-            await redis.hset(key, new_sid, token)
+            await redis.hset(key, new_sid, _session_data(token, ua, client_ip))
             await redis.expire(key, timedelta(days=JWT_EXPIRE_DAYS))
             await redis.delete(f"bubble_token_{uid}")
             _log.info("Migrated old token for uid=%s to device key %s", uid, new_sid)
@@ -117,15 +166,12 @@ async def _resolve_user(request: Request) -> dict:
     async with get_db_context() as db:
         user = await UserRepository.get_or_create(db, uid, username, None)
 
-    # 更新 session 最后活跃时间
+    # 更新最后活跃时间（Redis，非阻塞）
     if sid:
         try:
-            from .modules.database import get_db_context as _get_db
-            from .modules.repositories import SessionRepository
-            async with _get_db() as db:
-                await SessionRepository.touch(db, sid)
+            await touch_session(uid, sid)
         except Exception:
-            pass  # session touch 失败不影响请求
+            pass
 
     return {
         "id": user.id,

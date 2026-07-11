@@ -76,20 +76,6 @@ def migrate_schema():
             conn.commit()
             print("[seed] 已将用户 syiism(id=190) 设为管理员。")
 
-        # sessions 表新字段：device_info, ip_address, last_seen_at（多设备支持）
-        for col, col_def in [
-            ("device_info", "VARCHAR(255) DEFAULT NULL AFTER username"),
-            ("ip_address", "VARCHAR(45) DEFAULT NULL AFTER device_info"),
-            ("last_seen_at", "DATETIME DEFAULT NULL AFTER expires_at"),
-        ]:
-            result = conn.execute(
-                text(f"SHOW COLUMNS FROM sessions LIKE '{col}'")
-            )
-            if not result.fetchone():
-                conn.execute(text(f"ALTER TABLE sessions ADD COLUMN {col} {col_def}"))
-                conn.commit()
-                print(f"[seed] 已添加 sessions.{col} 字段。")
-
 
 def seed_official():
     seed_path = SEED_JSON if SEED_JSON.exists() else (SEED_JSON_FALLBACK if SEED_JSON_FALLBACK.exists() else None)
