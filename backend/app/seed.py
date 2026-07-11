@@ -87,10 +87,11 @@ def seed_official():
     styles = data.get("styles", []) if isinstance(data, dict) else data
 
     from .modules.database import DATABASE_URL
+    from sqlalchemy.orm import Session as SyncSession
     sync_engine = create_engine(DATABASE_URL.replace("aiomysql", "pymysql"))
-    
-    with sync_engine.connect() as conn:
-        count = conn.execute(text("SELECT COUNT(*) FROM bubbles WHERE is_official = 1")).scalar()
+
+    with SyncSession(sync_engine) as session:
+        count = session.execute(text("SELECT COUNT(*) FROM bubbles WHERE is_official = 1")).scalar()
         if count > 0:
             print("[seed] 官方气泡已存在，跳过灌入。")
             return
@@ -109,9 +110,9 @@ def seed_official():
                 is_official=True,
                 author_name="",
             )
-            conn.add(bubble)
+            session.add(bubble)
             inserted += 1
-        conn.commit()
+        session.commit()
         print(f"[seed] 已灌入 {inserted} 个官方气泡。")
 
 
