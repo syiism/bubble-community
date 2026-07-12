@@ -149,7 +149,7 @@ async def _get_cached_user(uid: int) -> dict | None:
 
 async def _cache_user_info(uid: int, info: dict) -> None:
     redis = get_redis()
-    await redis.set(f"{_USER_CACHE_PREFIX}:{uid}", json.dumps(info, ensure_ascii=False))
+    await redis.setex(f"{_USER_CACHE_PREFIX}:{uid}", 3600, json.dumps(info, ensure_ascii=False))
 
 
 async def invalidate_user_cache(uid: int) -> None:
