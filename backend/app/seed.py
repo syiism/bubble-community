@@ -66,6 +66,15 @@ def migrate_schema():
             conn.commit()
             print("[seed] 已灌入 roles 表（user / admin）。")
 
+        # username_updated_at 字段
+        result = conn.execute(
+            text("SHOW COLUMNS FROM users LIKE 'username_updated_at'")
+        )
+        if not result.fetchone():
+            conn.execute(text("ALTER TABLE users ADD COLUMN username_updated_at DATETIME DEFAULT NULL AFTER username"))
+            conn.commit()
+            print("[seed] 已添加 users.username_updated_at 字段。")
+
         # 设置 syiism(id=190) 为管理员
         result = conn.execute(
             text("SELECT role FROM users WHERE id = 190")

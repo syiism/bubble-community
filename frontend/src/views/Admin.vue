@@ -159,7 +159,7 @@
               <option value="1">公开</option>
               <option value="0">私有</option>
             </select>
-            <input v-model="bubbleQuery" type="text" placeholder="搜索气泡名/作者"
+            <input v-model="bubbleQuery" type="text" placeholder="搜索气泡名/作者/创建者"
                    class="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink placeholder:text-muted
                           focus:outline-none focus:border-accent transition-colors"
                    @keyup.enter="searchBubbles" />

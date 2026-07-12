@@ -46,6 +46,7 @@ export const api = {
   setCurrent: (style) => request('POST', '/bubble-community/api/bubbles/current', { style }),
   setFavorite: (id, favorite) => request('POST', '/bubble-community/api/bubbles/favorite', { id, favorite }),
   setAuthorName: (name) => request('POST', '/bubble-community/api/user/author-name', { name }),
+  setUsername: (username) => request('POST', '/bubble-community/api/user/username', { username }),
   uploadAvatar: (file) => {
     const form = new FormData()
     form.append('file', file)

@@ -218,6 +218,9 @@ async def list_bubbles(
                 or_(
                     Bubble.name.ilike(f"%{query}%"),
                     Bubble.author_name.ilike(f"%{query}%"),
+                    Bubble.user_id.in_(
+                        select(User.id).filter(User.username.ilike(f"%{query}%"))
+                    ),
                 )
             )
         if official in ("1", "true"):

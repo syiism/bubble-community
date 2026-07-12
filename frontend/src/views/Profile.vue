@@ -222,12 +222,25 @@
             <div class="space-y-6">
               <div>
                 <label class="block text-sm font-medium text-ink mb-2">登录昵称</label>
-                <input
-                  type="text"
-                  :value="user.username"
-                  disabled
-                  class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink disabled:opacity-50"
-                />
+                <div class="flex gap-3">
+                  <input
+                    v-model="usernameForm"
+                    type="text"
+                    maxlength="32"
+                    placeholder="输入新用户名"
+                    class="flex-1 px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+                  />
+                  <button
+                    :disabled="!usernameForm.trim() || usernameForm.trim() === user.username || usernameSaving"
+                    class="px-5 py-3 text-sm font-medium text-white bg-ink rounded-xl hover:bg-charcoal transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    @click="saveUsername"
+                  >
+                    {{ usernameSaving ? '保存中...' : '保存' }}
+                  </button>
+                </div>
+                <p class="text-xs text-muted mt-2">
+                  修改登录用户名，不可与他人重复。
+                </p>
               </div>
 
               <div>
@@ -359,6 +372,8 @@ const toast = useToast()
 
 const user = ref(getUser() || { username: '', authorName: '' })
 const authorName = ref('')
+const usernameForm = ref('')
+const usernameSaving = ref(false)
 const saving = ref(false)
 const showSaved = ref(false)
 const showImported = ref(false)
@@ -435,6 +450,22 @@ const saveAuthorName = async () => {
   }
 }
 
+const saveUsername = async () => {
+  const name = usernameForm.value.trim()
+  if (!name || name === user.value.username) return
+  usernameSaving.value = true
+  try {
+    const res = await api.setUsername(name)
+    user.value = { ...user.value, username: res.username }
+    usernameForm.value = res.username
+    toast.show('用户名修改成功')
+  } catch (e) {
+    toast.show(e.message || '修改失败')
+  } finally {
+    usernameSaving.value = false
+  }
+}
+
 // 设备管理
 const sessions = ref([])
 const loadingSessions = ref(false)
@@ -508,6 +539,7 @@ onMounted(async () => {
     await refreshUser()
     user.value = getUser() || user.value
     authorName.value = user.value.authorName || ''
+    usernameForm.value = user.value.username || ''
     const data = await api.listBubbles()
     styles.value = data.styles || []
     loadSessions()

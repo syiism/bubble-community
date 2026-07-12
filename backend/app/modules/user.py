@@ -9,6 +9,7 @@ class User(Base):
 
     id = Column(BigInteger, primary_key=True)
     username = Column(String(64), nullable=False, unique=True)
+    username_updated_at = Column(DateTime, nullable=True)
     author_name = Column(String(32), nullable=True, unique=True)
     avatar_url = Column(String(255), nullable=True)
     password = Column(String(255), nullable=True)
