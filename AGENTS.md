@@ -51,6 +51,8 @@ Three roles: `admin` (管理员), `reviewer` (审核员), `user` (用户).
 - admin can promote/demote any user to/from admin or reviewer.
 - admin cannot demote self.
 - Reviewer can set bubbles to **private** or **public**.
+- Reviewer bubble management list only shows **public** bubbles.
+- Reviewer **cannot** set visibility on already-private bubbles.
 - Reviewer cannot delete bubbles or users.
 
 ### Dependency

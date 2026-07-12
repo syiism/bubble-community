@@ -573,12 +573,14 @@ const deleteUser = async (u) => {
 // ===== 气泡操作 =====
 const toggleVisibility = async (b) => {
   const newVal = !b.public
-  if (isReviewer.value && newVal) {
-    toast.show('审核员仅可将气泡设为私有')
-    return
-  }
-  try { const d = await api.adminSetBubbleVisibility(b.id, newVal); b.public = d.public }
-  catch (e) { toast.show(e.message || '操作失败') }
+  try {
+    const d = await api.adminSetBubbleVisibility(b.id, newVal)
+    if (isReviewer.value && !d.public) {
+      bubbles.value = bubbles.value.filter(x => x.id !== b.id)
+    } else {
+      b.public = d.public
+    }
+  } catch (e) { toast.show(e.message || '操作失败') }
 }
 
 const deleteBubble = async (b) => {
