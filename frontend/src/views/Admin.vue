@@ -197,7 +197,7 @@
                 <option value="1">公开</option>
                 <option value="0">私有</option>
               </select>
-              <input v-model="bubbleStartDate" type="date"
+              <input v-model="bubbleStartDate" type="date" placeholder="选择日期"
                      class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
                             focus:outline-none focus:border-accent transition-colors order-4"
                      @change="filterChanged" />
