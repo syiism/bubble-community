@@ -39,13 +39,13 @@
              class="bg-surface border border-border rounded-xl p-5">
           <div class="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
             <button v-if="selectedUsers.size"
-                    class="px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors order-1"
+                    class="px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors"
                     @click="batchDeleteUsers">
               批量删除 ({{ selectedUsers.size }})
             </button>
             <select v-model="userRoleFilter"
-                    class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
-                           focus:outline-none focus:border-accent transition-colors order-2">
+                    class="w-full sm:w-auto px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
+                           focus:outline-none focus:border-accent transition-colors">
               <option value="">全部角色</option>
               <option value="user">普通用户</option>
               <option value="admin">管理员</option>
@@ -53,9 +53,9 @@
             </select>
             <input v-model="userQuery" type="text" placeholder="搜索..."
                    class="w-full sm:w-auto sm:flex-1 min-w-0 sm:min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink placeholder:text-muted
-                          focus:outline-none focus:border-accent transition-colors order-4 sm:order-3"
+                          focus:outline-none focus:border-accent transition-colors"
                    @keyup.enter="searchUsers" />
-            <button class="px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors order-5 sm:order-4"
+            <button class="w-full sm:w-auto px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors"
                     @click="searchUsers">搜索</button>
           </div>
           <div class="overflow-x-auto">
@@ -197,10 +197,16 @@
                 <option value="1">公开</option>
                 <option value="0">私有</option>
               </select>
-              <input v-model="bubbleStartDate" type="date"
-                     class="w-full sm:w-auto px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
-                            focus:outline-none focus:border-accent transition-colors min-w-0"
-                     @change="filterChanged" />
+              <div class="relative w-full sm:w-auto">
+                <input v-model="bubbleStartDate" type="date"
+                       class="w-full px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
+                              focus:outline-none focus:border-accent transition-colors min-w-0"
+                       @change="filterChanged" />
+                <span v-if="!bubbleStartDate"
+                      class="sm:hidden absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted pointer-events-none">
+                  选择日期
+                </span>
+              </div>
               <input v-model="bubbleQuery" type="text" placeholder="搜索..."
                      class="w-full sm:w-auto sm:flex-1 min-w-0 sm:min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink placeholder:text-muted
                             focus:outline-none focus:border-accent transition-colors"
