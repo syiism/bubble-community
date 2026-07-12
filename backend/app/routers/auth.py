@@ -182,7 +182,8 @@ async def forget_password(request: Request, user=Depends(get_current_user)):
 
         async with get_db_context() as db:
             await UserRepository.update_password(db, user["id"], new_password)
-
+        from ..auth import invalidate_user_cache
+        await invalidate_user_cache(user["id"])
         return {"code": 0, "message": "密码设置成功"}
 
     except HTTPException:
@@ -217,8 +218,11 @@ async def logout(request: Request, response: Response):
 
 
 @router.get("/sessions")
-async def list_my_sessions(request: Request, user=Depends(get_current_user)):
+async def list_my_sessions(request: Request, user=Depends(get_current_user), response: Response = None):
     """列出当前用户的所有活跃会话（从 Redis 读取）。"""
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     from ..auth import get_user_sessions, _decode_jwt, TOKEN_COOKIE
 
     sessions = await get_user_sessions(user["id"])

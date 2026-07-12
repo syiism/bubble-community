@@ -15,6 +15,7 @@ TOKEN_MAX_AGE = int(timedelta(days=JWT_EXPIRE_DAYS).total_seconds())
 _log = logging.getLogger("auth")
 
 REDIS_KEY_PREFIX = "bubble_tokens"
+_USER_CACHE_PREFIX = "user_info"
 
 
 def _device_key(uid: int, ip: str, ua: str) -> str:
@@ -125,6 +126,38 @@ def _decode_jwt(token: str) -> dict:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的登录凭证")
 
 
+def _user_info_from_db(user) -> dict:
+    return {
+        "id": user.id,
+        "username": user.username,
+        "author_name": user.author_name,
+        "avatar_url": user.avatar_url,
+        "role": user.role or "user",
+    }
+
+
+async def _get_cached_user(uid: int) -> dict | None:
+    redis = get_redis()
+    raw = await redis.get(f"{_USER_CACHE_PREFIX}:{uid}")
+    if raw:
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return None
+
+
+async def _cache_user_info(uid: int, info: dict) -> None:
+    redis = get_redis()
+    await redis.set(f"{_USER_CACHE_PREFIX}:{uid}", json.dumps(info, ensure_ascii=False))
+
+
+async def invalidate_user_cache(uid: int) -> None:
+    redis = get_redis()
+    await redis.delete(f"{_USER_CACHE_PREFIX}:{uid}")
+    _log.debug("User cache invalidated for uid=%s", uid)
+
+
 async def _resolve_user(request: Request) -> dict:
     token = request.cookies.get(TOKEN_COOKIE)
     if not token:
@@ -159,12 +192,16 @@ async def _resolve_user(request: Request) -> dict:
     if stored != token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已失效，请重新登录")
 
-    # 获取或创建用户记录
-    from .modules.database import get_db_context
-    from .modules.repositories import UserRepository
+    # 从缓存获取用户信息，避免每请求 DB 查询
+    user_info = await _get_cached_user(uid)
+    if user_info is None:
+        from .modules.database import get_db_context
+        from .modules.repositories import UserRepository
 
-    async with get_db_context() as db:
-        user = await UserRepository.get_or_create(db, uid, username, None)
+        async with get_db_context() as db:
+            user = await UserRepository.get_or_create(db, uid, username, None)
+        user_info = _user_info_from_db(user)
+        await _cache_user_info(uid, user_info)
 
     # 更新最后活跃时间（Redis，非阻塞）
     if sid:
@@ -173,13 +210,7 @@ async def _resolve_user(request: Request) -> dict:
         except Exception:
             pass
 
-    return {
-        "id": user.id,
-        "username": user.username,
-        "author_name": user.author_name,
-        "avatar_url": user.avatar_url,
-        "role": user.role or "user",
-    }
+    return user_info
 
 
 async def get_current_user(request: Request) -> dict:

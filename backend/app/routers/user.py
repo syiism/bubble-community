@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from pydantic import BaseModel
 
-from app.auth import get_current_user
+from app.auth import get_current_user, invalidate_user_cache
 from app.modules.database import get_db_context
 from app.modules.repositories import UserRepository
 
@@ -36,6 +36,7 @@ async def set_author_name(body: AuthorNameBody, user=Depends(get_current_user)):
             if existing and existing.id != user_id:
                 raise HTTPException(status.HTTP_409_CONFLICT, "该署名已被他人使用")
         await UserRepository.update_author_name(db, user_id, name or None)
+    await invalidate_user_cache(user_id)
     return {"code": 0, "authorName": name}
 
 
@@ -63,5 +64,5 @@ async def upload_avatar(file: UploadFile = File(...), user=Depends(get_current_u
         target = await UserRepository.get_by_id(db, user_id)
         if target:
             await UserRepository.update(db, target, avatar_url=avatar_url)
-
+    await invalidate_user_cache(user_id)
     return {"code": 0, "avatarUrl": avatar_url}

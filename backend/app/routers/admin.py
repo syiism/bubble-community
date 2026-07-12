@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 
-from app.auth import require_admin
+from app.auth import require_admin, invalidate_user_cache
 from app.modules.database import get_db_context
 from app.modules.repositories import (
     UserRepository,
@@ -40,7 +40,8 @@ class BubbleEditBody(BaseModel):
 
 
 @router.get("/stats")
-async def admin_stats(user=Depends(require_admin)):
+async def admin_stats(user=Depends(require_admin), response: Response = None):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
     async with get_db_context() as db:
         from sqlalchemy import func, select
         from app.modules.user import User
@@ -98,7 +99,9 @@ async def list_users(
     query: str = Query("", max_length=64),
     role: str = Query("", max_length=16),
     user=Depends(require_admin),
+    response: Response = None,
 ):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
     async with get_db_context() as db:
         from sqlalchemy import func, select, or_, and_
         from app.modules.user import User
@@ -161,7 +164,7 @@ async def update_user_role(user_id: int, body: RoleBody, user=Depends(require_ad
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "不能撤销自己的管理员权限")
 
         await UserRepository.update(db, target, role=body.role)
-
+    await invalidate_user_cache(user_id)
     return {"code": 0, "role": body.role}
 
 
@@ -175,7 +178,7 @@ async def admin_reset_password(user_id: int, body: PasswordBody, user=Depends(re
         if not target:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "用户不存在")
         await UserRepository.update_password(db, user_id, body.password)
-
+    await invalidate_user_cache(user_id)
     return {"code": 0, "message": "密码已重置"}
 
 
@@ -201,7 +204,9 @@ async def list_bubbles(
     official: str = Query("", max_length=8),
     public: str = Query("", max_length=8),
     user=Depends(require_admin),
+    response: Response = None,
 ):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
     async with get_db_context() as db:
         from sqlalchemy import func, select, or_, and_
         from app.modules.bubble import Bubble

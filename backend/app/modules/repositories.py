@@ -48,7 +48,7 @@ class UserRepository:
         insert_stmt = mysql_insert(User).values(
             id=user_id, username=username, avatar_url=avatar_url
         ).on_duplicate_key_update(
-            id=mysql_insert(User).inserted.id  # no-op, 仅防 duplicate key 报错
+            id=User.id  # true no-op：引用现有行的 id，绝不篡改
         )
         await db.execute(insert_stmt)
         await db.commit()

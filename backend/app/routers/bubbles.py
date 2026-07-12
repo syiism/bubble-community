@@ -71,7 +71,10 @@ def _row_to_style(row, user_id, imported_set, favorite_set):
 
 
 @router.get("")
-async def list_bubbles(user=Depends(get_current_user)):
+async def list_bubbles(user=Depends(get_current_user), response: Response = None):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     user_id = user["id"]
     async with get_db_context() as db:
         current_bubble = await UserCurrentBubbleRepository.get_by_user_id(db, user_id)
