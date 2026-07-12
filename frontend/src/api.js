@@ -41,6 +41,7 @@ export const api = {
   deleteBubble: (id) => request('DELETE', `/bubble-community/api/bubbles/${id}`),
   setVisibility: (id, pub) => request('POST', '/bubble-community/api/bubbles/visibility', { id, public: pub }),
   genShare: (id) => request('POST', '/bubble-community/api/bubbles/share', { id }),
+  communityCounts: () => request('GET', '/bubble-community/api/bubbles/community-counts'),
   redeem: (code) => request('POST', '/bubble-community/api/bubbles/redeem', { code }),
   removeImported: (bubbleId) => request('POST', '/bubble-community/api/bubbles/remove-imported', { bubble_id: bubbleId }),
   setCurrent: (style) => request('POST', '/bubble-community/api/bubbles/current', { style }),

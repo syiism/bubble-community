@@ -4,8 +4,11 @@ from fastapi import APIRouter, Body, Depends, HTTPException, status, Response
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 
+from sqlalchemy import func, select
+
 from app.svg_util import fill_svg
 from app.auth import get_current_user, get_current_user_strict
+from app.modules.bubble import Bubble
 from app.modules.database import get_db_context
 from app.modules.repositories import (
     BubbleRepository,
@@ -305,3 +308,23 @@ async def set_favorite(body: FavoriteBody, user=Depends(get_current_user)):
         await UserFavoriteRepository.set_favorite(db, user_id, body.id, body.favorite)
         fav_count = await UserFavoriteRepository.count_favorites(db, user_id)
     return {"code": 0, "favorited": body.favorite, "favoritesCount": fav_count}
+
+
+@router.get("/community-counts")
+async def community_counts():
+    async with get_db_context() as db:
+        total_public = (
+            await db.execute(
+                select(func.count(Bubble.id)).where(Bubble.is_public == True)
+            )
+        ).scalar() or 0
+        total_private = (
+            await db.execute(
+                select(func.count(Bubble.id)).where(Bubble.is_public == False)
+            )
+        ).scalar() or 0
+    return {
+        "code": 0,
+        "totalPublic": total_public,
+        "totalPrivate": total_private,
+    }

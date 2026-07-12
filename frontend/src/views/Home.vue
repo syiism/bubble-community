@@ -146,6 +146,20 @@
                   <div class="text-xs text-muted">被使用</div>
                 </div>
               </div>
+
+              <div class="mt-4 pt-4 border-t border-border">
+                <div class="text-xs text-muted mb-2">全站统计</div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="bg-canvas rounded-lg p-2.5 text-center">
+                    <div class="text-base font-medium text-ink">{{ communityStats.totalPublic }}</div>
+                    <div class="text-xs text-muted">公开</div>
+                  </div>
+                  <div class="bg-canvas rounded-lg p-2.5 text-center">
+                    <div class="text-base font-medium text-ink">{{ communityStats.totalPrivate }}</div>
+                    <div class="text-xs text-muted">私有</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -226,6 +240,7 @@ const redeeming = ref(false)
 const saving = ref(false)
 const savingAuthor = ref(false)
 const loading = ref(false)
+const communityStats = ref({ totalPublic: 0, totalPrivate: 0 })
 
 const { show: showToast } = useToast()
 
@@ -257,6 +272,13 @@ const loadStyles = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const loadCommunityCounts = async () => {
+  try {
+    const data = await api.communityCounts()
+    communityStats.value = { totalPublic: data.totalPublic || 0, totalPrivate: data.totalPrivate || 0 }
+  } catch {}
 }
 
 const handleSelect = (id) => { currentId.value = id }
@@ -504,5 +526,6 @@ const redeem = async () => {
 
 onMounted(() => {
   loadStyles()
+  loadCommunityCounts()
 })
 </script>
