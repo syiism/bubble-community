@@ -198,8 +198,8 @@
                 <option value="0">私有</option>
               </select>
               <input v-model="bubbleStartDate" type="date" placeholder="选择日期"
-                     class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
-                            focus:outline-none focus:border-accent transition-colors order-4"
+                     class="w-full sm:w-auto px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
+                            focus:outline-none focus:border-accent transition-colors appearance-none min-w-0 order-4"
                      @change="filterChanged" />
               <input v-model="bubbleQuery" type="text" placeholder="搜索..."
                      class="w-full sm:w-auto sm:flex-1 min-w-0 sm:min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink placeholder:text-muted
