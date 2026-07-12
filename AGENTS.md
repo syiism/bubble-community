@@ -34,12 +34,48 @@ docker compose up --build
 - **Rate limiting**: login 5/min, register 3/min via slowapi.
 - **Avatars**: stored in `backend/avatars/`, served at `/bubble-community/avatars/`.
 
+## Role system
+
+Three roles: `admin` (管理员), `reviewer` (审核员), `user` (用户).
+
+### Delete permission matrix
+
+| Operation | admin | reviewer | user |
+|-----------|:-----:|:--------:|:----:|
+| Delete any bubble | ✓ | ✗ | ✗ |
+| Delete any user | ✓ | ✗ | ✗ |
+| Delete self | ✗ | ✗ | ✗ |
+| Delete own bubble | ✓ | ✗ | ✓ |
+| Delete other admin/reviewer | ✗ | ✗ | ✗ |
+
+- admin can promote/demote any user to/from admin or reviewer.
+- admin cannot demote self.
+- Reviewer can only set bubbles to **private**, not to public.
+- Reviewer cannot delete bubbles or users.
+
+### Dependency
+
+Use `require_role("admin", "reviewer")` for endpoints shared by admin and reviewer.
+Use `require_admin` (alias for `require_role("admin")`) for admin-only endpoints.
+Defined in `backend/app/auth.py`.
+
+## Cache-control
+
+All user-specific GET responses must include:
+```
+Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate
+Pragma: no-cache
+Expires: 0
+```
+This prevents proxy/CDN caching from mixing one user's data with another's.
+
 ## Conventions
 
 - camelCase ↔ snake_case mapping handled manually in route handlers and `_row_to_style()`.
 - `async with get_db_context() as db:` for DB access. Use `load_only()` to avoid lazy loading issues.
 - All mutations use optimistic local state updates (frontend) — no full list reload on success.
 - No tests, no lint config, no formatter config, no CI workflows.
+- `commit()` in repository methods expires ORM objects; use `await db.refresh(obj)` if accessed after commit.
 
 ## Config (env vars, defaults in `backend/app/config.py`)
 
@@ -60,3 +96,5 @@ docker compose up --build
 - Seed JSON source: tries `../../user/api/bubble-style/index.html` first, falls back to `backend/app/official_bubbles.json`.
 - Seed is idempotent (checks existence before inserting).
 - Docker exposes port **7860** (not 8001) externally via `ms_deploy.json`.
+- `GET /` → 301 redirects to `/bubble-community/`.
+- Admin/reviewer logout uses `window.location.href` (not Vue Router push) to guarantee redirect.
