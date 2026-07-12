@@ -575,11 +575,7 @@ const toggleVisibility = async (b) => {
   const newVal = !b.public
   try {
     const d = await api.adminSetBubbleVisibility(b.id, newVal)
-    if (isAdmin.value) {
-      b.public = d.public
-    } else {
-      loadBubbles()
-    }
+    b.public = d.public
   } catch (e) { toast.show(e.message || '操作失败') }
 }
 

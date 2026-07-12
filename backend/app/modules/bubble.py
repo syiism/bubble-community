@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, Text, Boolean, DateTime, Index
+from sqlalchemy import Column, BigInteger, Integer, String, Text, Boolean, DateTime, Index
 from sqlalchemy.sql import func
 
 from .database import Base
@@ -16,6 +16,7 @@ class Bubble(Base):
     text_color = Column(String(32), nullable=False, default="")
     is_public = Column(Boolean, nullable=False, default=False)
     is_official = Column(Boolean, nullable=False, default=False)
+    visibility_modified_by = Column(Integer, nullable=True)
     share_code = Column(String(32), nullable=True, unique=True)
     author_name = Column(String(32), nullable=False, default="")
     created_at = Column(DateTime, nullable=False, default=func.current_timestamp())

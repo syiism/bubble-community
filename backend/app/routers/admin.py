@@ -237,9 +237,11 @@ async def list_bubbles(
             filters.append(Bubble.created_at >= start_date)
         if end_date:
             filters.append(Bubble.created_at <= end_date + " 23:59:59")
-        # 审核员只能看到公开气泡
+        # 审核员：公开气泡 + 自己修改过可见性的气泡
         if user.get("role") == "reviewer":
-            filters.append(Bubble.is_public == True)
+            filters.append(
+                or_(Bubble.is_public == True, Bubble.visibility_modified_by == user["id"])
+            )
 
         total = (await db.execute(
             select(func.count(Bubble.id)).where(*filters)
@@ -337,7 +339,8 @@ async def admin_set_visibility(bubble_id: int, body: BubbleVisibilityBody, user=
         bubble = await BubbleRepository.get_by_id(db, bubble_id)
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
-        await BubbleRepository.update(db, bubble, is_public=body.public)
+        modified_by = user["id"] if user.get("role") == "reviewer" else None
+        await BubbleRepository.update(db, bubble, is_public=body.public, visibility_modified_by=modified_by)
     return {"code": 0, "public": body.public}
 
 
