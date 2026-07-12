@@ -60,7 +60,7 @@
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
-              <thead>
+              <thead class="hidden sm:table-header-group">
                 <tr class="text-left text-muted text-xs border-b border-border">
                   <th class="pb-3 pr-3 w-8">
                     <input type="checkbox" :checked="allUsersSelected"
@@ -76,51 +76,64 @@
               </thead>
               <tbody>
                 <tr v-for="u in users" :key="u.id"
-                    class="border-b border-border/50 hover:bg-canvas/50 transition-colors">
-                  <td class="py-3 pr-3">
+                    class="block sm:table-row mb-3 sm:mb-0 bg-surface sm:bg-transparent border sm:border-0 border-border/50 rounded-xl sm:rounded-none p-3 sm:p-0 hover:bg-canvas/50 transition-colors">
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-3">
+                    <span class="sm:hidden text-xs text-muted mr-2">#</span>
                     <input type="checkbox" :checked="selectedUsers.has(u.id)"
                            @change="toggleUser(u.id)" class="rounded border-border text-accent focus:ring-accent" />
                   </td>
-                  <td class="py-3 pr-4 text-muted">{{ u.id }}</td>
-                  <td class="py-3 pr-4 font-medium text-ink flex items-center gap-2">
-                    <img v-if="u.avatarUrl" :src="u.avatarUrl" class="w-6 h-6 rounded-full object-cover" />
-                    <div class="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-xs text-accent" v-else>
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-4 text-muted">
+                    <span class="sm:hidden text-xs text-muted mr-2">ID</span>
+                    {{ u.id }}
+                  </td>
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-4 font-medium text-ink flex items-center gap-2">
+                    <span class="sm:hidden text-xs text-muted mr-2 shrink-0">用户</span>
+                    <img v-if="u.avatarUrl" :src="u.avatarUrl" class="w-6 h-6 rounded-full object-cover shrink-0" />
+                    <div class="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-xs text-accent shrink-0" v-else>
                       {{ u.username.charAt(0).toUpperCase() }}
                     </div>
-                    {{ u.username }}
+                    <span class="truncate">{{ u.username }}</span>
                   </td>
-                  <td class="py-3 pr-4 text-muted hidden md:table-cell">{{ u.authorName || '—' }}</td>
-                  <td class="py-3 pr-4">
+                  <td class="hidden md:block md:table-cell py-1 sm:py-3 pr-4 text-muted">
+                    <span class="sm:hidden text-xs text-muted mr-2">署名</span>
+                    {{ u.authorName || '—' }}
+                  </td>
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-4">
+                    <span class="sm:hidden text-xs text-muted mr-2">角色</span>
                     <span :class="[
                       'inline-block px-2 py-0.5 rounded-full text-xs font-medium',
                       u.role === 'admin' ? 'bg-accent/10 text-accent' : u.role === 'reviewer' ? 'bg-amber-100 text-amber-700' : 'bg-canvas text-muted'
                     ]">{{ roleLabel(u.role) }}</span>
                   </td>
-                  <td class="py-3 pr-4 text-muted text-xs hidden lg:table-cell">{{ fmtDate(u.createdAt) }}</td>
-                  <td class="py-3">
-                    <div class="flex items-center gap-1 sm:gap-2">
+                  <td class="hidden lg:block lg:table-cell py-1 sm:py-3 pr-4 text-muted text-xs">
+                    <span class="sm:hidden text-xs text-muted mr-2">注册时间</span>
+                    {{ fmtDate(u.createdAt) }}
+                  </td>
+                  <td class="block sm:table-cell py-1 sm:py-3">
+                    <span class="sm:hidden text-xs text-muted mr-2">操作</span>
+                    <div class="flex items-center gap-1 sm:gap-2 mt-1 sm:mt-0">
                       <template v-if="u.role === 'user'">
-                        <button class="text-xs whitespace-nowrap font-medium text-accent hover:text-accent/80 transition-colors"
+                        <button class="text-xs whitespace-nowrap font-medium text-accent hover:text-accent/80 transition-colors px-2 py-1 rounded-lg bg-accent/5 sm:bg-transparent"
                                 @click="setRole(u.id, u.username, 'admin')">
                           管理员
                         </button>
-                        <button class="text-xs whitespace-nowrap font-medium text-amber-600 hover:text-amber-500 transition-colors"
+                        <button class="text-xs whitespace-nowrap font-medium text-amber-600 hover:text-amber-500 transition-colors px-2 py-1 rounded-lg bg-amber-50 sm:bg-transparent"
                                 @click="setRole(u.id, u.username, 'reviewer')">
                           审核员
                         </button>
                       </template>
                       <button v-else-if="u.role === 'reviewer'"
-                              class="text-xs whitespace-nowrap font-medium text-amber-600 hover:text-amber-500 transition-colors"
+                              class="text-xs whitespace-nowrap font-medium text-amber-600 hover:text-amber-500 transition-colors px-2 py-1 rounded-lg bg-amber-50 sm:bg-transparent"
                               @click="setRole(u.id, u.username, 'user')">
                         降为用户
                       </button>
                       <span v-else class="text-xs text-muted">—</span>
-                      <button class="text-xs whitespace-nowrap font-medium text-ink hover:text-accent transition-colors"
+                      <button class="text-xs whitespace-nowrap font-medium text-ink hover:text-accent transition-colors px-2 py-1 rounded-lg bg-canvas sm:bg-transparent"
                               @click="resetPassword(u.id, u.username)">
                         密码
                       </button>
                       <button v-if="u.role === 'user'"
-                              class="text-xs whitespace-nowrap font-medium text-red-500/70 hover:text-red-500 transition-colors"
+                              class="text-xs whitespace-nowrap font-medium text-red-500/70 hover:text-red-500 transition-colors px-2 py-1 rounded-lg bg-red-50 sm:bg-transparent"
                               @click="deleteUser(u)">
                         删除
                       </button>
@@ -179,7 +192,7 @@
             </div>
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
-              <thead>
+              <thead class="hidden sm:table-header-group">
                 <tr class="text-left text-muted text-xs border-b border-border">
                   <th v-if="isAdmin" class="pb-3 pr-3 w-8">
                     <input type="checkbox" :checked="allBubblesSelected"
@@ -198,34 +211,44 @@
               </thead>
               <tbody>
                 <tr v-for="b in bubbles" :key="b.id"
-                    class="border-b border-border/50 hover:bg-canvas/50 transition-colors">
-                  <td v-if="isAdmin" class="py-3 pr-3">
+                    class="block sm:table-row mb-3 sm:mb-0 bg-surface sm:bg-transparent border sm:border-0 border-border/50 rounded-xl sm:rounded-none p-3 sm:p-0 hover:bg-canvas/50 transition-colors">
+                  <td v-if="isAdmin" class="block sm:table-cell py-1 sm:py-3 pr-3">
+                    <span class="sm:hidden text-xs text-muted mr-2">#</span>
                     <input type="checkbox" :checked="selectedBubbles.has(b.id)"
                            @change="toggleBubble(b.id)" class="rounded border-border text-accent focus:ring-accent" />
                   </td>
-                  <td class="py-3 pr-4 text-muted">{{ b.id }}</td>
-                  <td class="py-3 pr-4 font-medium text-ink max-w-32 truncate" :title="b.name">{{ b.name }}</td>
-                  <td class="py-3 pr-4 text-muted max-w-32 truncate text-xs hidden sm:table-cell" :title="b.desc">{{ b.desc || '—' }}</td>
-                  <td class="py-3 pr-4 text-muted hidden sm:table-cell">{{ b.authorName || '—' }}</td>
-                  <td class="py-3 pr-4 text-muted hidden md:table-cell">{{ b.username || '—' }}</td>
-                  <td class="py-3 pr-4">
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-4 text-muted">
+                    <span class="sm:hidden text-xs text-muted mr-2">ID</span>
+                    {{ b.id }}
+                  </td>
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-4 font-medium text-ink truncate max-w-full sm:max-w-32" :title="b.name">
+                    <span class="sm:hidden text-xs text-muted mr-2">名称</span>
+                    {{ b.name }}
+                  </td>
+                  <td class="hidden sm:table-cell py-1 sm:py-3 pr-4 text-muted max-w-32 truncate text-xs" :title="b.desc">{{ b.desc || '—' }}</td>
+                  <td class="hidden sm:table-cell py-1 sm:py-3 pr-4 text-muted">{{ b.authorName || '—' }}</td>
+                  <td class="hidden md:table-cell py-1 sm:py-3 pr-4 text-muted">{{ b.username || '—' }}</td>
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-4">
+                    <span class="sm:hidden text-xs text-muted mr-2">类型</span>
                     <span v-if="b.official"
                           class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-accent/10 text-accent">官方</span>
                     <span v-else class="text-xs text-muted">用户</span>
                   </td>
-                  <td class="py-3 pr-4">
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-4">
+                    <span class="sm:hidden text-xs text-muted mr-2">状态</span>
                     <button class="text-xs font-medium transition-colors"
                             :class="b.public ? 'text-green-600/70 hover:text-green-600' : 'text-muted hover:text-ink'"
                             @click="toggleVisibility(b)">
                       {{ b.public ? '公开' : '私有' }}
                     </button>
                   </td>
-                  <td class="py-3 pr-4 text-muted text-xs hidden lg:table-cell">{{ fmtDate(b.createdAt) }}</td>
-                  <td v-if="isAdmin" class="py-3">
-                    <div class="flex items-center gap-1 sm:gap-2">
-                      <button class="text-xs whitespace-nowrap font-medium text-ink hover:text-accent transition-colors"
+                  <td class="hidden lg:table-cell py-1 sm:py-3 pr-4 text-muted text-xs">{{ fmtDate(b.createdAt) }}</td>
+                  <td v-if="isAdmin" class="block sm:table-cell py-1 sm:py-3">
+                    <span class="sm:hidden text-xs text-muted mr-2">操作</span>
+                    <div class="flex items-center gap-1 sm:gap-2 mt-1 sm:mt-0">
+                      <button class="text-xs whitespace-nowrap font-medium text-ink hover:text-accent transition-colors px-2 py-1 rounded-lg bg-canvas sm:bg-transparent"
                               @click="openEditModal(b)">编辑</button>
-                      <button class="text-xs whitespace-nowrap font-medium text-red-500/70 hover:text-red-500 transition-colors"
+                      <button class="text-xs whitespace-nowrap font-medium text-red-500/70 hover:text-red-500 transition-colors px-2 py-1 rounded-lg bg-red-50 sm:bg-transparent"
                               @click="deleteBubble(b)">删除</button>
                     </div>
                   </td>
