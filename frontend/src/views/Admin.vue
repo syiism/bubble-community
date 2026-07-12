@@ -248,6 +248,8 @@
                     <div class="flex items-center gap-1 sm:gap-2 mt-1 sm:mt-0">
                       <button class="text-xs whitespace-nowrap font-medium text-ink hover:text-accent transition-colors px-2 py-1 rounded-lg bg-canvas sm:bg-transparent"
                               @click="openEditModal(b)">编辑</button>
+                      <button class="text-xs whitespace-nowrap font-medium text-accent hover:text-accent/80 transition-colors px-2 py-1 rounded-lg bg-accent/5 sm:bg-transparent"
+                              @click="previewBubble(b)">预览</button>
                       <button class="text-xs whitespace-nowrap font-medium text-red-500/70 hover:text-red-500 transition-colors px-2 py-1 rounded-lg bg-red-50 sm:bg-transparent"
                               @click="deleteBubble(b)">删除</button>
                     </div>
@@ -284,6 +286,25 @@
             @submit="handleEditSubmit"
             @toast="toast.show"
     />
+
+    <!-- 预览气泡 -->
+    <div v-if="previewBubbleData"
+         class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8"
+         @click.self="previewBubbleData = null">
+      <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+      <div class="relative bg-surface border border-border rounded-2xl p-6 sm:p-8 max-w-lg w-full shadow-xl">
+        <button class="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-canvas border border-border text-muted hover:text-ink transition-colors"
+                @click="previewBubbleData = null">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        <h3 class="text-base font-medium text-ink mb-1 pr-8">{{ previewBubbleData.name }}</h3>
+        <p class="text-xs text-muted mb-5">{{ previewBubbleData.desc || '无描述' }}</p>
+        <div class="bg-canvas rounded-xl p-6 sm:p-10 flex items-center justify-center min-h-[200px] border border-border/50"
+             v-html="previewSvg"></div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -294,6 +315,7 @@ import { api } from '@/api'
 import Editor from '@/components/Editor.vue'
 import { useToast } from '@/composables/useToast'
 import { getUser } from '@/stores/auth'
+import { svgToImg } from '@/utils/svgHelper'
 
 const toast = useToast()
 const curUser = getUser()
@@ -522,6 +544,15 @@ const deleteBubble = async (b) => {
   try { await api.adminDeleteBubble(b.id); bubbles.value = bubbles.value.filter(x => x.id !== b.id) }
   catch (e) { toast.show(e.message || '操作失败') }
 }
+
+// ===== 预览气泡 =====
+const previewBubbleData = ref(null)
+const previewSvg = computed(() => {
+  if (!previewBubbleData.value) return ''
+  return svgToImg(previewBubbleData.value.svg, 'w-full h-auto max-h-[50vh] object-contain',
+                  previewBubbleData.value.color, previewBubbleData.value.textColor)
+})
+const previewBubble = (b) => { previewBubbleData.value = b }
 
 // ===== 编辑气泡 =====
 const showBubbleEditor = ref(false)
