@@ -259,6 +259,7 @@ async def redeem(body: RedeemBody, user=Depends(get_current_user)):
         if bubble.user_id == user_id:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "这是你自己的气泡")
         await ImportedBubbleRepository.import_bubble(db, user_id, bubble.id)
+        await db.refresh(bubble)
         imported_set = await ImportedBubbleRepository.get_imported_ids(db, user_id)
         favorite_set = await UserFavoriteRepository.get_favorite_ids(db, user_id)
         style = _row_to_style(bubble, user_id, imported_set, favorite_set)
