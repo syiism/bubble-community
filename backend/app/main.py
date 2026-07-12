@@ -12,6 +12,7 @@ logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -63,6 +64,11 @@ async def shutdown():
     await client.aclose()
     await avatar_client.aclose()
     await close_redis()
+
+
+@app.get("/")
+async def root_redirect():
+    return RedirectResponse(url="/bubble-community/")
 
 
 @app.get("/bubble-community/health")

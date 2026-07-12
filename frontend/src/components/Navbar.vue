@@ -157,7 +157,7 @@ const closeMenu = () => {
 const onLogout = async () => {
   closeMenu()
   await logout()
-  router.push('/login')
+  window.location.href = '/bubble-community/login'
 }
 
 // 移动端菜单滑动手势
