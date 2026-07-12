@@ -132,7 +132,7 @@ def main():
     create_all_tables_sync()
     print("[seed] 表结构就绪。")
     migrate_schema()
-    seed_official()
+    # seed_official()
     print("[seed] 完成。")
 
 
