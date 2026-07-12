@@ -25,6 +25,12 @@ const routes = [
     component: () => import('@/views/Register.vue'),
   },
   {
+    path: '/docs',
+    name: 'docs',
+    component: () => import('@/views/Docs.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/admin',
     name: 'admin',
     component: () => import('@/views/Admin.vue'),
