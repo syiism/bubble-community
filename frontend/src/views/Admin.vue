@@ -238,7 +238,7 @@
                   <td class="block sm:table-cell py-1 sm:py-3 pr-4 font-medium text-ink truncate max-w-full sm:max-w-32" :title="b.name">
                     <span class="sm:hidden text-xs text-muted mr-2">名称</span>
                     {{ b.name }}
-                    <div class="sm:hidden text-xs text-muted mt-0.5 truncate"><span class="mr-1">创作者</span>{{ b.authorName || b.username || '—' }}</div>
+                    <div class="sm:hidden text-xs text-muted mt-0.5 truncate"><span class="text-xs text-muted mr-2">作者</span>{{ b.authorName || b.username || '—' }}</div>
                   </td>
                   <td class="hidden sm:table-cell py-1 sm:py-3 pr-4 text-muted max-w-32 truncate text-xs" :title="b.desc">{{ b.desc || '—' }}</td>
                   <td class="hidden sm:table-cell py-1 sm:py-3 pr-4 text-muted">{{ b.authorName || '—' }}</td>
