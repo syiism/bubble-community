@@ -1,0 +1,1 @@
+import{t as e}from"./index-oKRXl-XP.js";function t(t){let n=t||``,r=/失败|错误|无效|不存在|不能|已被|请先|请检查|请填写/.test(n),i=/为空|不一致/.test(n);e({title:r?`操作失败`:i?`提示`:`操作成功`,message:n,type:r?`error`:i?`warning`:`success`,duration:3e3})}function n(){return{show:t}}export{n as t};

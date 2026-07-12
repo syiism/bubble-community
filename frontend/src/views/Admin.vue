@@ -67,6 +67,7 @@
                            @change="toggleAllUsers" class="rounded border-border text-accent focus:ring-accent" />
                   </th>
                   <th class="pb-3 pr-4 font-medium">ID</th>
+                  <th class="pb-3 pr-4 font-medium hidden sm:table-cell">头像</th>
                   <th class="pb-3 pr-4 font-medium">用户名</th>
                   <th class="pb-3 pr-4 font-medium hidden md:table-cell">署名</th>
                   <th class="pb-3 pr-4 font-medium">角色</th>
@@ -86,15 +87,26 @@
                     <span class="sm:hidden text-xs text-muted mr-2">ID</span>
                     {{ u.id }}
                   </td>
-                  <td class="block sm:table-cell py-1 sm:py-3 pr-4 font-medium text-ink flex items-center gap-2">
-                    <span class="sm:hidden text-xs text-muted mr-2 shrink-0">用户</span>
+                  <td class="hidden sm:table-cell py-1 sm:py-3 pr-4">
                     <img v-if="u.avatarUrl" :src="u.avatarUrl"
-                         class="w-6 h-6 rounded-full object-cover shrink-0 cursor-pointer hover:ring-2 hover:ring-accent/40 transition-all"
+                         class="w-7 h-7 rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-accent/40 transition-all"
                          @click="previewAvatar(u.avatarUrl, u.username)" />
-                    <div class="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-xs text-accent shrink-0 cursor-default" v-else>
+                    <div v-else
+                         class="w-7 h-7 rounded-full bg-accent/10 flex items-center justify-center text-xs text-accent cursor-default">
                       {{ u.username.charAt(0).toUpperCase() }}
                     </div>
-                    <span class="truncate">{{ u.username }}</span>
+                  </td>
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-4 font-medium text-ink">
+                    <span class="sm:hidden text-xs text-muted mr-2">用户</span>
+                    <span class="inline-flex items-center gap-2">
+                      <img v-if="u.avatarUrl" :src="u.avatarUrl"
+                           class="sm:hidden w-6 h-6 rounded-full object-cover shrink-0 cursor-pointer hover:ring-2 hover:ring-accent/40 transition-all"
+                           @click="previewAvatar(u.avatarUrl, u.username)" />
+                      <div v-else class="sm:hidden w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-xs text-accent shrink-0 cursor-default">
+                        {{ u.username.charAt(0).toUpperCase() }}
+                      </div>
+                      <span class="truncate">{{ u.username }}</span>
+                    </span>
                   </td>
                   <td class="hidden md:block md:table-cell py-1 sm:py-3 pr-4 text-muted">
                     <span class="sm:hidden text-xs text-muted mr-2">署名</span>
@@ -143,7 +155,7 @@
                   </td>
                 </tr>
                 <tr v-if="!users.length">
-                  <td :colspan="isAdmin ? 7 : 5" class="py-8 text-center text-sm text-muted">暂无用户</td>
+                  <td :colspan="isAdmin ? 8 : 7" class="py-8 text-center text-sm text-muted">暂无用户</td>
                 </tr>
               </tbody>
             </table>
