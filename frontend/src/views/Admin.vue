@@ -208,7 +208,7 @@
                   <th class="pb-3 pr-4 font-medium">类型</th>
                   <th class="pb-3 pr-4 font-medium">状态</th>
                   <th class="pb-3 pr-4 font-medium hidden lg:table-cell">创建时间</th>
-                  <th v-if="isAdmin" class="pb-3 font-medium">操作</th>
+                  <th class="pb-3 font-medium">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -245,14 +245,16 @@
                     </button>
                   </td>
                   <td class="hidden lg:table-cell py-1 sm:py-3 pr-4 text-muted text-xs">{{ fmtDate(b.createdAt) }}</td>
-                  <td v-if="isAdmin" class="block sm:table-cell py-1 sm:py-3">
+                  <td class="block sm:table-cell py-1 sm:py-3">
                     <span class="sm:hidden text-xs text-muted mr-2">操作</span>
                     <div class="flex items-center gap-1 sm:gap-2 mt-1 sm:mt-0">
-                      <button class="text-xs whitespace-nowrap font-medium text-ink hover:text-accent transition-colors px-2 py-1 rounded-lg bg-canvas sm:bg-transparent"
+                      <button v-if="isAdmin"
+                              class="text-xs whitespace-nowrap font-medium text-ink hover:text-accent transition-colors px-2 py-1 rounded-lg bg-canvas sm:bg-transparent"
                               @click="openEditModal(b)">编辑</button>
                       <button class="text-xs whitespace-nowrap font-medium text-accent hover:text-accent/80 transition-colors px-2 py-1 rounded-lg bg-accent/5 sm:bg-transparent"
                               @click="previewBubble(b)">预览</button>
-                      <button class="text-xs whitespace-nowrap font-medium text-red-500/70 hover:text-red-500 transition-colors px-2 py-1 rounded-lg bg-red-50 sm:bg-transparent"
+                      <button v-if="isAdmin"
+                              class="text-xs whitespace-nowrap font-medium text-red-500/70 hover:text-red-500 transition-colors px-2 py-1 rounded-lg bg-red-50 sm:bg-transparent"
                               @click="deleteBubble(b)">删除</button>
                     </div>
                   </td>
