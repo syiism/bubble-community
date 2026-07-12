@@ -203,6 +203,8 @@ async def list_bubbles(
     query: str = Query("", max_length=64),
     official: str = Query("", max_length=8),
     public: str = Query("", max_length=8),
+    start_date: str = Query("", max_length=10),
+    end_date: str = Query("", max_length=10),
     user=Depends(require_role("admin", "reviewer")),
     response: Response = None,
 ):
@@ -231,6 +233,10 @@ async def list_bubbles(
             filters.append(Bubble.is_public == True)
         elif public in ("0", "false"):
             filters.append(Bubble.is_public == False)
+        if start_date:
+            filters.append(Bubble.created_at >= start_date)
+        if end_date:
+            filters.append(Bubble.created_at <= end_date + " 23:59:59")
 
         total = (await db.execute(
             select(func.count(Bubble.id)).where(*filters)

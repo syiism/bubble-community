@@ -69,7 +69,8 @@ export const api = {
   adminDeleteUser: (userId) => request('DELETE', `/bubble-community/api/admin/users/${userId}`),
   adminBatchDeleteUsers: (ids) => request('POST', '/bubble-community/api/admin/users/batch-delete', { ids }),
   adminBatchDeleteBubbles: (ids) => request('POST', '/bubble-community/api/admin/bubbles/batch-delete', { ids }),
-  adminBubbles: (page, size, query, official, pub) => request('GET', `/bubble-community/api/admin/bubbles?page=${page}&size=${size}&query=${encodeURIComponent(query)}&official=${official}&public=${pub}`),
+  adminBubbles: (page, size, query, official, pub, startDate, endDate) =>
+    request('GET', `/bubble-community/api/admin/bubbles?page=${page}&size=${size}&query=${encodeURIComponent(query)}&official=${official}&public=${pub}&start_date=${startDate || ''}&end_date=${endDate || ''}`),
   adminDeleteBubble: (id) => request('DELETE', `/bubble-community/api/admin/bubbles/${id}`),
   adminSetBubbleVisibility: (id, pub) => request('PUT', `/bubble-community/api/admin/bubbles/${id}/visibility`, { public: pub }),
   adminUpdateBubble: (id, data) => request('PUT', `/bubble-community/api/admin/bubbles/${id}`, data),

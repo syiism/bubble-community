@@ -197,11 +197,19 @@
                 <option value="1">公开</option>
                 <option value="0">私有</option>
               </select>
+              <input v-model="bubbleStartDate" type="date"
+                     class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
+                            focus:outline-none focus:border-accent transition-colors order-4"
+                     @change="filterChanged" />
+              <input v-model="bubbleEndDate" type="date"
+                     class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
+                            focus:outline-none focus:border-accent transition-colors order-5"
+                     @change="filterChanged" />
               <input v-model="bubbleQuery" type="text" placeholder="搜索..."
                      class="w-full sm:w-auto sm:flex-1 min-w-0 sm:min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink placeholder:text-muted
-                            focus:outline-none focus:border-accent transition-colors order-5 sm:order-4"
+                            focus:outline-none focus:border-accent transition-colors order-7 sm:order-6"
                      @keyup.enter="searchBubbles" />
-              <button class="px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors order-6 sm:order-5"
+              <button class="px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors order-8 sm:order-7"
                       @click="searchBubbles">搜索</button>
             </div>
           <div class="overflow-x-auto">
@@ -481,23 +489,27 @@ const bubblesPageSize = 20
 const bubbleQuery = ref('')
 const bubbleOfficialFilter = ref('')
 const bubblePublicFilter = ref('')
+const bubbleStartDate = ref('')
+const bubbleEndDate = ref('')
 const bubblesTotalPages = computed(() => Math.max(1, Math.ceil(bubblesTotal.value / bubblesPageSize)))
 
 const loadBubbles = async () => {
   try {
     const data = await api.adminBubbles(bubblesPage.value, bubblesPageSize, bubbleQuery.value,
-                                        bubbleOfficialFilter.value, bubblePublicFilter.value)
+                                        bubbleOfficialFilter.value, bubblePublicFilter.value,
+                                        bubbleStartDate.value, bubbleEndDate.value)
     bubbles.value = data.bubbles || []
     bubblesTotal.value = data.total || 0
   } catch (e) { console.error(e) }
 }
 
 const searchBubbles = () => { bubblesPage.value = 1; selectedBubbles.value = new Set(); loadBubbles() }
+const filterChanged = () => { bubblesPage.value = 1; loadBubbles() }
 const goBubblesPage = (p) => { bubblesPage.value = p; selectedBubbles.value = new Set(); loadBubbles() }
 
 // 筛选变化时自动重新搜索
 watch([userRoleFilter], () => { usersPage.value = 1; loadUsers() })
-watch([bubbleOfficialFilter, bubblePublicFilter], () => { bubblesPage.value = 1; loadBubbles() })
+watch([bubbleOfficialFilter, bubblePublicFilter, bubbleStartDate, bubbleEndDate], () => { bubblesPage.value = 1; loadBubbles() })
 
 // ===== 工具 =====
 const loading = ref(false)
