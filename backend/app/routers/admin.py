@@ -204,7 +204,6 @@ async def list_bubbles(
     official: str = Query("", max_length=8),
     public: str = Query("", max_length=8),
     start_date: str = Query("", max_length=10),
-    end_date: str = Query("", max_length=10),
     user=Depends(require_role("admin", "reviewer")),
     response: Response = None,
 ):
@@ -234,9 +233,7 @@ async def list_bubbles(
         elif public in ("0", "false"):
             filters.append(Bubble.is_public == False)
         if start_date:
-            filters.append(Bubble.created_at >= start_date)
-        if end_date:
-            filters.append(Bubble.created_at <= end_date + " 23:59:59")
+            filters.append(Bubble.created_at.between(start_date, start_date + " 23:59:59"))
         # 审核员：公开气泡 + 自己修改过可见性的气泡
         if user.get("role") == "reviewer":
             filters.append(

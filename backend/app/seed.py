@@ -61,8 +61,8 @@ def migrate_schema():
         # 灌入 roles 表
         count = conn.execute(text("SELECT COUNT(*) FROM roles")).scalar()
         if count < 3:
-            conn.execute(text("INSERT INTO roles (name, description) VALUES ('user', '普通用户')"))
-            conn.execute(text("INSERT INTO roles (name, description) VALUES ('admin', '管理员')"))
+            # conn.execute(text("INSERT INTO roles (name, description) VALUES ('user', '普通用户')"))
+            # conn.execute(text("INSERT INTO roles (name, description) VALUES ('admin', '管理员')"))
             conn.execute(text("INSERT INTO roles (name, description) VALUES ('reviewer', '审核员')"))
             conn.commit()
             print("[seed] 已灌入 roles 表（user / admin / reviewer）。")
@@ -75,6 +75,15 @@ def migrate_schema():
             conn.execute(text("ALTER TABLE users ADD COLUMN username_updated_at DATETIME DEFAULT NULL AFTER username"))
             conn.commit()
             print("[seed] 已添加 users.username_updated_at 字段。")
+
+        # visibility_modified_by 字段
+        result = conn.execute(
+            text("SHOW COLUMNS FROM bubbles LIKE 'visibility_modified_by'")
+        )
+        if not result.fetchone():
+            conn.execute(text("ALTER TABLE bubbles ADD COLUMN visibility_modified_by INT DEFAULT NULL AFTER is_official"))
+            conn.commit()
+            print("[seed] 已添加 bubbles.visibility_modified_by 字段。")
 
         # 设置 syiism(id=190) 为管理员
         result = conn.execute(
