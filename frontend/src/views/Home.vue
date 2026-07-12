@@ -120,25 +120,29 @@
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-3">
-                <div class="bg-canvas rounded-lg p-3 text-center">
-                  <div class="text-lg font-medium text-ink">{{ myStylesCount }}</div>
+              <div class="grid grid-cols-3 gap-2">
+                <div class="bg-canvas rounded-lg p-2.5 text-center">
+                  <div class="text-base font-medium text-ink">{{ myStylesCount }}</div>
                   <div class="text-xs text-muted">我的气泡</div>
                 </div>
-                <div class="bg-canvas rounded-lg p-3 text-center">
-                  <div class="text-lg font-medium text-ink">{{ publicStylesCount }}</div>
-                  <div class="text-xs text-muted">公开分享</div>
+                <div class="bg-canvas rounded-lg p-2.5 text-center">
+                  <div class="text-base font-medium text-ink">{{ publicStylesCount }}</div>
+                  <div class="text-xs text-muted">公开</div>
                 </div>
-                <div class="bg-canvas rounded-lg p-3 text-center">
-                  <div class="text-lg font-medium text-ink">{{ importedStylesCount }}</div>
+                <div class="bg-canvas rounded-lg p-2.5 text-center">
+                  <div class="text-base font-medium text-ink">{{ privateStylesCount }}</div>
+                  <div class="text-xs text-muted">私有</div>
+                </div>
+                <div class="bg-canvas rounded-lg p-2.5 text-center">
+                  <div class="text-base font-medium text-ink">{{ importedStylesCount }}</div>
                   <div class="text-xs text-muted">已导入</div>
                 </div>
-                <div class="bg-canvas rounded-lg p-3 text-center">
-                  <div class="text-lg font-medium text-ink">{{ favoritesCount }}</div>
+                <div class="bg-canvas rounded-lg p-2.5 text-center">
+                  <div class="text-base font-medium text-ink">{{ favoritesCount }}</div>
                   <div class="text-xs text-muted">收藏</div>
                 </div>
-                <div class="bg-canvas rounded-lg p-3 text-center">
-                  <div class="text-lg font-medium text-ink">{{ totalUses }}</div>
+                <div class="bg-canvas rounded-lg p-2.5 text-center">
+                  <div class="text-base font-medium text-ink">{{ totalUses }}</div>
                   <div class="text-xs text-muted">被使用</div>
                 </div>
               </div>
@@ -227,6 +231,7 @@ const { show: showToast } = useToast()
 
 const myStylesCount = computed(() => styles.value.filter(s => s.mine).length)
 const publicStylesCount = computed(() => styles.value.filter(s => s.mine && s.public).length)
+const privateStylesCount = computed(() => styles.value.filter(s => s.mine && !s.public).length)
 const importedStylesCount = computed(() => styles.value.filter(s => s.imported).length)
 const favoritesCount = computed(() => styles.value.filter(s => s.favorited).length)
 const totalUses = computed(() => styles.value.filter(s => s.mine).reduce((sum, s) => sum + (s.uses || 0), 0))

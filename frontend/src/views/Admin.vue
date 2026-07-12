@@ -37,25 +37,25 @@
         <!-- 用户管理 (仅 admin) -->
         <div v-if="activeTab === 'users' && isAdmin"
              class="bg-surface border border-border rounded-xl p-5">
-          <div class="flex flex-wrap items-center gap-3 mb-4">
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
             <button v-if="selectedUsers.size"
-                    class="px-3 py-1.5 text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors"
+                    class="px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors order-1"
                     @click="batchDeleteUsers">
               批量删除 ({{ selectedUsers.size }})
             </button>
             <select v-model="userRoleFilter"
-                    class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink
-                           focus:outline-none focus:border-accent transition-colors">
+                    class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
+                           focus:outline-none focus:border-accent transition-colors order-2">
               <option value="">全部角色</option>
               <option value="user">普通用户</option>
               <option value="admin">管理员</option>
               <option value="reviewer">审核员</option>
             </select>
-            <input v-model="userQuery" type="text" placeholder="搜索用户名/署名"
-                   class="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink placeholder:text-muted
-                          focus:outline-none focus:border-accent transition-colors"
+            <input v-model="userQuery" type="text" placeholder="搜索..."
+                   class="w-full sm:w-auto sm:flex-1 min-w-0 sm:min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink placeholder:text-muted
+                          focus:outline-none focus:border-accent transition-colors order-4 sm:order-3"
                    @keyup.enter="searchUsers" />
-            <button class="px-3 py-1.5 text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors"
+            <button class="px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors order-5 sm:order-4"
                     @click="searchUsers">搜索</button>
           </div>
           <div class="overflow-x-auto">
@@ -68,9 +68,9 @@
                   </th>
                   <th class="pb-3 pr-4 font-medium">ID</th>
                   <th class="pb-3 pr-4 font-medium">用户名</th>
-                  <th class="pb-3 pr-4 font-medium">署名</th>
+                  <th class="pb-3 pr-4 font-medium hidden md:table-cell">署名</th>
                   <th class="pb-3 pr-4 font-medium">角色</th>
-                  <th class="pb-3 pr-4 font-medium">注册时间</th>
+                  <th class="pb-3 pr-4 font-medium hidden lg:table-cell">注册时间</th>
                   <th class="pb-3 font-medium">操作</th>
                 </tr>
               </thead>
@@ -89,38 +89,38 @@
                     </div>
                     {{ u.username }}
                   </td>
-                  <td class="py-3 pr-4 text-muted">{{ u.authorName || '—' }}</td>
+                  <td class="py-3 pr-4 text-muted hidden md:table-cell">{{ u.authorName || '—' }}</td>
                   <td class="py-3 pr-4">
                     <span :class="[
                       'inline-block px-2 py-0.5 rounded-full text-xs font-medium',
                       u.role === 'admin' ? 'bg-accent/10 text-accent' : u.role === 'reviewer' ? 'bg-amber-100 text-amber-700' : 'bg-canvas text-muted'
                     ]">{{ roleLabel(u.role) }}</span>
                   </td>
-                  <td class="py-3 pr-4 text-muted text-xs">{{ fmtDate(u.createdAt) }}</td>
+                  <td class="py-3 pr-4 text-muted text-xs hidden lg:table-cell">{{ fmtDate(u.createdAt) }}</td>
                   <td class="py-3">
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-1 sm:gap-2">
                       <template v-if="u.role === 'user'">
-                        <button class="text-xs font-medium text-accent hover:text-accent/80 transition-colors"
+                        <button class="text-xs whitespace-nowrap font-medium text-accent hover:text-accent/80 transition-colors"
                                 @click="setRole(u.id, u.username, 'admin')">
-                          设为管理员
+                          管理员
                         </button>
-                        <button class="text-xs font-medium text-amber-600 hover:text-amber-500 transition-colors"
+                        <button class="text-xs whitespace-nowrap font-medium text-amber-600 hover:text-amber-500 transition-colors"
                                 @click="setRole(u.id, u.username, 'reviewer')">
-                          设为审核员
+                          审核员
                         </button>
                       </template>
                       <button v-else-if="u.role === 'reviewer'"
-                              class="text-xs font-medium text-amber-600 hover:text-amber-500 transition-colors"
+                              class="text-xs whitespace-nowrap font-medium text-amber-600 hover:text-amber-500 transition-colors"
                               @click="setRole(u.id, u.username, 'user')">
-                        取消审核员
+                        降为用户
                       </button>
                       <span v-else class="text-xs text-muted">—</span>
-                      <button class="text-xs font-medium text-ink hover:text-accent transition-colors"
+                      <button class="text-xs whitespace-nowrap font-medium text-ink hover:text-accent transition-colors"
                               @click="resetPassword(u.id, u.username)">
-                        重置密码
+                        密码
                       </button>
                       <button v-if="u.role === 'user'"
-                              class="text-xs font-medium text-red-500/70 hover:text-red-500 transition-colors"
+                              class="text-xs whitespace-nowrap font-medium text-red-500/70 hover:text-red-500 transition-colors"
                               @click="deleteUser(u)">
                         删除
                       </button>
@@ -128,7 +128,7 @@
                   </td>
                 </tr>
                 <tr v-if="!users.length">
-                  <td colspan="7" class="py-8 text-center text-sm text-muted">暂无用户</td>
+                  <td :colspan="isAdmin ? 7 : 5" class="py-8 text-center text-sm text-muted">暂无用户</td>
                 </tr>
               </tbody>
             </table>
@@ -150,33 +150,33 @@
         <!-- 气泡管理 -->
         <div v-if="activeTab === 'bubbles'"
              class="bg-surface border border-border rounded-xl p-5">
-          <div class="flex flex-wrap items-center gap-3 mb-4">
-            <button v-if="isAdmin && selectedBubbles.size"
-                    class="px-3 py-1.5 text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors"
-                    @click="batchDeleteBubbles">
-              批量删除 ({{ selectedBubbles.size }})
-            </button>
-            <select v-model="bubbleOfficialFilter"
-                    class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink
-                           focus:outline-none focus:border-accent transition-colors">
-              <option value="">全部类型</option>
-              <option value="1">官方</option>
-              <option value="0">用户</option>
-            </select>
-            <select v-model="bubblePublicFilter"
-                    class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink
-                           focus:outline-none focus:border-accent transition-colors">
-              <option value="">全部状态</option>
-              <option value="1">公开</option>
-              <option value="0">私有</option>
-            </select>
-            <input v-model="bubbleQuery" type="text" placeholder="搜索气泡名/作者/创建者"
-                   class="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink placeholder:text-muted
-                          focus:outline-none focus:border-accent transition-colors"
-                   @keyup.enter="searchBubbles" />
-            <button class="px-3 py-1.5 text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors"
-                    @click="searchBubbles">搜索</button>
-          </div>
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
+              <button v-if="isAdmin && selectedBubbles.size"
+                      class="px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors order-1"
+                      @click="batchDeleteBubbles">
+                批量删除 ({{ selectedBubbles.size }})
+              </button>
+              <select v-model="bubbleOfficialFilter"
+                      class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
+                             focus:outline-none focus:border-accent transition-colors order-2">
+                <option value="">全部类型</option>
+                <option value="1">官方</option>
+                <option value="0">用户</option>
+              </select>
+              <select v-model="bubblePublicFilter"
+                      class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
+                             focus:outline-none focus:border-accent transition-colors order-3">
+                <option value="">全部状态</option>
+                <option value="1">公开</option>
+                <option value="0">私有</option>
+              </select>
+              <input v-model="bubbleQuery" type="text" placeholder="搜索..."
+                     class="w-full sm:w-auto sm:flex-1 min-w-0 sm:min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink placeholder:text-muted
+                            focus:outline-none focus:border-accent transition-colors order-5 sm:order-4"
+                     @keyup.enter="searchBubbles" />
+              <button class="px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors order-6 sm:order-5"
+                      @click="searchBubbles">搜索</button>
+            </div>
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
               <thead>
@@ -187,12 +187,12 @@
                   </th>
                   <th class="pb-3 pr-4 font-medium">ID</th>
                   <th class="pb-3 pr-4 font-medium">名称</th>
-                  <th class="pb-3 pr-4 font-medium">描述</th>
-                  <th class="pb-3 pr-4 font-medium">作者</th>
-                  <th class="pb-3 pr-4 font-medium">创建者</th>
+                  <th class="pb-3 pr-4 font-medium hidden sm:table-cell">描述</th>
+                  <th class="pb-3 pr-4 font-medium hidden sm:table-cell">作者</th>
+                  <th class="pb-3 pr-4 font-medium hidden md:table-cell">创建者</th>
                   <th class="pb-3 pr-4 font-medium">类型</th>
                   <th class="pb-3 pr-4 font-medium">状态</th>
-                  <th class="pb-3 pr-4 font-medium">创建时间</th>
+                  <th class="pb-3 pr-4 font-medium hidden lg:table-cell">创建时间</th>
                   <th v-if="isAdmin" class="pb-3 font-medium">操作</th>
                 </tr>
               </thead>
@@ -205,9 +205,9 @@
                   </td>
                   <td class="py-3 pr-4 text-muted">{{ b.id }}</td>
                   <td class="py-3 pr-4 font-medium text-ink max-w-32 truncate" :title="b.name">{{ b.name }}</td>
-                  <td class="py-3 pr-4 text-muted max-w-32 truncate text-xs" :title="b.desc">{{ b.desc || '—' }}</td>
-                  <td class="py-3 pr-4 text-muted">{{ b.authorName || '—' }}</td>
-                  <td class="py-3 pr-4 text-muted">{{ b.username || '—' }}</td>
+                  <td class="py-3 pr-4 text-muted max-w-32 truncate text-xs hidden sm:table-cell" :title="b.desc">{{ b.desc || '—' }}</td>
+                  <td class="py-3 pr-4 text-muted hidden sm:table-cell">{{ b.authorName || '—' }}</td>
+                  <td class="py-3 pr-4 text-muted hidden md:table-cell">{{ b.username || '—' }}</td>
                   <td class="py-3 pr-4">
                     <span v-if="b.official"
                           class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-accent/10 text-accent">官方</span>
@@ -220,12 +220,12 @@
                       {{ b.public ? '公开' : '私有' }}
                     </button>
                   </td>
-                  <td class="py-3 pr-4 text-muted text-xs">{{ fmtDate(b.createdAt) }}</td>
+                  <td class="py-3 pr-4 text-muted text-xs hidden lg:table-cell">{{ fmtDate(b.createdAt) }}</td>
                   <td v-if="isAdmin" class="py-3">
-                    <div class="flex items-center gap-2">
-                      <button class="text-xs font-medium text-ink hover:text-accent transition-colors"
+                    <div class="flex items-center gap-1 sm:gap-2">
+                      <button class="text-xs whitespace-nowrap font-medium text-ink hover:text-accent transition-colors"
                               @click="openEditModal(b)">编辑</button>
-                      <button class="text-xs font-medium text-red-500/70 hover:text-red-500 transition-colors"
+                      <button class="text-xs whitespace-nowrap font-medium text-red-500/70 hover:text-red-500 transition-colors"
                               @click="deleteBubble(b)">删除</button>
                     </div>
                   </td>

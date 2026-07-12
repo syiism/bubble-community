@@ -30,21 +30,29 @@
                 {{ user.authorName ? `署名：${user.authorName}` : '匿名书友' }}
               </p>
               <div class="w-full h-px bg-border mb-4"></div>
-              <div class="grid grid-cols-2 gap-4 w-full">
-                <div class="bg-canvas rounded-xl p-4">
-                  <div class="text-2xl font-medium text-ink">{{ stats.created }}</div>
-                  <div class="text-xs text-muted">创建气泡</div>
+              <div class="grid grid-cols-3 gap-3 w-full">
+                <div class="bg-canvas rounded-xl p-3 text-center">
+                  <div class="text-xl font-medium text-ink">{{ stats.created }}</div>
+                  <div class="text-xs text-muted">创建</div>
                 </div>
-                <div class="bg-canvas rounded-xl p-4">
-                  <div class="text-2xl font-medium text-ink">{{ stats.imported }}</div>
-                  <div class="text-xs text-muted">导入气泡</div>
+                <div class="bg-canvas rounded-xl p-3 text-center">
+                  <div class="text-xl font-medium text-ink">{{ stats.public }}</div>
+                  <div class="text-xs text-muted">公开</div>
                 </div>
-                <div class="bg-canvas rounded-xl p-4">
-                  <div class="text-2xl font-medium text-ink">{{ stats.favorites }}</div>
+                <div class="bg-canvas rounded-xl p-3 text-center">
+                  <div class="text-xl font-medium text-ink">{{ stats.private }}</div>
+                  <div class="text-xs text-muted">私有</div>
+                </div>
+                <div class="bg-canvas rounded-xl p-3 text-center">
+                  <div class="text-xl font-medium text-ink">{{ stats.imported }}</div>
+                  <div class="text-xs text-muted">导入</div>
+                </div>
+                <div class="bg-canvas rounded-xl p-3 text-center">
+                  <div class="text-xl font-medium text-ink">{{ stats.favorites }}</div>
                   <div class="text-xs text-muted">收藏</div>
                 </div>
-                <div class="bg-canvas rounded-xl p-4">
-                  <div class="text-2xl font-medium text-ink">{{ stats.usedBy }}</div>
+                <div class="bg-canvas rounded-xl p-3 text-center">
+                  <div class="text-xl font-medium text-ink">{{ stats.usedBy }}</div>
                   <div class="text-xs text-muted">被使用</div>
                 </div>
               </div>
@@ -196,21 +204,29 @@
 
           <div v-if="showStats" class="bg-surface border border-border rounded-2xl p-6 scroll-animate">
             <h2 class="text-lg font-medium text-ink mb-6">数据统计</h2>
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <div class="bg-canvas rounded-xl p-4">
-                <div class="text-xs text-muted mb-2">创建气泡总数</div>
+                <div class="text-xs text-muted mb-2">创建气泡</div>
                 <div class="text-3xl font-medium text-ink">{{ stats.created }}</div>
               </div>
               <div class="bg-canvas rounded-xl p-4">
-                <div class="text-xs text-muted mb-2">导入气泡总数</div>
+                <div class="text-xs text-muted mb-2">公开</div>
+                <div class="text-3xl font-medium text-ink">{{ stats.public }}</div>
+              </div>
+              <div class="bg-canvas rounded-xl p-4">
+                <div class="text-xs text-muted mb-2">私有</div>
+                <div class="text-3xl font-medium text-ink">{{ stats.private }}</div>
+              </div>
+              <div class="bg-canvas rounded-xl p-4">
+                <div class="text-xs text-muted mb-2">导入气泡</div>
                 <div class="text-3xl font-medium text-ink">{{ stats.imported }}</div>
               </div>
               <div class="bg-canvas rounded-xl p-4">
-                <div class="text-xs text-muted mb-2">收藏气泡数</div>
+                <div class="text-xs text-muted mb-2">收藏</div>
                 <div class="text-3xl font-medium text-ink">{{ stats.favorites }}</div>
               </div>
               <div class="bg-canvas rounded-xl p-4">
-                <div class="text-xs text-muted mb-2">被使用次数</div>
+                <div class="text-xs text-muted mb-2">被使用</div>
                 <div class="text-3xl font-medium text-ink">{{ stats.usedBy }}</div>
               </div>
             </div>
@@ -245,25 +261,26 @@
 
               <div>
                 <label class="block text-sm font-medium text-ink mb-2">分享署名</label>
-                <input
-                  v-model="authorName"
-                  type="text"
-                  maxlength="16"
-                  placeholder="如 隔壁老王（留空=匿名书友）"
-                  class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
-                />
+                <div class="flex gap-3">
+                  <input
+                    v-model="authorName"
+                    type="text"
+                    maxlength="16"
+                    placeholder="如 隔壁老王（留空=匿名书友）"
+                    class="flex-1 px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+                  />
+                  <button
+                    :disabled="saving"
+                    class="px-5 py-3 text-sm font-medium text-white bg-ink rounded-xl hover:bg-charcoal transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    @click="saveAuthorName"
+                  >
+                    {{ saving ? '保存中...' : '保存' }}
+                  </button>
+                </div>
                 <p class="text-xs text-muted mt-2">
                   这个名字只在你公开或用分享码分享出去的气泡上，给别人看到（显示为"by 署名"）。不影响你的登录账号，可随时修改，不可与他人重复。
                 </p>
               </div>
-
-              <button
-                :disabled="!authorName.trim() || saving"
-                class="w-full py-3 text-sm font-medium text-white bg-ink rounded-xl hover:bg-charcoal transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                @click="saveAuthorName"
-              >
-                {{ saving ? '保存中...' : '保存设置' }}
-              </button>
             </div>
           </div>
 
@@ -408,6 +425,8 @@ const savePassword = async () => {
 
 const stats = computed(() => ({
   created: styles.value.filter(s => s.mine).length,
+  public: styles.value.filter(s => s.mine && s.public).length,
+  private: styles.value.filter(s => s.mine && !s.public).length,
   imported: styles.value.filter(s => s.imported).length,
   favorites: styles.value.filter(s => s.favorited).length,
   usedBy: styles.value.filter(s => s.mine).reduce((sum, s) => sum + (s.uses || 0), 0)
