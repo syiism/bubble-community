@@ -328,9 +328,6 @@ async def admin_set_visibility(bubble_id: int, body: BubbleVisibilityBody, user=
         bubble = await BubbleRepository.get_by_id(db, bubble_id)
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
-        # 审核员只能设为私有，不可批准公开
-        if user.get("role") == "reviewer" and body.public:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "审核员仅可将气泡设为私有")
         await BubbleRepository.update(db, bubble, is_public=body.public)
     return {"code": 0, "public": body.public}
 
