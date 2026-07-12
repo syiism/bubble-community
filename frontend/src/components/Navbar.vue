@@ -1,7 +1,7 @@
 <template>
   <nav class="fixed top-0 left-0 right-0 z-50 bg-surface/80 backdrop-blur-md border-b border-border p-safe-top"
        role="navigation" aria-label="主导航">
-    <div class="max-w-4xl mx-auto px-6 py-0 sm:py-4 flex items-center justify-between">
+    <div class="max-w-4xl mx-auto px-6 py-2 sm:py-4 flex items-center justify-between">
       <router-link to="/" class="flex items-center gap-3">
         <div class="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
           <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
