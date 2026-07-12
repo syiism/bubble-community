@@ -64,7 +64,7 @@
             <div class="space-y-3">
               <button 
                 class="w-full flex items-center gap-3 px-4 py-3 bg-canvas rounded-xl text-sm text-ink hover:bg-border/50 transition-colors"
-                @click="$router.push('/')"
+                @click="openProfileEditor()"
               >
                 <svg class="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -374,18 +374,28 @@
         </div>
       </div>
     </div>
+
+    <Editor v-model="showProfileEditor"
+            :style="editingProfileStyle"
+            @close="closeProfileEditor"
+            @submit="handleProfileEditorSubmit"
+            @toast="toast.show"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { api } from '@/api'
+import Editor from '@/components/Editor.vue'
 import { getUser, refreshUser } from '@/stores/auth'
 import { svgToImg } from '@/utils/svgHelper'
 import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
+const router = useRouter()
 
 const user = ref(getUser() || { username: '', authorName: '' })
 const authorName = ref('')
@@ -397,6 +407,32 @@ const showImported = ref(false)
 const showStats = ref(false)
 const styles = ref([])
 const loading = ref(false)
+
+// ===== 快捷创建气泡 =====
+const showProfileEditor = ref(false)
+const editingProfileStyle = ref(null)
+
+const openProfileEditor = () => {
+  editingProfileStyle.value = null
+  showProfileEditor.value = true
+}
+const closeProfileEditor = () => {
+  showProfileEditor.value = false
+  editingProfileStyle.value = null
+}
+const handleProfileEditorSubmit = async (data) => {
+  const payload = {
+    name: data.name, desc: data.desc, svg: data.svg,
+    color: data.color, textColor: data.textColor, public: !!data.public,
+  }
+  try {
+    await api.createBubble(payload)
+    closeProfileEditor()
+    router.push('/')
+  } catch (e) {
+    toast.show(e.message || '创建失败')
+  }
+}
 
 // 密码设置
 const passwordForm = ref({ newPassword: '', confirmPassword: '' })
