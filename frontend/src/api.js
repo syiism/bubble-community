@@ -5,7 +5,37 @@ export function setOnUnauthorized(cb) {
   _onUnauthorized = cb
 }
 
+const _cache = new Map()
+const CACHE_TTL = 5000
+
+function _cacheKey(method, url) {
+  return `${method}:${url}`
+}
+
+function _cacheGet(method, url) {
+  const key = _cacheKey(method, url)
+  const entry = _cache.get(key)
+  if (entry && Date.now() - entry.ts < CACHE_TTL) {
+    return entry.data
+  }
+  _cache.delete(key)
+  return null
+}
+
+function _cacheSet(method, url, data) {
+  _cache.set(_cacheKey(method, url), { data, ts: Date.now() })
+}
+
+function _cacheClear() {
+  _cache.clear()
+}
+
 async function request(method, url, body) {
+  if (method === 'GET') {
+    const cached = _cacheGet(method, url)
+    if (cached !== null) return cached
+  }
+
   const headers = { 'Content-Type': 'application/json' }
   const opts = { method, headers, credentials: 'include' }
   if (body !== undefined) opts.body = JSON.stringify(body)
@@ -26,6 +56,8 @@ async function request(method, url, body) {
     }
     throw err
   }
+  if (method === 'GET') _cacheSet(method, url, data)
+  else _cacheClear()
   return data
 }
 

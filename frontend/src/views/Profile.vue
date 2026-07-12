@@ -591,7 +591,6 @@ const fmtRelative = (iso) => {
 onMounted(async () => {
   loading.value = true
   try {
-    await refreshUser()
     user.value = getUser() || user.value
     authorName.value = user.value.authorName || ''
     usernameForm.value = user.value.username || ''
