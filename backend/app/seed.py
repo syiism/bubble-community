@@ -60,7 +60,7 @@ def migrate_schema():
 
         # 灌入 roles 表
         count = conn.execute(text("SELECT COUNT(*) FROM roles")).scalar()
-        if count == 0:
+        if count < 3:
             conn.execute(text("INSERT INTO roles (name, description) VALUES ('user', '普通用户')"))
             conn.execute(text("INSERT INTO roles (name, description) VALUES ('admin', '管理员')"))
             conn.execute(text("INSERT INTO roles (name, description) VALUES ('reviewer', '审核员')"))
