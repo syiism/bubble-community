@@ -63,8 +63,9 @@ def migrate_schema():
         if count == 0:
             conn.execute(text("INSERT INTO roles (name, description) VALUES ('user', '普通用户')"))
             conn.execute(text("INSERT INTO roles (name, description) VALUES ('admin', '管理员')"))
+            conn.execute(text("INSERT INTO roles (name, description) VALUES ('reviewer', '审核员')"))
             conn.commit()
-            print("[seed] 已灌入 roles 表（user / admin）。")
+            print("[seed] 已灌入 roles 表（user / admin / reviewer）。")
 
         # username_updated_at 字段
         result = conn.execute(

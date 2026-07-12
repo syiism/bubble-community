@@ -221,10 +221,16 @@ async def get_current_user(request: Request) -> dict:
 get_current_user_strict = get_current_user
 
 
-async def require_admin(user: dict = Depends(get_current_user)) -> dict:
-    if user.get("role") != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
-    return user
+def require_role(*roles: str):
+    """角色检查依赖工厂。用法: Depends(require_role('admin', 'reviewer'))"""
+    async def _checker(user: dict = Depends(get_current_user)) -> dict:
+        if user.get("role") not in roles:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "权限不足")
+        return user
+    return _checker
+
+
+require_admin = require_role("admin")
 
 
 def public_user(row: dict) -> dict:

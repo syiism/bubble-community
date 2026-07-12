@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 
-from app.auth import require_admin, invalidate_user_cache
+from app.auth import require_admin, require_role, invalidate_user_cache
 from app.modules.database import get_db_context
 from app.modules.repositories import (
     UserRepository,
@@ -151,7 +151,7 @@ async def list_users(
 
 @router.put("/users/{user_id}/role")
 async def update_user_role(user_id: int, body: RoleBody, user=Depends(require_admin)):
-    if body.role not in ("user", "admin"):
+    if body.role not in ("user", "admin", "reviewer"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "角色只能是 user 或 admin")
 
     async with get_db_context() as db:
@@ -190,8 +190,8 @@ async def admin_delete_user(user_id: int, user=Depends(require_admin)):
             raise HTTPException(status.HTTP_404_NOT_FOUND, "用户不存在")
         if target.id == user["id"]:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "不能删除自己的账号")
-        if target.role == "admin":
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "不能删除管理员，请先降级为用户")
+        if target.role in ("admin", "reviewer"):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "不能删除管理员或审核员，请先降级")
         await UserRepository.delete_user(db, user_id)
     return {"code": 0}
 
@@ -203,7 +203,7 @@ async def list_bubbles(
     query: str = Query("", max_length=64),
     official: str = Query("", max_length=8),
     public: str = Query("", max_length=8),
-    user=Depends(require_admin),
+    user=Depends(require_role("admin", "reviewer")),
     response: Response = None,
 ):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
@@ -303,7 +303,7 @@ async def admin_batch_delete_users(body: IdListBody, user=Depends(require_admin)
                 continue
             if target.id == user["id"]:
                 continue
-            if target.role == "admin":
+            if target.role in ("admin", "reviewer"):
                 continue
             await UserRepository.delete_user(db, uid)
     return {"code": 0}
@@ -323,11 +323,14 @@ async def admin_batch_delete_bubbles(body: IdListBody, user=Depends(require_admi
 
 
 @router.put("/bubbles/{bubble_id}/visibility")
-async def admin_set_visibility(bubble_id: int, body: BubbleVisibilityBody, user=Depends(require_admin)):
+async def admin_set_visibility(bubble_id: int, body: BubbleVisibilityBody, user=Depends(require_role("admin", "reviewer"))):
     async with get_db_context() as db:
         bubble = await BubbleRepository.get_by_id(db, bubble_id)
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
+        # 审核员只能设为私有，不可批准公开
+        if user.get("role") == "reviewer" and body.public:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "审核员仅可将气泡设为私有")
         await BubbleRepository.update(db, bubble, is_public=body.public)
     return {"code": 0, "public": body.public}
 

@@ -34,8 +34,8 @@
           </button>
         </div>
 
-        <!-- 用户管理 -->
-        <div v-if="activeTab === 'users'"
+        <!-- 用户管理 (仅 admin) -->
+        <div v-if="activeTab === 'users' && isAdmin"
              class="bg-surface border border-border rounded-xl p-5">
           <div class="flex flex-wrap items-center gap-3 mb-4">
             <button v-if="selectedUsers.size"
@@ -49,6 +49,7 @@
               <option value="">全部角色</option>
               <option value="user">普通用户</option>
               <option value="admin">管理员</option>
+              <option value="reviewer">审核员</option>
             </select>
             <input v-model="userQuery" type="text" placeholder="搜索用户名/署名"
                    class="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-sm text-ink placeholder:text-muted
@@ -92,23 +93,33 @@
                   <td class="py-3 pr-4">
                     <span :class="[
                       'inline-block px-2 py-0.5 rounded-full text-xs font-medium',
-                      u.role === 'admin' ? 'bg-accent/10 text-accent' : 'bg-canvas text-muted'
-                    ]">{{ u.role === 'admin' ? '管理员' : '用户' }}</span>
+                      u.role === 'admin' ? 'bg-accent/10 text-accent' : u.role === 'reviewer' ? 'bg-amber-100 text-amber-700' : 'bg-canvas text-muted'
+                    ]">{{ roleLabel(u.role) }}</span>
                   </td>
                   <td class="py-3 pr-4 text-muted text-xs">{{ fmtDate(u.createdAt) }}</td>
                   <td class="py-3">
                     <div class="flex items-center gap-3">
-                      <button v-if="u.role !== 'admin'"
-                              class="text-xs font-medium text-accent hover:text-accent/80 transition-colors"
-                              @click="setRole(u.id, u.username, 'admin')">
-                        设为管理员
+                      <template v-if="u.role === 'user'">
+                        <button class="text-xs font-medium text-accent hover:text-accent/80 transition-colors"
+                                @click="setRole(u.id, u.username, 'admin')">
+                          设为管理员
+                        </button>
+                        <button class="text-xs font-medium text-amber-600 hover:text-amber-500 transition-colors"
+                                @click="setRole(u.id, u.username, 'reviewer')">
+                          设为审核员
+                        </button>
+                      </template>
+                      <button v-else-if="u.role === 'reviewer'"
+                              class="text-xs font-medium text-amber-600 hover:text-amber-500 transition-colors"
+                              @click="setRole(u.id, u.username, 'user')">
+                        取消审核员
                       </button>
                       <span v-else class="text-xs text-muted">—</span>
                       <button class="text-xs font-medium text-ink hover:text-accent transition-colors"
                               @click="resetPassword(u.id, u.username)">
                         重置密码
                       </button>
-                      <button v-if="u.role !== 'admin'"
+                      <button v-if="u.role === 'user'"
                               class="text-xs font-medium text-red-500/70 hover:text-red-500 transition-colors"
                               @click="deleteUser(u)">
                         删除
@@ -140,7 +151,7 @@
         <div v-if="activeTab === 'bubbles'"
              class="bg-surface border border-border rounded-xl p-5">
           <div class="flex flex-wrap items-center gap-3 mb-4">
-            <button v-if="selectedBubbles.size"
+            <button v-if="isAdmin && selectedBubbles.size"
                     class="px-3 py-1.5 text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors"
                     @click="batchDeleteBubbles">
               批量删除 ({{ selectedBubbles.size }})
@@ -170,7 +181,7 @@
             <table class="w-full text-sm">
               <thead>
                 <tr class="text-left text-muted text-xs border-b border-border">
-                  <th class="pb-3 pr-3 w-8">
+                  <th v-if="isAdmin" class="pb-3 pr-3 w-8">
                     <input type="checkbox" :checked="allBubblesSelected"
                            @change="toggleAllBubbles" class="rounded border-border text-accent focus:ring-accent" />
                   </th>
@@ -182,13 +193,13 @@
                   <th class="pb-3 pr-4 font-medium">类型</th>
                   <th class="pb-3 pr-4 font-medium">状态</th>
                   <th class="pb-3 pr-4 font-medium">创建时间</th>
-                  <th class="pb-3 font-medium">操作</th>
+                  <th v-if="isAdmin" class="pb-3 font-medium">操作</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="b in bubbles" :key="b.id"
                     class="border-b border-border/50 hover:bg-canvas/50 transition-colors">
-                  <td class="py-3 pr-3">
+                  <td v-if="isAdmin" class="py-3 pr-3">
                     <input type="checkbox" :checked="selectedBubbles.has(b.id)"
                            @change="toggleBubble(b.id)" class="rounded border-border text-accent focus:ring-accent" />
                   </td>
@@ -210,7 +221,7 @@
                     </button>
                   </td>
                   <td class="py-3 pr-4 text-muted text-xs">{{ fmtDate(b.createdAt) }}</td>
-                  <td class="py-3">
+                  <td v-if="isAdmin" class="py-3">
                     <div class="flex items-center gap-2">
                       <button class="text-xs font-medium text-ink hover:text-accent transition-colors"
                               @click="openEditModal(b)">编辑</button>
@@ -220,7 +231,7 @@
                   </td>
                 </tr>
                 <tr v-if="!bubbles.length">
-                  <td colspan="10" class="py-8 text-center text-sm text-muted">暂无气泡</td>
+                  <td :colspan="isAdmin ? 10 : 9" class="py-8 text-center text-sm text-muted">暂无气泡</td>
                 </tr>
               </tbody>
             </table>
@@ -259,15 +270,21 @@ import { ElMessageBox } from 'element-plus'
 import { api } from '@/api'
 import Editor from '@/components/Editor.vue'
 import { useToast } from '@/composables/useToast'
+import { getUser } from '@/stores/auth'
 
 const toast = useToast()
+const curUser = getUser()
+const isAdmin = computed(() => curUser?.role === 'admin')
+const isReviewer = computed(() => curUser?.role === 'reviewer')
 
-const tabs = [
-  { key: 'users', label: '用户管理' },
-  { key: 'bubbles', label: '气泡管理' },
-]
+const tabs = computed(() => {
+  const list = []
+  if (isAdmin.value) list.push({ key: 'users', label: '用户管理' })
+  list.push({ key: 'bubbles', label: '气泡管理' })
+  return list
+})
 
-const activeTab = ref('users')
+const activeTab = ref('bubbles')
 
 // ===== 统计 =====
 const stats = ref(null)
@@ -407,10 +424,23 @@ const fmtDate = (iso) => {
   return iso.slice(0, 16).replace('T', ' ')
 }
 
+const roleLabel = (role) => {
+  if (role === 'admin') return '管理员'
+  if (role === 'reviewer') return '审核员'
+  return '用户'
+}
+
+const roleTitle = (toRole) => {
+  if (toRole === 'admin') return '管理员'
+  if (toRole === 'reviewer') return '审核员'
+  return '用户'
+}
+
 // ===== 用户操作 =====
 const setRole = async (userId, username, role) => {
+  const label = roleTitle(role)
   try {
-    await ElMessageBox.confirm(`确定将 ${username} 设为管理员？`, '设置管理员', {
+    await ElMessageBox.confirm(`确定将 ${username} 设为${label}？`, `设为${label}`, {
       confirmButtonText: '确定', cancelButtonText: '取消', type: 'info'
     })
   } catch { return }
@@ -448,7 +478,12 @@ const deleteUser = async (u) => {
 
 // ===== 气泡操作 =====
 const toggleVisibility = async (b) => {
-  try { const d = await api.adminSetBubbleVisibility(b.id, !b.public); b.public = d.public }
+  const newVal = !b.public
+  if (isReviewer.value && newVal) {
+    toast.show('审核员仅可将气泡设为私有')
+    return
+  }
+  try { const d = await api.adminSetBubbleVisibility(b.id, newVal); b.public = d.public }
   catch (e) { toast.show(e.message || '操作失败') }
 }
 
@@ -507,9 +542,13 @@ const handleEditSubmit = async (data) => {
 // ===== 初始化 =====
 const loadAll = async () => {
   loading.value = true
-  try { const d = await api.adminStats(); stats.value = d.stats } catch (e) { console.error(e) }
+  if (isAdmin.value) {
+    try { const d = await api.adminStats(); stats.value = d.stats } catch (e) { console.error(e) }
+  }
   loading.value = false
-  await Promise.all([loadUsers(), loadBubbles(), loadAllUsers()])
+  const tasks = [loadBubbles()]
+  if (isAdmin.value) tasks.push(loadUsers(), loadAllUsers())
+  await Promise.all(tasks)
 }
 
 onMounted(loadAll)

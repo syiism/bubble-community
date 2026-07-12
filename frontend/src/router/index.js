@@ -46,7 +46,7 @@ router.beforeEach((to) => {
   }
   if (to.meta.requiresAdmin) {
     const u = getUser()
-    if (!u || u.role !== 'admin') {
+    if (!u || (u.role !== 'admin' && u.role !== 'reviewer')) {
       return { name: 'home' }
     }
   }
