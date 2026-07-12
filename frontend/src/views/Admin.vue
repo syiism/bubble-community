@@ -179,33 +179,33 @@
              class="bg-surface border border-border rounded-xl p-5">
             <div class="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
               <button v-if="isAdmin && selectedBubbles.size"
-                      class="px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors order-1"
+                      class="px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors"
                       @click="batchDeleteBubbles">
                 批量删除 ({{ selectedBubbles.size }})
               </button>
               <select v-model="bubbleOfficialFilter"
                       class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
-                             focus:outline-none focus:border-accent transition-colors order-2">
+                             focus:outline-none focus:border-accent transition-colors">
                 <option value="">全部类型</option>
                 <option value="1">官方</option>
                 <option value="0">用户</option>
               </select>
               <select v-model="bubblePublicFilter"
                       class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
-                             focus:outline-none focus:border-accent transition-colors order-3">
+                             focus:outline-none focus:border-accent transition-colors">
                 <option value="">全部状态</option>
                 <option value="1">公开</option>
                 <option value="0">私有</option>
               </select>
-              <input v-model="bubbleStartDate" type="date" placeholder="选择日期"
+              <input v-model="bubbleStartDate" type="date"
                      class="w-full sm:w-auto px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
-                            focus:outline-none focus:border-accent transition-colors appearance-none min-w-0 order-4"
+                            focus:outline-none focus:border-accent transition-colors min-w-0"
                      @change="filterChanged" />
               <input v-model="bubbleQuery" type="text" placeholder="搜索..."
                      class="w-full sm:w-auto sm:flex-1 min-w-0 sm:min-w-[160px] max-w-xs px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink placeholder:text-muted
-                            focus:outline-none focus:border-accent transition-colors order-5 sm:order-5"
+                            focus:outline-none focus:border-accent transition-colors"
                      @keyup.enter="searchBubbles" />
-              <button class="px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors order-6 sm:order-6"
+              <button class="w-full sm:w-auto px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors"
                       @click="searchBubbles">搜索</button>
             </div>
           <div class="overflow-x-auto">
