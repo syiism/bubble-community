@@ -88,8 +88,10 @@
                   </td>
                   <td class="block sm:table-cell py-1 sm:py-3 pr-4 font-medium text-ink flex items-center gap-2">
                     <span class="sm:hidden text-xs text-muted mr-2 shrink-0">用户</span>
-                    <img v-if="u.avatarUrl" :src="u.avatarUrl" class="w-6 h-6 rounded-full object-cover shrink-0" />
-                    <div class="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-xs text-accent shrink-0" v-else>
+                    <img v-if="u.avatarUrl" :src="u.avatarUrl"
+                         class="w-6 h-6 rounded-full object-cover shrink-0 cursor-pointer hover:ring-2 hover:ring-accent/40 transition-all"
+                         @click="previewAvatar(u.avatarUrl, u.username)" />
+                    <div class="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-xs text-accent shrink-0 cursor-default" v-else>
                       {{ u.username.charAt(0).toUpperCase() }}
                     </div>
                     <span class="truncate">{{ u.username }}</span>
@@ -303,6 +305,24 @@
         <p class="text-xs text-muted mb-5">{{ previewBubbleData.desc || '无描述' }}</p>
         <div class="bg-canvas rounded-xl p-6 sm:p-10 flex items-center justify-center min-h-[200px] border border-border/50"
              v-html="previewSvg"></div>
+      </div>
+    </div>
+
+    <!-- 预览头像 -->
+    <div v-if="previewAvatarUrl"
+         class="fixed inset-0 z-[100] flex items-center justify-center p-4"
+         @click.self="previewAvatarUrl = null">
+      <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+      <div class="relative bg-surface border border-border rounded-2xl p-6 shadow-xl">
+        <button class="absolute -top-2 -right-2 w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border text-muted hover:text-ink shadow-sm transition-colors"
+                @click="previewAvatarUrl = null">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        <img :src="previewAvatarUrl" :alt="previewAvatarName"
+             class="w-48 h-48 sm:w-64 sm:h-64 rounded-full object-cover" />
+        <p class="text-center text-sm text-ink mt-4 font-medium">{{ previewAvatarName }}</p>
       </div>
     </div>
   </div>
@@ -553,6 +573,14 @@ const previewSvg = computed(() => {
                   previewBubbleData.value.color, previewBubbleData.value.textColor)
 })
 const previewBubble = (b) => { previewBubbleData.value = b }
+
+// ===== 预览头像 =====
+const previewAvatarUrl = ref(null)
+const previewAvatarName = ref('')
+const previewAvatar = (url, name) => {
+  previewAvatarUrl.value = url
+  previewAvatarName.value = name
+}
 
 // ===== 编辑气泡 =====
 const showBubbleEditor = ref(false)
