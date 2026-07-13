@@ -8,26 +8,6 @@
         </p>
       </div>
 
-      <!-- 公告横幅 -->
-      <div v-if="activeAnnouncements.length" class="mb-4 space-y-2">
-        <div v-for="ann in activeAnnouncements" :key="ann.id"
-             class="relative flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
-             :class="ann.priority === 'high' ? 'bg-red-50 border border-red-200' : 'bg-blue-50 border border-blue-200'">
-          <span class="mt-0.5 flex-shrink-0">{{ ann.priority === 'high' ? '🔴' : '📢' }}</span>
-          <div class="flex-1 min-w-0">
-            <span class="font-medium" :class="ann.priority === 'high' ? 'text-red-800' : 'text-blue-800'">{{ ann.title }}</span>
-            <p class="text-xs mt-0.5" :class="ann.priority === 'high' ? 'text-red-600/80' : 'text-blue-600/80'">{{ ann.content }}</p>
-          </div>
-          <button class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full hover:bg-black/10 transition-colors"
-                  :class="ann.priority === 'high' ? 'text-red-400' : 'text-blue-400'"
-                  @click="dismissAnnouncement(ann.id)" title="不再显示">
-            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
       <!-- 吸附式搜索栏 -->
       <div class="sticky z-40 -mx-6 px-6 mb-6 bg-surface/40 backdrop-blur-md"
            style="top: calc(4rem + env(safe-area-inset-top, 0px)); backdrop-filter: blur(12px);">
@@ -250,6 +230,36 @@
     @toast="showToast"
   />
 
+  <!-- 公告弹窗（霸屏） -->
+  <el-dialog v-model="showAnnouncementModal" width="600px" top="5vh"
+             :close-on-click-modal="false" :show-close="false" class="announcement-dialog"
+             @closed="showAnnouncementModal = false">
+    <div class="py-2">
+      <div class="text-center mb-6">
+        <span class="text-3xl">📢</span>
+        <h2 class="text-xl font-medium text-ink mt-3">公告</h2>
+      </div>
+      <div v-if="activeAnnouncements.length" class="space-y-5">
+        <div v-for="ann in activeAnnouncements" :key="ann.id"
+             class="bg-canvas rounded-xl p-5 border border-border/50"
+             :class="ann.priority === 'high' ? 'border-l-4 border-l-red-400' : ''">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-base font-medium text-ink">{{ ann.title }}</span>
+            <span v-if="ann.priority === 'high'"
+                  class="px-2 py-0.5 text-xs font-medium text-white bg-red-500 rounded">重要</span>
+          </div>
+          <p class="text-sm text-muted leading-relaxed whitespace-pre-wrap">{{ ann.content }}</p>
+          <div class="text-xs text-muted mt-3">{{ fmtDate(ann.createdAt) }}</div>
+        </div>
+      </div>
+      <div v-else class="text-center py-8 text-sm text-muted">暂无公告</div>
+      <button class="w-full mt-6 py-3 rounded-xl text-sm font-medium bg-ink text-white hover:bg-charcoal transition-colors"
+              @click="closeAnnouncementModal">
+        我知道了
+      </button>
+    </div>
+  </el-dialog>
+
   <!-- 全部公告面板 -->
   <el-dialog v-model="showAllAnnouncements" title="全部公告" width="560px" top="8vh"
              class="editor-dialog" @closed="showAllAnnouncements = false">
@@ -319,6 +329,7 @@ const communityStats = ref({ totalPublic: 0, totalPrivate: 0 })
 const activeAnnouncements = ref([])
 const allAnnouncements = ref([])
 const showAllAnnouncements = ref(false)
+const showAnnouncementModal = ref(false)
 
 const route = useRoute()
 
@@ -364,11 +375,12 @@ const loadCommunityCounts = async () => {
 const loadAnnouncements = async () => {
   try {
     const [active, all] = await Promise.all([api.announcements(), api.announcementsAll()])
-    activeAnnouncements.value = (active.announcements || []).filter(a => {
-      const dismissed = JSON.parse(localStorage.getItem('dismissed_announcements') || '[]')
-      return !dismissed.includes(a.id)
-    })
+    const dismissed = JSON.parse(localStorage.getItem('dismissed_announcements') || '[]')
+    activeAnnouncements.value = (active.announcements || []).filter(a => !dismissed.includes(a.id))
     allAnnouncements.value = all.announcements || []
+    if (activeAnnouncements.value.length) {
+      showAnnouncementModal.value = true
+    }
   } catch {}
 }
 
@@ -379,6 +391,11 @@ const dismissAnnouncement = (id) => {
     localStorage.setItem('dismissed_announcements', JSON.stringify(dismissed))
   }
   activeAnnouncements.value = activeAnnouncements.value.filter(a => a.id !== id)
+}
+
+const closeAnnouncementModal = () => {
+  activeAnnouncements.value.forEach(a => dismissAnnouncement(a.id))
+  showAnnouncementModal.value = false
 }
 
 const fmtDate = (iso) => {
@@ -644,3 +661,24 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style>
+.announcement-dialog {
+  border-radius: 20px;
+  --el-dialog-bg-color: rgb(var(--color-surface));
+}
+.announcement-dialog .el-dialog__header {
+  display: none;
+}
+.announcement-dialog .el-dialog__body {
+  padding: 32px 32px 28px;
+}
+@media (max-width: 640px) {
+  .announcement-dialog {
+    border-radius: 16px;
+    width: calc(100% - 32px) !important;
+    max-width: calc(100% - 32px) !important;
+    margin: 16px auto !important;
+  }
+}
+</style>

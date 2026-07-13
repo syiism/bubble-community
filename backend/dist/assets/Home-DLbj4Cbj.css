@@ -1,0 +1,1 @@
+.announcement-dialog{--el-dialog-bg-color:rgb(var(--color-surface));border-radius:20px}.announcement-dialog .el-dialog__header{display:none}.announcement-dialog .el-dialog__body{padding:32px 32px 28px}@media (width<=640px){.announcement-dialog{border-radius:16px;width:calc(100% - 32px)!important;max-width:calc(100% - 32px)!important;margin:16px auto!important}}
