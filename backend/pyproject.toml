@@ -16,4 +16,5 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "redis[hiredis]>=7.0.0",
     "pyjwt>=2.0.0",
+    "gunicorn>=26.0.0",
 ]
