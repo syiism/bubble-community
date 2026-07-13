@@ -28,7 +28,7 @@
         <div class="bg-surface border border-border rounded-xl p-5 scroll-animate">
           <h2 class="text-base font-medium text-ink mb-3">认证方式</h2>
           <p class="text-sm text-muted leading-relaxed">
-            接口通过 JWT Cookie <code class="px-1 py-0.5 bg-canvas rounded text-xs font-mono text-accent">bubble_token</code> 进行身份认证。用户登录后浏览器自动携带此 Cookie，无需额外传参。未登录时返回 401。
+            接口通过 JWT Cookie <code class="px-1 py-0.5 bg-canvas rounded text-xs font-mono text-accent">bubble_community_token</code> 进行身份认证。用户登录后浏览器自动携带此 Cookie，无需额外传参。未登录时返回 401。
           </p>
         </div>
 
@@ -92,7 +92,7 @@
             <div>
               <h3 class="text-xs font-medium text-muted mb-2">curl</h3>
               <div class="bg-canvas rounded-lg p-4 text-xs font-mono text-ink overflow-x-auto">
-                <div>curl -b 'bubble_token=&lt;你的token&gt;' \</div>
+                <div>curl -b 'bubble_community_token=&lt;你的token&gt;' \</div>
                 <div>  https://你的域名/bubble-community/api/bubbles/get-bubble</div>
               </div>
             </div>

@@ -78,6 +78,7 @@ async def list_bubbles(user=Depends(get_current_user), response: Response = None
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
+    response.headers["Vary"] = "Cookie"
     user_id = user["id"]
     async with get_db_context() as db:
         current_bubble = await UserCurrentBubbleRepository.get_by_user_id(db, user_id)
@@ -140,6 +141,7 @@ async def get_bubble(user=Depends(get_current_user_strict)):
             "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
             "Pragma": "no-cache",
             "Expires": "0",
+            "Vary": "Cookie",
         },
     )
 

@@ -42,6 +42,7 @@ class BubbleEditBody(BaseModel):
 @router.get("/stats")
 async def admin_stats(user=Depends(require_admin), response: Response = None):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+    response.headers["Vary"] = "Cookie"
     async with get_db_context() as db:
         from sqlalchemy import func, select
         from app.modules.user import User
@@ -102,6 +103,7 @@ async def list_users(
     response: Response = None,
 ):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+    response.headers["Vary"] = "Cookie"
     async with get_db_context() as db:
         from sqlalchemy import func, select, or_, and_
         from app.modules.user import User
@@ -208,6 +210,7 @@ async def list_bubbles(
     response: Response = None,
 ):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+    response.headers["Vary"] = "Cookie"
     async with get_db_context() as db:
         from sqlalchemy import func, select, or_, and_
         from app.modules.bubble import Bubble

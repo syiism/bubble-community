@@ -67,7 +67,7 @@ async def register(request: Request, response: Response):
         response.set_cookie(
             key=TOKEN_COOKIE,
             value=token,
-            path="/",
+            path="/bubble-community/",
             httponly=True,
             samesite="lax",
             max_age=TOKEN_MAX_AGE,
@@ -133,7 +133,7 @@ async def login(request: Request, response: Response):
         response.set_cookie(
             key=TOKEN_COOKIE,
             value=token,
-            path="/",
+            path="/bubble-community/",
             httponly=True,
             samesite="lax",
             max_age=TOKEN_MAX_AGE,
@@ -197,6 +197,7 @@ async def me(user=Depends(get_current_user), response: Response = None):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
+    response.headers["Vary"] = "Cookie"
     return {"user": public_user(user)}
 
 
@@ -213,7 +214,7 @@ async def logout(request: Request, response: Response):
                 await delete_token(uid, sid)
         except Exception:
             pass
-    response.delete_cookie(TOKEN_COOKIE, path="/")
+    response.delete_cookie(TOKEN_COOKIE, path="/bubble-community/")
     return {"code": 0, "message": "退出成功"}
 
 
@@ -223,6 +224,7 @@ async def list_my_sessions(request: Request, user=Depends(get_current_user), res
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
+    response.headers["Vary"] = "Cookie"
     from ..auth import get_user_sessions, _decode_jwt, TOKEN_COOKIE
 
     sessions = await get_user_sessions(user["id"])

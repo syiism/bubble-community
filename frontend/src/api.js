@@ -9,7 +9,9 @@ const _cache = new Map()
 const CACHE_TTL = 5000
 
 function _cacheKey(method, url) {
-  return `${method}:${url}`
+  const token = document.cookie.match(/(?:^|;\s*)bubble_community_token=([^;]+)/)
+  const tag = token ? token[1].slice(-8) : 'anon'
+  return `${tag}:${method}:${url}`
 }
 
 function _cacheGet(method, url) {

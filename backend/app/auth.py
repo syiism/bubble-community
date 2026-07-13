@@ -9,7 +9,7 @@ from fastapi import Depends, HTTPException, Request, status
 from .config import JWT_SECRET, JWT_EXPIRE_DAYS
 from .redis_client import get_redis
 
-TOKEN_COOKIE = "bubble_token"
+TOKEN_COOKIE = "bubble_community_token"
 TOKEN_MAX_AGE = int(timedelta(days=JWT_EXPIRE_DAYS).total_seconds())
 
 _log = logging.getLogger("auth")
