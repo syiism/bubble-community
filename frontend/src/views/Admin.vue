@@ -455,7 +455,7 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-ink mb-2">内容</label>
-          <textarea v-model="annForm.content" rows="4" placeholder="公告内容"
+          <textarea v-model="annForm.content" rows="8" placeholder="公告内容"
                     class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors resize-none"></textarea>
         </div>
         <div>
