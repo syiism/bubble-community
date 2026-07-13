@@ -32,6 +32,19 @@
       <div v-if="loading && !styles.length" class="text-center py-20 text-sm text-muted">加载中…</div>
 
       <template v-else>
+        <!-- 分区 Tab -->
+        <div class="flex gap-1 mb-6 scroll-animate">
+          <button v-for="tab in categoryTabs" :key="tab.key"
+                  :class="[
+                    'px-4 py-1.5 text-sm font-medium rounded-full transition-colors',
+                    currentCategory === tab.key
+                      ? 'bg-ink text-white'
+                      : 'text-muted bg-surface border border-border hover:text-ink hover:bg-canvas'
+                  ]"
+                  @click="switchCategory(tab.key)">
+            {{ tab.label }}
+          </button>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div class="md:col-span-2 space-y-4">
             <div class="bg-surface border border-border rounded-xl p-5 scroll-animate scroll-animate-delay-1">
@@ -219,6 +232,17 @@ import { useToast } from '@/composables/useToast'
 
 const styles = ref([])
 const searchQuery = ref('')
+const currentCategory = ref('')
+const categoryTabs = [
+  { key: '', label: '全部' },
+  { key: 'original', label: '原创' },
+  { key: 'anime', label: '动漫' },
+  { key: 'classical', label: '古风' },
+]
+const switchCategory = (key) => {
+  currentCategory.value = key
+  loadStyles()
+}
 const filteredStyles = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return styles.value
@@ -258,7 +282,7 @@ const currentBubbleName = computed(() => {
 const loadStyles = async () => {
   loading.value = true
   try {
-    const data = await api.listBubbles()
+    const data = await api.listBubbles(currentCategory.value || undefined)
     styles.value = data.styles || []
     canUpload.value = !!data.canUpload
     authorName.value = data.authorName || ''
@@ -297,6 +321,7 @@ const handleEditorSubmit = async (data) => {
   const payload = {
     name: data.name, desc: data.desc, svg: data.svg,
     color: data.color, textColor: data.textColor, public: !!data.public,
+    category: data.category || 'original',
   }
   try {
     if (data.id) {

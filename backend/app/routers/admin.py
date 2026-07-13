@@ -37,6 +37,7 @@ class BubbleEditBody(BaseModel):
     public: bool = False
     authorName: str = ""
     userId: int = 0
+    category: str = "original"
 
 
 @router.get("/stats")
@@ -206,6 +207,7 @@ async def list_bubbles(
     official: str = Query("", max_length=8),
     public: str = Query("", max_length=8),
     start_date: str = Query("", max_length=10),
+    category: str = Query("", max_length=32),
     user=Depends(require_role("admin", "reviewer")),
     response: Response = None,
 ):
@@ -237,6 +239,8 @@ async def list_bubbles(
             filters.append(Bubble.is_public == False)
         if start_date:
             filters.append(Bubble.created_at.between(start_date, start_date + " 23:59:59"))
+        if category:
+            filters.append(Bubble.category == category)
         # 审核员：公开气泡 + 自己修改过可见性的气泡
         if user.get("role") == "reviewer":
             filters.append(
@@ -278,6 +282,7 @@ async def list_bubbles(
                 "textColor": b.text_color or "",
                 "official": bool(b.is_official),
                 "public": bool(b.is_public),
+                "category": b.category or "original",
                 "authorName": b.author_name or "",
                 "userId": b.user_id,
                 "username": users_map.get(b.user_id) or "",
@@ -358,6 +363,7 @@ async def admin_update_bubble(bubble_id: int, body: BubbleEditBody, user=Depends
             "text_color": body.textColor,
             "is_public": body.public,
             "author_name": body.authorName.strip()[:32],
+            "category": body.category or "original",
         }
         if body.userId and body.userId != bubble.user_id:
             kwargs["user_id"] = body.userId

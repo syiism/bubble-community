@@ -197,6 +197,14 @@
                 <option value="1">公开</option>
                 <option value="0">私有</option>
               </select>
+              <select v-model="bubbleCategoryFilter"
+                      class="px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
+                             focus:outline-none focus:border-accent transition-colors">
+                <option value="">全部分区</option>
+                <option value="original">原创</option>
+                <option value="anime">动漫</option>
+                <option value="classical">古风</option>
+              </select>
               <div class="relative w-full sm:w-auto">
                 <input v-model="bubbleStartDate" type="date"
                        class="w-full px-3 py-1.5 bg-canvas border border-border rounded-lg text-xs sm:text-sm text-ink
@@ -255,9 +263,14 @@
                   <td class="hidden md:table-cell py-1 sm:py-3 pr-4 text-muted">{{ b.username || '—' }}</td>
                   <td class="block sm:table-cell py-1 sm:py-3 pr-4">
                     <span class="sm:hidden text-xs text-muted mr-2">类型</span>
-                    <span v-if="b.official"
-                          class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-accent/10 text-accent">官方</span>
-                    <span v-else class="text-xs text-muted">用户</span>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <span v-if="b.official"
+                            class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-accent/10 text-accent">官方</span>
+                      <span v-else class="text-xs text-muted">用户</span>
+                      <span v-if="b.category && b.category !== 'original'"
+                            class="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
+                            :class="adminCategoryClass(b.category)">{{ adminCategoryLabel(b.category) }}</span>
+                    </div>
                   </td>
                   <td class="block sm:table-cell py-1 sm:py-3 pr-4">
                     <span class="sm:hidden text-xs text-muted mr-2">状态</span>
@@ -491,6 +504,7 @@ const bubblesPageSize = 20
 const bubbleQuery = ref('')
 const bubbleOfficialFilter = ref('')
 const bubblePublicFilter = ref('')
+const bubbleCategoryFilter = ref('')
 const bubbleStartDate = ref('')
 const bubblesTotalPages = computed(() => Math.max(1, Math.ceil(bubblesTotal.value / bubblesPageSize)))
 
@@ -498,7 +512,7 @@ const loadBubbles = async () => {
   try {
     const data = await api.adminBubbles(bubblesPage.value, bubblesPageSize, bubbleQuery.value,
                                         bubbleOfficialFilter.value, bubblePublicFilter.value,
-                                        bubbleStartDate.value)
+                                        bubbleStartDate.value, bubbleCategoryFilter.value)
     bubbles.value = data.bubbles || []
     bubblesTotal.value = data.total || 0
   } catch (e) { console.error(e) }
@@ -510,7 +524,7 @@ const goBubblesPage = (p) => { bubblesPage.value = p; selectedBubbles.value = ne
 
 // 筛选变化时自动重新搜索
 watch([userRoleFilter], () => { usersPage.value = 1; loadUsers() })
-watch([bubbleOfficialFilter, bubblePublicFilter, bubbleStartDate], () => { bubblesPage.value = 1; loadBubbles() })
+watch([bubbleOfficialFilter, bubblePublicFilter, bubbleCategoryFilter, bubbleStartDate], () => { bubblesPage.value = 1; loadBubbles() })
 
 // ===== 工具 =====
 const loading = ref(false)
@@ -523,6 +537,14 @@ const roleLabel = (role) => {
   if (role === 'admin') return '管理员'
   if (role === 'reviewer') return '审核员'
   return '用户'
+}
+
+const adminCategoryLabels = { anime: '动漫', classical: '古风' }
+const adminCategoryLabel = (cat) => adminCategoryLabels[cat] || cat
+const adminCategoryClass = (cat) => {
+  if (cat === 'anime') return 'text-paleText-blue bg-pale-blue'
+  if (cat === 'classical') return 'text-paleText-green bg-pale-green'
+  return 'text-muted bg-canvas'
 }
 
 const roleTitle = (toRole) => {
@@ -628,6 +650,7 @@ const handleEditSubmit = async (data) => {
       color: data.color,
       textColor: data.textColor,
       public: data.public,
+      category: data.category || 'original',
       authorName: data.authorName || '',
       userId: data.userId || 0,
     })
@@ -639,6 +662,7 @@ const handleEditSubmit = async (data) => {
         name: data.name,
         desc: data.desc,
         public: data.public,
+        category: data.category || 'original',
         authorName: data.authorName || '',
         userId: data.userId || 0,
         username: newOwner ? newOwner.username : bubbles.value[idx].username,

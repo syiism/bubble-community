@@ -191,6 +191,7 @@ class BubbleRepository:
         text_color: str = "",
         is_public: bool = False,
         author_name: str = "",
+        category: str = "original",
     ) -> Bubble:
         bubble = Bubble(
             user_id=user_id,
@@ -201,6 +202,7 @@ class BubbleRepository:
             text_color=text_color,
             is_public=is_public,
             author_name=author_name,
+            category=category,
         )
         db.add(bubble)
         await db.commit()

@@ -16,6 +16,7 @@ class Bubble(Base):
     text_color = Column(String(32), nullable=False, default="")
     is_public = Column(Boolean, nullable=False, default=False)
     is_official = Column(Boolean, nullable=False, default=False)
+    category = Column(String(32), nullable=False, default="original")
     visibility_modified_by = Column(Integer, nullable=True)
     share_code = Column(String(32), nullable=True, unique=True)
     author_name = Column(String(32), nullable=False, default="")
@@ -31,4 +32,5 @@ class Bubble(Base):
         Index("idx_bubbles_user", "user_id"),
         Index("idx_bubbles_public", "is_public"),
         Index("idx_bubbles_official", "is_official"),
+        Index("idx_bubbles_category", "category"),
     )

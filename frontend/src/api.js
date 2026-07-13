@@ -69,7 +69,7 @@ export const api = {
   logout: () => request('POST', '/bubble-community/api/auth/logout'),
   checkUsername: (username) => request('GET', `/bubble-community/api/auth/check-username?username=${encodeURIComponent(username)}`),
   register: (data) => request('POST', '/bubble-community/api/auth/register', data),
-  listBubbles: () => request('GET', '/bubble-community/api/bubbles'),
+  listBubbles: (category) => request('GET', `/bubble-community/api/bubbles${category ? `?category=${category}` : ''}`),
   createBubble: (data) => request('POST', '/bubble-community/api/bubbles', data),
   updateBubble: (id, data) => request('PUT', `/bubble-community/api/bubbles/${id}`, data),
   deleteBubble: (id) => request('DELETE', `/bubble-community/api/bubbles/${id}`),
@@ -103,8 +103,8 @@ export const api = {
   adminDeleteUser: (userId) => request('DELETE', `/bubble-community/api/admin/users/${userId}`),
   adminBatchDeleteUsers: (ids) => request('POST', '/bubble-community/api/admin/users/batch-delete', { ids }),
   adminBatchDeleteBubbles: (ids) => request('POST', '/bubble-community/api/admin/bubbles/batch-delete', { ids }),
-  adminBubbles: (page, size, query, official, pub, startDate) =>
-    request('GET', `/bubble-community/api/admin/bubbles?page=${page}&size=${size}&query=${encodeURIComponent(query)}&official=${official}&public=${pub}&start_date=${startDate || ''}`),
+  adminBubbles: (page, size, query, official, pub, startDate, category) =>
+    request('GET', `/bubble-community/api/admin/bubbles?page=${page}&size=${size}&query=${encodeURIComponent(query)}&official=${official}&public=${pub}&start_date=${startDate || ''}&category=${category || ''}`),
   adminDeleteBubble: (id) => request('DELETE', `/bubble-community/api/admin/bubbles/${id}`),
   adminSetBubbleVisibility: (id, pub) => request('PUT', `/bubble-community/api/admin/bubbles/${id}/visibility`, { public: pub }),
   adminUpdateBubble: (id, data) => request('PUT', `/bubble-community/api/admin/bubbles/${id}`, data),

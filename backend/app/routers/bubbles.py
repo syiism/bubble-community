@@ -1,6 +1,6 @@
 import secrets
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status, Response
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 
@@ -28,6 +28,7 @@ class BubbleCreate(BaseModel):
     color: str = ""
     textColor: str = ""
     public: bool = False
+    category: str = "original"
 
 
 class VisibilityBody(BaseModel):
@@ -64,6 +65,7 @@ def _row_to_style(row, user_id, imported_set, favorite_set):
         "textColor": row.text_color,
         "official": bool(row.is_official),
         "public": bool(row.is_public),
+        "category": row.category or "original",
         "mine": mine,
         "imported": row.id in imported_set,
         "favorited": row.id in favorite_set,
@@ -74,7 +76,11 @@ def _row_to_style(row, user_id, imported_set, favorite_set):
 
 
 @router.get("")
-async def list_bubbles(user=Depends(get_current_user), response: Response = None):
+async def list_bubbles(
+    user=Depends(get_current_user),
+    response: Response = None,
+    category: str = Query("", max_length=32),
+):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
@@ -85,6 +91,8 @@ async def list_bubbles(user=Depends(get_current_user), response: Response = None
         current_bubble_id = current_bubble.bubble_id if current_bubble else 0
 
         bubbles = await BubbleRepository.get_visible_bubbles(db, user_id)
+        if category:
+            bubbles = [b for b in bubbles if b.category == category]
         imported_set = await ImportedBubbleRepository.get_imported_ids(db, user_id)
         favorite_set = await UserFavoriteRepository.get_favorite_ids(db, user_id)
         user_info = await UserRepository.get_by_id(db, user_id)
@@ -164,6 +172,7 @@ async def create_bubble(body: BubbleCreate, user=Depends(get_current_user)):
             text_color=body.textColor,
             is_public=body.public,
             author_name=author_name,
+            category=body.category or "original",
         )
         style = _row_to_style(bubble, user_id, set(), set())
     return {"code": 0, "id": bubble.id, "style": style}
@@ -187,6 +196,7 @@ async def update_bubble(bubble_id: int, body: BubbleCreate, user=Depends(get_cur
             color=body.color,
             text_color=body.textColor,
             is_public=body.public,
+            category=body.category or "original",
         )
         # 重新读取以获得更新后的数据（含 updated_at）
         updated = await BubbleRepository.get_by_id(db, bubble_id)

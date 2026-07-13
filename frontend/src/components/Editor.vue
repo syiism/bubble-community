@@ -41,6 +41,17 @@
       </div>
 
       <div>
+        <label class="block text-sm font-medium text-ink mb-2">分区</label>
+        <select v-model="form.category"
+                class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink
+                       focus:outline-none focus:border-accent transition-colors">
+          <option value="original">原创</option>
+          <option value="anime">动漫</option>
+          <option value="classical">古风</option>
+        </select>
+      </div>
+
+      <div>
         <label class="block text-sm font-medium text-ink mb-2">SVG 模板</label>
         <div class="text-xs text-muted mb-2">
           数字用 {n}；颜色用 {c}/{t}，也兼容 ${displayText}、{{color}} 等；粘贴自带颜色的也可以，会自动变可调
@@ -239,6 +250,7 @@ const form = ref({
   color: '',
   textColor: '',
   public: false,
+  category: 'original',
   userId: 0
 })
 
@@ -254,6 +266,7 @@ watch(() => props.style, (newStyle) => {
       color: newStyle.color || '',
       textColor: newStyle.textColor || '',
       public: !!newStyle.public,
+      category: newStyle.category || 'original',
       userId: newStyle.userId || newStyle.user_id || 0
     }
     // admin 模式下根据 userId 预填署名
@@ -269,6 +282,7 @@ watch(() => props.style, (newStyle) => {
       color: '',
       textColor: '',
       public: false,
+      category: 'original',
       userId: 0
     }
   }

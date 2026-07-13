@@ -16,6 +16,9 @@
           <span v-else-if="bubble.imported" class="px-2 py-0.5 text-xs font-medium text-paleText-blue bg-pale-blue rounded-full uppercase tracking-wider">导入</span>
           <span v-else-if="bubble.public" class="px-2 py-0.5 text-xs font-medium text-paleText-green bg-pale-green rounded-full uppercase tracking-wider">公开</span>
           <span v-if="bubble.favorited" class="px-2 py-0.5 text-xs font-medium text-paleText-red bg-pale-red rounded-full uppercase tracking-wider">已收藏</span>
+          <span v-if="bubble.category && bubble.category !== 'original'"
+                class="px-2 py-0.5 text-xs font-medium rounded-full uppercase tracking-wider"
+                :class="categoryClass(bubble.category)">{{ categoryLabel(bubble.category) }}</span>
         </div>
         <div v-if="bubble.uses > 0 || bubble.author" class="flex items-center gap-3 mt-2">
           <span v-if="!bubble.official && bubble.uses > 0" class="text-xs text-paleText-red bg-pale-red px-2 py-0.5 rounded-full">{{ bubble.uses }} 人在用</span>
@@ -145,6 +148,16 @@ const previewLarge = computed(() => {
 const previewSmall = computed(() => {
   return svgToImg(props.bubble.svg, 'h-5 w-auto inline-block align-middle ml-1', props.bubble.color, props.bubble.textColor)
 })
+
+const categoryLabels = { anime: '动漫', classical: '古风' }
+
+const categoryLabel = (cat) => categoryLabels[cat] || cat
+
+const categoryClass = (cat) => {
+  if (cat === 'anime') return 'text-paleText-blue bg-pale-blue'
+  if (cat === 'classical') return 'text-paleText-green bg-pale-green'
+  return 'text-muted bg-canvas'
+}
 
 const copySvg = async () => {
   const svg = props.bubble.rawSvg || props.bubble.svg

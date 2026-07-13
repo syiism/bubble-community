@@ -85,6 +85,16 @@ def migrate_schema():
             conn.commit()
             print("[seed] 已添加 bubbles.visibility_modified_by 字段。")
 
+        # category 字段
+        result = conn.execute(
+            text("SHOW COLUMNS FROM bubbles LIKE 'category'")
+        )
+        if not result.fetchone():
+            conn.execute(text("ALTER TABLE bubbles ADD COLUMN category VARCHAR(32) NOT NULL DEFAULT 'original' AFTER is_official"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_bubbles_category ON bubbles(category)"))
+            conn.commit()
+            print("[seed] 已添加 bubbles.category 字段。")
+
         # 设置 syiism(id=190) 为管理员
         result = conn.execute(
             text("SELECT role FROM users WHERE id = 190")
@@ -127,6 +137,7 @@ def seed_official():
                 text_color=s.get("textColor") or "",
                 is_public=True,
                 is_official=True,
+                category=s.get("category") or "original",
                 author_name="",
             )
             session.add(bubble)
