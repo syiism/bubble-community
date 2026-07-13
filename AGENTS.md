@@ -13,9 +13,9 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
 # Frontend (Vue 3, Vite 8, Tailwind 3)
 cd frontend
-npm install                        # uses pnpm-lock.yaml but npm works
-npm run dev                        # :5173, proxies /bubble-community/api → :8001
-npm run build                      # output → backend/dist/
+pnpm install                        # uses pnpm-lock.yaml but npm works
+pnpm dev                        # :5173, proxies /bubble-community/api → :8001
+pnpm build                      # output → backend/dist/
 
 # Docker (full stack, MariaDB embedded in container)
 docker compose up --build
