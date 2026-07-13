@@ -17,8 +17,12 @@ pnpm install                        # uses pnpm-lock.yaml but npm works
 pnpm dev                        # :5173, proxies /bubble-community/api → :8001
 pnpm build                      # output → backend/dist/
 
-# Docker (full stack, MariaDB embedded in container)
-docker compose up --build
+# Production (gunicorn)
+cd backend
+uv run gunicorn -c gunicorn.conf.py app.main:app   # :8000
+
+# Nginx: syiism.cc.cd.conf (not committed) proxies /bubble-community/ → backend
+# Static assets served directly by nginx with 1y cache
 ```
 
 ## Key architecture
@@ -32,8 +36,9 @@ docker compose up --build
 - **SVG placeholders**: canonical `{n}` (number), `{c}` (bubble color), `{t}` (text color). Accepts variants like `${displayText}`, `{{color}}` — normalized on save.
 - **Admin user**: `syiism` (id=190) auto-promoted to admin by seed script.
 - **Rate limiting**: login 5/min, register 3/min via slowapi.
-- **Avatars**: stored in `backend/data/avatars/`, served at `/bubble-community/avatars/`.
+- **Avatars**: stored in `backend/data/avatars/`, served at `/bubble-community/avatars/`. Gitignored — not committed. Existing DB records store URL path only (no filesystem path), so directory moves are transparent.
 - **Bubble categories**: three categories — `original` (原创), `anime` (动漫), `classical` (古风). Default is `original`. Category filter via `?category=` on `GET /bubbles` and `GET /admin/bubbles`. Official bubbles in seed JSON have pre-assigned categories. User can select category when creating/editing bubbles.
+- **Git history**: `.env` purged from all branches via `git filter-branch` + `git gc --prune=now`. Docker/entrypoint deployment files removed from repo.
 
 ## Role system
 
@@ -92,13 +97,14 @@ This prevents proxy/CDN caching from mixing one user's data with another's. The 
 | JWT_SECRET | (hardcoded fallback) |
 | REDIS_HOST | 127.0.0.1 |
 | REDIS_PORT | 6379 |
+| REDIS_PASSWORD | (empty) |
+| REDIS_DB | 1 |
 
 ## Known quirks
 
 - `backend/app/db.py` and `backend/app/schema.sql` are **obsolete** — ORM replaces them.
 - Seed JSON source: tries `../../user/api/bubble-style/index.html` first, falls back to `backend/app/official_bubbles.json`.
 - Seed is idempotent (checks existence before inserting).
-- Docker exposes port **7860** (not 8001) externally via `ms_deploy.json`.
 - `GET /` → 301 redirects to `/bubble-community/`.
 - Admin/reviewer logout uses `window.location.href` (not Vue Router push) to guarantee redirect.
 - Mobile card layout for bubble management (`Admin.vue`) hides 描述/作者/创建者/创建时间 columns; creator info is shown inline below the bubble name in the mobile card via a `sm:hidden` div.
