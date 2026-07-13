@@ -235,9 +235,9 @@
              :close-on-click-modal="false" :show-close="false" class="announcement-dialog"
              @closed="showAnnouncementModal = false">
     <div class="py-2">
-      <div class="text-center mb-6">
-        <span class="text-3xl">📢</span>
-        <h2 class="text-xl font-medium text-ink mt-3">公告</h2>
+      <div class="flex items-center gap-3 mb-6">
+        <span class="text-2xl">📢</span>
+        <h2 class="text-xl font-medium text-ink">公告</h2>
       </div>
       <div v-if="activeAnnouncements.length" class="space-y-5">
         <div v-for="ann in activeAnnouncements" :key="ann.id"
@@ -672,6 +672,11 @@ onMounted(async () => {
 }
 .announcement-dialog .el-dialog__body {
   padding: 32px 32px 28px;
+}
+@media (max-width: 640px) {
+  .announcement-dialog .el-dialog__body {
+    padding: 24px 16px 24px;
+  }
 }
 @media (max-width: 640px) {
   .announcement-dialog {
