@@ -499,9 +499,7 @@ const handleCopyShare = async (code) => {
     showToast('分享码为空，请先生成')
     return
   }
-  // 弹窗展示分享码并自动复制
   try {
-    // 先复制到剪贴板
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(code)
     } else {
@@ -514,16 +512,15 @@ const handleCopyShare = async (code) => {
       document.execCommand('copy')
       document.body.removeChild(ta)
     }
-    // 弹窗展示
-    await ElMessageBox.alert(
-      `<div style="text-align:center">
-        <p style="margin-bottom:12px;color:var(--el-text-color-regular)">分享码已复制到剪贴板</p>
-        <code style="display:inline-block;padding:12px 24px;background:var(--el-fill-color-light);border-radius:8px;font-size:22px;font-weight:700;letter-spacing:6px;color:var(--el-color-primary);user-select:all">${code}</code>
-        <p style="margin-top:12px;font-size:12px;color:var(--el-text-color-secondary)">发送给好友即可导入你的气泡样式</p>
+    ElNotification({
+      title: '分享码已复制',
+      message: `<div style="text-align:center;padding:8px 0;">
+        <code style="display:inline-block;padding:8px 20px;background:var(--el-fill-color-light);border-radius:6px;font-size:20px;font-weight:700;letter-spacing:4px;color:var(--el-color-primary);user-select:all">${code}</code>
       </div>`,
-      '复制分享码',
-      { dangerouslyUseHTMLString: true, confirmButtonText: '关闭', center: true }
-    )
+      type: 'success',
+      duration: 5000,
+      dangerouslyUseHTMLString: true,
+    })
   } catch {
     showToast('复制失败，请手动复制')
   }
