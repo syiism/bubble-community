@@ -112,4 +112,12 @@ export const api = {
   listSessions: () => request('GET', '/bubble-community/api/auth/sessions'),
   revokeSession: (sessionId) => request('POST', '/bubble-community/api/auth/sessions/revoke', { session_id: sessionId }),
   logoutAll: () => request('POST', '/bubble-community/api/auth/sessions/logout-all'),
+  // 公告
+  announcements: () => request('GET', '/bubble-community/api/announcements'),
+  announcementsAll: () => request('GET', '/bubble-community/api/announcements/all'),
+  adminAnnouncements: (page, size) =>
+    request('GET', `/bubble-community/api/admin/announcements?page=${page}&size=${size}`),
+  adminCreateAnnouncement: (data) => request('POST', '/bubble-community/api/admin/announcements', data),
+  adminUpdateAnnouncement: (id, data) => request('PUT', `/bubble-community/api/admin/announcements/${id}`, data),
+  adminDeleteAnnouncement: (id) => request('DELETE', `/bubble-community/api/admin/announcements/${id}`),
 }

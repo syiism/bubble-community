@@ -8,6 +8,26 @@
         </p>
       </div>
 
+      <!-- 公告横幅 -->
+      <div v-if="activeAnnouncements.length" class="mb-4 space-y-2">
+        <div v-for="ann in activeAnnouncements" :key="ann.id"
+             class="relative flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
+             :class="ann.priority === 'high' ? 'bg-red-50 border border-red-200' : 'bg-blue-50 border border-blue-200'">
+          <span class="mt-0.5 flex-shrink-0">{{ ann.priority === 'high' ? '🔴' : '📢' }}</span>
+          <div class="flex-1 min-w-0">
+            <span class="font-medium" :class="ann.priority === 'high' ? 'text-red-800' : 'text-blue-800'">{{ ann.title }}</span>
+            <p class="text-xs mt-0.5" :class="ann.priority === 'high' ? 'text-red-600/80' : 'text-blue-600/80'">{{ ann.content }}</p>
+          </div>
+          <button class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full hover:bg-black/10 transition-colors"
+                  :class="ann.priority === 'high' ? 'text-red-400' : 'text-blue-400'"
+                  @click="dismissAnnouncement(ann.id)" title="不再显示">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
       <!-- 吸附式搜索栏 -->
       <div class="sticky z-40 -mx-6 px-6 mb-6 bg-surface/40 backdrop-blur-md"
            style="top: calc(4rem + env(safe-area-inset-top, 0px)); backdrop-filter: blur(12px);">
@@ -173,6 +193,16 @@
                   </div>
                 </div>
               </div>
+              <div class="mt-3">
+                <button class="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-muted bg-canvas rounded-xl hover:text-ink hover:bg-border/50 transition-colors"
+                        @click="showAllAnnouncements = true">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                  </svg>
+                  查看公告
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -219,6 +249,25 @@
     @submit="handleEditorSubmit"
     @toast="showToast"
   />
+
+  <!-- 全部公告面板 -->
+  <el-dialog v-model="showAllAnnouncements" title="全部公告" width="560px" top="8vh"
+             class="editor-dialog" @closed="showAllAnnouncements = false">
+    <div v-if="allAnnouncements.length" class="space-y-4">
+      <div v-for="ann in allAnnouncements" :key="ann.id"
+           class="bg-canvas rounded-xl p-4 border border-border/50"
+           :class="{ 'opacity-50': !ann.isActive }">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-sm font-medium text-ink">{{ ann.title }}</span>
+          <span v-if="ann.priority === 'high'" class="px-1.5 py-0.5 text-xs font-medium text-red-600 bg-red-50 rounded">重要</span>
+          <span v-if="!ann.isActive" class="px-1.5 py-0.5 text-xs text-muted bg-border/50 rounded">已关闭</span>
+        </div>
+        <p class="text-xs text-muted">{{ ann.content }}</p>
+        <div class="text-xs text-muted mt-2">{{ fmtDate(ann.createdAt) }}</div>
+      </div>
+    </div>
+    <div v-else class="text-center py-10 text-sm text-muted">暂无公告</div>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -267,6 +316,9 @@ const saving = ref(false)
 const savingAuthor = ref(false)
 const loading = ref(false)
 const communityStats = ref({ totalPublic: 0, totalPrivate: 0 })
+const activeAnnouncements = ref([])
+const allAnnouncements = ref([])
+const showAllAnnouncements = ref(false)
 
 const route = useRoute()
 
@@ -307,6 +359,31 @@ const loadCommunityCounts = async () => {
     const data = await api.communityCounts()
     communityStats.value = { totalPublic: data.totalPublic || 0, totalPrivate: data.totalPrivate || 0 }
   } catch {}
+}
+
+const loadAnnouncements = async () => {
+  try {
+    const [active, all] = await Promise.all([api.announcements(), api.announcementsAll()])
+    activeAnnouncements.value = (active.announcements || []).filter(a => {
+      const dismissed = JSON.parse(localStorage.getItem('dismissed_announcements') || '[]')
+      return !dismissed.includes(a.id)
+    })
+    allAnnouncements.value = all.announcements || []
+  } catch {}
+}
+
+const dismissAnnouncement = (id) => {
+  const dismissed = JSON.parse(localStorage.getItem('dismissed_announcements') || '[]')
+  if (!dismissed.includes(id)) {
+    dismissed.push(id)
+    localStorage.setItem('dismissed_announcements', JSON.stringify(dismissed))
+  }
+  activeAnnouncements.value = activeAnnouncements.value.filter(a => a.id !== id)
+}
+
+const fmtDate = (iso) => {
+  if (!iso) return ''
+  return iso.slice(0, 16).replace('T', ' ')
 }
 
 const handleSelect = (id) => { currentId.value = id }
@@ -556,6 +633,7 @@ const redeem = async () => {
 onMounted(async () => {
   await loadStyles()
   loadCommunityCounts()
+  loadAnnouncements()
   const selectId = Number(route.query.select)
   if (selectId && styles.value.some(s => s.id === selectId)) {
     currentId.value = selectId

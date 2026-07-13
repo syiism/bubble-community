@@ -10,6 +10,7 @@ from .user_current_bubble import UserCurrentBubble
 from .imported_bubble import ImportedBubble
 from .user_favorite import UserFavorite
 from .session_model import Session
+from .announcement import Announcement
 from ..password_util import hash_password
 
 
@@ -429,4 +430,52 @@ class SessionRepository:
     @staticmethod
     async def cleanup_expired(db: AsyncSession) -> None:
         await db.execute(delete(Session).where(Session.expires_at < datetime.now()))
+        await db.commit()
+
+
+class AnnouncementRepository:
+    @staticmethod
+    async def get_active(db: AsyncSession) -> list[Announcement]:
+        result = await db.execute(
+            select(Announcement).filter(Announcement.is_active == True).order_by(Announcement.id.desc())
+        )
+        return result.scalars().all()
+
+    @staticmethod
+    async def get_all(db: AsyncSession) -> list[Announcement]:
+        result = await db.execute(
+            select(Announcement).order_by(Announcement.id.desc())
+        )
+        return result.scalars().all()
+
+    @staticmethod
+    async def get_by_id(db: AsyncSession, ann_id: int) -> Announcement | None:
+        result = await db.execute(select(Announcement).filter(Announcement.id == ann_id))
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def create(db: AsyncSession, title: str, content: str,
+                     priority: str = "normal", is_active: bool = True,
+                     created_by: int | None = None) -> Announcement:
+        ann = Announcement(
+            title=title, content=content,
+            priority=priority, is_active=is_active,
+            created_by=created_by,
+        )
+        db.add(ann)
+        await db.commit()
+        await db.refresh(ann)
+        return ann
+
+    @staticmethod
+    async def update(db: AsyncSession, ann: Announcement, **kwargs) -> Announcement:
+        for key, value in kwargs.items():
+            setattr(ann, key, value)
+        await db.commit()
+        await db.refresh(ann)
+        return ann
+
+    @staticmethod
+    async def delete(db: AsyncSession, ann_id: int) -> None:
+        await db.execute(delete(Announcement).where(Announcement.id == ann_id))
         await db.commit()

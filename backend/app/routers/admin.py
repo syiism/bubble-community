@@ -7,6 +7,7 @@ from app.modules.repositories import (
     UserRepository,
     BubbleRepository,
     UserFavoriteRepository,
+    AnnouncementRepository,
 )
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -38,6 +39,13 @@ class BubbleEditBody(BaseModel):
     authorName: str = ""
     userId: int = 0
     category: str = "original"
+
+
+class AnnouncementCreateBody(BaseModel):
+    title: str
+    content: str
+    priority: str = "normal"
+    isActive: bool = True
 
 
 @router.get("/stats")
@@ -368,4 +376,90 @@ async def admin_update_bubble(bubble_id: int, body: BubbleEditBody, user=Depends
         if body.userId and body.userId != bubble.user_id:
             kwargs["user_id"] = body.userId
         await BubbleRepository.update(db, bubble, **kwargs)
+    return {"code": 0}
+
+
+@router.get("/announcements")
+async def list_announcements(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    user=Depends(require_admin),
+    response: Response = None,
+):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+    response.headers["Vary"] = "Cookie"
+    async with get_db_context() as db:
+        from sqlalchemy import func, select
+        from app.modules.announcement import Announcement
+
+        total = (await db.execute(select(func.count(Announcement.id)))).scalar() or 0
+        result = await db.execute(
+            select(Announcement)
+            .order_by(Announcement.id.desc())
+            .offset((page - 1) * size)
+            .limit(size)
+        )
+        rows = result.scalars().all()
+
+        announcements = []
+        for a in rows:
+            announcements.append({
+                "id": a.id,
+                "title": a.title,
+                "content": a.content,
+                "priority": a.priority,
+                "isActive": bool(a.is_active),
+                "createdAt": a.created_at.isoformat() if a.created_at else "",
+            })
+
+    return {
+        "code": 0,
+        "announcements": announcements,
+        "total": total,
+        "page": page,
+        "size": size,
+    }
+
+
+@router.post("/announcements")
+async def create_announcement(body: AnnouncementCreateBody, user=Depends(require_admin)):
+    if not body.title.strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "标题不能为空")
+    if not body.content.strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "内容不能为空")
+    async with get_db_context() as db:
+        ann = await AnnouncementRepository.create(
+            db,
+            title=body.title.strip(),
+            content=body.content.strip(),
+            priority=body.priority or "normal",
+            is_active=body.isActive,
+            created_by=user["id"],
+        )
+    return {"code": 0, "id": ann.id}
+
+
+@router.put("/announcements/{ann_id}")
+async def update_announcement(ann_id: int, body: AnnouncementCreateBody, user=Depends(require_admin)):
+    async with get_db_context() as db:
+        ann = await AnnouncementRepository.get_by_id(db, ann_id)
+        if not ann:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "公告不存在")
+        await AnnouncementRepository.update(
+            db, ann,
+            title=body.title.strip(),
+            content=body.content.strip(),
+            priority=body.priority or "normal",
+            is_active=body.isActive,
+        )
+    return {"code": 0}
+
+
+@router.delete("/announcements/{ann_id}")
+async def delete_announcement(ann_id: int, user=Depends(require_admin)):
+    async with get_db_context() as db:
+        ann = await AnnouncementRepository.get_by_id(db, ann_id)
+        if not ann:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "公告不存在")
+        await AnnouncementRepository.delete(db, ann_id)
     return {"code": 0}

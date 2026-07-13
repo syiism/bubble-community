@@ -22,7 +22,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .http_client import client, avatar_client
 from .modules.database import create_all_tables
 from .redis_client import init_redis, close_redis
-from .routers import auth, bubbles, user, admin
+from .routers import auth, bubbles, user, admin, announcement
 
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "dist")
 
@@ -51,6 +51,7 @@ app.include_router(auth.router, prefix="/bubble-community")
 app.include_router(bubbles.router, prefix="/bubble-community")
 app.include_router(user.router, prefix="/bubble-community")
 app.include_router(admin.router, prefix="/bubble-community")
+app.include_router(announcement.router, prefix="/bubble-community")
 
 
 @app.on_event("startup")

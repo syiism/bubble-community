@@ -5,6 +5,7 @@ from .user_current_bubble import UserCurrentBubble
 from .imported_bubble import ImportedBubble
 from .user_favorite import UserFavorite
 from .session_model import Session
+from .announcement import Announcement
 from .repositories import (
     UserRepository,
     BubbleRepository,
@@ -12,4 +13,5 @@ from .repositories import (
     UserCurrentBubbleRepository,
     ImportedBubbleRepository,
     UserFavoriteRepository,
+    AnnouncementRepository,
 )

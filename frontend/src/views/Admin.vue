@@ -317,6 +317,82 @@
             </div>
           </div>
         </div>
+
+        <!-- 公告管理 -->
+        <div v-if="activeTab === 'announcements'"
+             class="bg-surface border border-border rounded-xl p-5">
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
+            <button class="w-full sm:w-auto px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-ink rounded-lg hover:bg-charcoal transition-colors"
+                    @click="openAnnouncementEditor()">
+              新建公告
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="hidden sm:table-header-group">
+                <tr class="text-left text-muted text-xs border-b border-border">
+                  <th class="pb-3 pr-4 font-medium w-12">ID</th>
+                  <th class="pb-3 pr-4 font-medium">标题</th>
+                  <th class="pb-3 pr-4 font-medium hidden sm:table-cell">优先级</th>
+                  <th class="pb-3 pr-4 font-medium">状态</th>
+                  <th class="pb-3 pr-4 font-medium hidden lg:table-cell">创建时间</th>
+                  <th class="pb-3 font-medium">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="a in announcements" :key="a.id"
+                    class="block sm:table-row mb-3 sm:mb-0 bg-surface sm:bg-transparent border sm:border-0 border-border/50 rounded-xl sm:rounded-none p-3 sm:p-0 hover:bg-canvas/50 transition-colors">
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-4 text-muted">
+                    <span class="sm:hidden text-xs text-muted mr-2">ID</span>
+                    {{ a.id }}
+                  </td>
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-4 font-medium text-ink truncate max-w-full sm:max-w-48" :title="a.title">
+                    <span class="sm:hidden text-xs text-muted mr-2">标题</span>
+                    {{ a.title }}
+                  </td>
+                  <td class="hidden sm:table-cell py-1 sm:py-3 pr-4">
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
+                          :class="a.priority === 'high' ? 'bg-red-50 text-red-600/70' : 'bg-blue-50 text-blue-600/70'">
+                      {{ a.priority === 'high' ? '重要' : '普通' }}
+                    </span>
+                  </td>
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-4">
+                    <span class="sm:hidden text-xs text-muted mr-2">状态</span>
+                    <button class="text-xs font-medium transition-colors px-2 py-1 rounded-lg"
+                            :class="a.isActive ? 'text-green-600/70 bg-green-50' : 'text-muted bg-canvas'"
+                            @click="toggleAnnouncement(a)">
+                      {{ a.isActive ? '启用' : '关闭' }}
+                    </button>
+                  </td>
+                  <td class="hidden lg:table-cell py-1 sm:py-3 pr-4 text-muted text-xs">{{ fmtDate(a.createdAt) }}</td>
+                  <td class="block sm:table-cell py-1 sm:py-3">
+                    <span class="sm:hidden text-xs text-muted mr-2">操作</span>
+                    <div class="flex items-center gap-1 sm:gap-2 mt-1 sm:mt-0">
+                      <button class="text-xs whitespace-nowrap font-medium text-ink hover:text-accent transition-colors px-2 py-1 rounded-lg bg-canvas sm:bg-transparent"
+                              @click="openAnnouncementEditor(a)">编辑</button>
+                      <button class="text-xs whitespace-nowrap font-medium text-red-500/70 hover:text-red-500 transition-colors px-2 py-1 rounded-lg bg-red-50 sm:bg-transparent"
+                              @click="deleteAnnouncement(a)">删除</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="!announcements.length">
+                  <td colspan="6" class="py-8 text-center text-sm text-muted">暂无公告</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-if="announcementsTotalPages > 1" class="flex items-center justify-between mt-4 pt-4 border-t border-border">
+            <div class="text-xs text-muted">共 {{ announcementsTotal }} 个，第 {{ announcementsPage }}/{{ announcementsTotalPages }} 页</div>
+            <div class="flex gap-2">
+              <button :disabled="announcementsPage <= 1"
+                      class="px-3 py-1 text-xs font-medium rounded-lg border border-border disabled:opacity-40 hover:bg-canvas transition-colors"
+                      @click="goAnnouncementsPage(announcementsPage - 1)">上一页</button>
+              <button :disabled="announcementsPage >= announcementsTotalPages"
+                      class="px-3 py-1 text-xs font-medium rounded-lg border border-border disabled:opacity-40 hover:bg-canvas transition-colors"
+                      @click="goAnnouncementsPage(announcementsPage + 1)">下一页</button>
+            </div>
+          </div>
+        </div>
       </template>
     </div>
 
@@ -366,6 +442,42 @@
         <p class="text-center text-sm text-ink mt-4 font-medium">{{ previewAvatarName }}</p>
       </div>
     </div>
+
+    <!-- 公告编辑弹窗 -->
+    <el-dialog v-model="showAnnouncementEditor" :title="editingAnnouncement ? '编辑公告' : '新建公告'"
+               width="540px" top="10vh" class="editor-dialog"
+               @closed="showAnnouncementEditor = false; editingAnnouncement = null">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-ink mb-2">标题</label>
+          <input v-model="annForm.title" type="text" placeholder="公告标题"
+                 class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-ink mb-2">内容</label>
+          <textarea v-model="annForm.content" rows="4" placeholder="公告内容"
+                    class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors resize-none"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-ink mb-2">优先级</label>
+          <select v-model="annForm.priority"
+                  class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink focus:outline-none focus:border-accent transition-colors">
+            <option value="normal">普通</option>
+            <option value="high">重要</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-3">
+          <input type="checkbox" v-model="annForm.isActive" class="w-4 h-4 rounded border-border text-accent focus:ring-accent" />
+          <span class="text-sm text-ink">立即启用</span>
+        </div>
+        <button :disabled="!annForm.title.trim() || !annForm.content.trim()"
+                class="w-full py-3 rounded-xl text-sm font-medium transition-colors"
+                :class="annForm.title.trim() && annForm.content.trim() ? 'bg-ink text-white hover:bg-charcoal' : 'bg-border text-muted cursor-not-allowed'"
+                @click="saveAnnouncement">
+          {{ annSaving ? '保存中...' : (editingAnnouncement ? '保存修改' : '创建') }}
+        </button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -387,6 +499,7 @@ const tabs = computed(() => {
   const list = []
   if (isAdmin.value) list.push({ key: 'users', label: '用户管理' })
   list.push({ key: 'bubbles', label: '气泡管理' })
+  if (isAdmin.value) list.push({ key: 'announcements', label: '公告管理' })
   return list
 })
 
@@ -526,6 +639,75 @@ const goBubblesPage = (p) => { bubblesPage.value = p; selectedBubbles.value = ne
 // 筛选变化时自动重新搜索
 watch([userRoleFilter], () => { usersPage.value = 1; loadUsers() })
 watch([bubbleOfficialFilter, bubblePublicFilter, bubbleCategoryFilter, bubbleStartDate], () => { bubblesPage.value = 1; loadBubbles() })
+
+// ===== 公告管理 =====
+const announcements = ref([])
+const announcementsTotal = ref(0)
+const announcementsPage = ref(1)
+const announcementsPageSize = 20
+const announcementsTotalPages = computed(() => Math.max(1, Math.ceil(announcementsTotal.value / announcementsPageSize)))
+const showAnnouncementEditor = ref(false)
+const editingAnnouncement = ref(null)
+const annSaving = ref(false)
+const annForm = ref({ title: '', content: '', priority: 'normal', isActive: true })
+
+const loadAnnouncements = async () => {
+  try {
+    const data = await api.adminAnnouncements(announcementsPage.value, announcementsPageSize)
+    announcements.value = data.announcements || []
+    announcementsTotal.value = data.total || 0
+  } catch (e) { console.error(e) }
+}
+
+const goAnnouncementsPage = (p) => { announcementsPage.value = p; loadAnnouncements() }
+
+const openAnnouncementEditor = (a = null) => {
+  editingAnnouncement.value = a
+  if (a) {
+    annForm.value = { title: a.title, content: a.content, priority: a.priority, isActive: a.isActive }
+  } else {
+    annForm.value = { title: '', content: '', priority: 'normal', isActive: true }
+  }
+  showAnnouncementEditor.value = true
+}
+
+const saveAnnouncement = async () => {
+  if (!annForm.value.title.trim() || !annForm.value.content.trim()) return
+  annSaving.value = true
+  try {
+    if (editingAnnouncement.value) {
+      await api.adminUpdateAnnouncement(editingAnnouncement.value.id, annForm.value)
+    } else {
+      await api.adminCreateAnnouncement(annForm.value)
+    }
+    showAnnouncementEditor.value = false
+    editingAnnouncement.value = null
+    loadAnnouncements()
+  } catch (e) { toast.show(e.message || '保存失败') }
+  finally { annSaving.value = false }
+}
+
+const toggleAnnouncement = async (a) => {
+  try {
+    await api.adminUpdateAnnouncement(a.id, {
+      title: a.title, content: a.content, priority: a.priority, isActive: !a.isActive,
+    })
+    a.isActive = !a.isActive
+  } catch (e) { toast.show(e.message || '操作失败') }
+}
+
+const deleteAnnouncement = async (a) => {
+  try {
+    await ElMessageBox.confirm(`确定删除公告「${a.title}」？`, '删除公告', {
+      confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning',
+    })
+  } catch { return }
+  try {
+    await api.adminDeleteAnnouncement(a.id)
+    announcements.value = announcements.value.filter(x => x.id !== a.id)
+    announcementsTotal.value = Math.max(0, announcementsTotal.value - 1)
+  } catch (e) { toast.show(e.message || '删除失败') }
+}
 
 // ===== 工具 =====
 const loading = ref(false)
@@ -682,7 +864,7 @@ const loadAll = async () => {
   }
   loading.value = false
   const tasks = [loadBubbles()]
-  if (isAdmin.value) tasks.push(loadUsers(), loadAllUsers())
+  if (isAdmin.value) tasks.push(loadUsers(), loadAllUsers(), loadAnnouncements())
   await Promise.all(tasks)
 }
 
