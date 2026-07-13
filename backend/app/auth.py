@@ -133,6 +133,7 @@ def _user_info_from_db(user) -> dict:
         "author_name": user.author_name,
         "avatar_url": user.avatar_url,
         "role": user.role or "user",
+        "is_blocked": bool(user.is_blocked) if hasattr(user, 'is_blocked') else False,
     }
 
 
@@ -202,6 +203,12 @@ async def _resolve_user(request: Request) -> dict:
             user = await UserRepository.get_or_create(db, uid, username, None)
         user_info = _user_info_from_db(user)
         await _cache_user_info(uid, user_info)
+
+    # 封禁检查
+    if user_info.get("is_blocked"):
+        if sid:
+            await delete_token(uid, sid)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号已被封禁")
 
     # 更新最后活跃时间（Redis，非阻塞）
     if sid:

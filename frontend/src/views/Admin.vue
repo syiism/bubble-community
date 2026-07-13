@@ -393,6 +393,76 @@
             </div>
           </div>
         </div>
+
+        <!-- 在线管理 -->
+        <div v-if="activeTab === 'online' && isAdmin"
+             class="bg-surface border border-border rounded-xl p-5">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="hidden sm:table-header-group">
+                <tr class="text-left text-muted text-xs border-b border-border">
+                  <th class="pb-3 pr-4 font-medium">ID</th>
+                  <th class="pb-3 pr-4 font-medium">用户名</th>
+                  <th class="pb-3 pr-4 font-medium hidden sm:table-cell">角色</th>
+                  <th class="pb-3 pr-4 font-medium hidden md:table-cell">IP</th>
+                  <th class="pb-3 pr-4 font-medium hidden lg:table-cell">设备</th>
+                  <th class="pb-3 pr-4 font-medium hidden lg:table-cell">最后活跃</th>
+                  <th class="pb-3 font-medium">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="u in onlineUsers" :key="u.sessionId"
+                    class="block sm:table-row mb-3 sm:mb-0 bg-surface sm:bg-transparent border sm:border-0 border-border/50 rounded-xl sm:rounded-none p-3 sm:p-0 hover:bg-canvas/50 transition-colors">
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-4 text-muted">
+                    <span class="sm:hidden text-xs text-muted mr-2">ID</span>
+                    {{ u.userId }}
+                  </td>
+                  <td class="block sm:table-cell py-1 sm:py-3 pr-4 font-medium text-ink">
+                    <span class="sm:hidden text-xs text-muted mr-2">用户</span>
+                    {{ u.username }}
+                    <div class="sm:hidden text-xs text-muted mt-0.5">
+                      IP: {{ u.ip || '—' }}
+                    </div>
+                  </td>
+                  <td class="hidden sm:table-cell py-1 sm:py-3 pr-4">
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
+                          :class="roleBadgeClass(u.role)">{{ roleLabel(u.role) }}</span>
+                  </td>
+                  <td class="hidden md:table-cell py-1 sm:py-3 pr-4 text-muted text-xs">{{ u.ip || '—' }}</td>
+                  <td class="hidden lg:table-cell py-1 sm:py-3 pr-4 text-muted text-xs max-w-36 truncate" :title="u.deviceInfo">{{ parseDevice(u.deviceInfo) }}</td>
+                  <td class="hidden lg:table-cell py-1 sm:py-3 pr-4 text-muted text-xs">{{ fmtRelative(u.lastSeenAt) }}</td>
+                  <td class="block sm:table-cell py-1 sm:py-3">
+                    <span class="sm:hidden text-xs text-muted mr-2">操作</span>
+                    <div class="flex items-center gap-1 sm:gap-2 mt-1 sm:mt-0">
+                      <button class="text-xs whitespace-nowrap font-medium text-ink hover:text-accent transition-colors px-2 py-1 rounded-lg bg-canvas sm:bg-transparent"
+                              @click="kickUser(u)">踢出</button>
+                      <button v-if="u.isBlocked"
+                              class="text-xs whitespace-nowrap font-medium text-green-600/70 hover:text-green-600 transition-colors px-2 py-1 rounded-lg bg-green-50 sm:bg-transparent"
+                              @click="unblockUser(u)">解封</button>
+                      <button v-else
+                             class="text-xs whitespace-nowrap font-medium text-red-500/70 hover:text-red-500 transition-colors px-2 py-1 rounded-lg bg-red-50 sm:bg-transparent"
+                             @click="blockUser(u)">封禁</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="!onlineUsers.length">
+                  <td colspan="7" class="py-8 text-center text-sm text-muted">暂无在线用户</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-if="onlineTotalPages > 1" class="flex items-center justify-between mt-4 pt-4 border-t border-border">
+            <div class="text-xs text-muted">共 {{ onlineTotal }} 个，第 {{ onlinePage }}/{{ onlineTotalPages }} 页</div>
+            <div class="flex gap-2">
+              <button :disabled="onlinePage <= 1"
+                      class="px-3 py-1 text-xs font-medium rounded-lg border border-border disabled:opacity-40 hover:bg-canvas transition-colors"
+                      @click="goOnlinePage(onlinePage - 1)">上一页</button>
+              <button :disabled="onlinePage >= onlineTotalPages"
+                      class="px-3 py-1 text-xs font-medium rounded-lg border border-border disabled:opacity-40 hover:bg-canvas transition-colors"
+                      @click="goOnlinePage(onlinePage + 1)">下一页</button>
+            </div>
+          </div>
+        </div>
       </template>
     </div>
 
@@ -500,6 +570,7 @@ const tabs = computed(() => {
   if (isAdmin.value) list.push({ key: 'users', label: '用户管理' })
   list.push({ key: 'bubbles', label: '气泡管理' })
   if (isAdmin.value) list.push({ key: 'announcements', label: '公告管理' })
+  if (isAdmin.value) list.push({ key: 'online', label: '在线管理' })
   return list
 })
 
@@ -716,6 +787,34 @@ const fmtDate = (iso) => {
   return iso.slice(0, 16).replace('T', ' ')
 }
 
+const parseDevice = (ua) => {
+  if (!ua) return '未知'
+  if (ua.includes('iPhone')) return 'iPhone'
+  if (ua.includes('iPad')) return 'iPad'
+  if (ua.includes('Android')) return 'Android'
+  if (ua.includes('Windows')) return 'Windows'
+  if (ua.includes('Mac OS') || ua.includes('Macintosh')) return 'macOS'
+  if (ua.includes('Linux')) return 'Linux'
+  return '其他'
+}
+
+const fmtRelative = (iso) => {
+  if (!iso) return '未知'
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return '刚刚'
+  if (mins < 60) return `${mins} 分钟前`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} 小时前`
+  return `${Math.floor(hours / 24)} 天前`
+}
+
+const roleBadgeClass = (role) => {
+  if (role === 'admin') return 'bg-accent/10 text-accent'
+  if (role === 'reviewer') return 'bg-blue-50 text-blue-600/70'
+  return 'bg-canvas text-muted'
+}
+
 const roleLabel = (role) => {
   if (role === 'admin') return '管理员'
   if (role === 'reviewer') return '审核员'
@@ -856,6 +955,64 @@ const handleEditSubmit = async (data) => {
   } catch (e) { toast.show(e.message || '保存失败') }
 }
 
+// ===== 在线管理 =====
+const onlineUsers = ref([])
+const onlineTotal = ref(0)
+const onlinePage = ref(1)
+const onlinePageSize = 20
+const onlineTotalPages = computed(() => Math.max(1, Math.ceil(onlineTotal.value / onlinePageSize)))
+
+const loadOnlineUsers = async () => {
+  try {
+    const data = await api.adminOnlineUsers(onlinePage.value, onlinePageSize)
+    onlineUsers.value = data.users || []
+    onlineTotal.value = data.total || 0
+  } catch (e) { console.error(e) }
+}
+
+const goOnlinePage = (p) => { onlinePage.value = p; loadOnlineUsers() }
+
+const kickUser = async (u) => {
+  try {
+    await ElMessageBox.confirm(`确定踢出用户「${u.username}」的当前设备？`, '踢出设备', {
+      confirmButtonText: '确定踢出', cancelButtonText: '取消', type: 'warning',
+    })
+  } catch { return }
+  try {
+    await api.adminKickSession(u.userId, u.sessionId)
+    onlineUsers.value = onlineUsers.value.filter(x => x.sessionId !== u.sessionId)
+    onlineTotal.value = Math.max(0, onlineTotal.value - 1)
+  } catch (e) { toast.show(e.message || '操作失败') }
+}
+
+const blockUser = async (u) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定封禁用户「${u.username}」(ID: ${u.userId})？<br>封禁后该用户的所有设备将立即登出，且无法再登录。`,
+      '封禁用户',
+      { confirmButtonText: '确定封禁', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true }
+    )
+  } catch { return }
+  try {
+    await api.adminBlockUser(u.userId)
+    onlineUsers.value = onlineUsers.value.filter(x => x.userId !== u.userId)
+    onlineTotal.value = Math.max(0, onlineTotal.value - 1)
+  } catch (e) { toast.show(e.message || '操作失败') }
+}
+
+const unblockUser = async (u) => {
+  try {
+    await ElMessageBox.confirm(`确定解封用户「${u.username}」？`, '解封用户', {
+      confirmButtonText: '确定解封', cancelButtonText: '取消', type: 'warning',
+    })
+  } catch { return }
+  try {
+    await api.adminUnblockUser(u.userId)
+    const target = onlineUsers.value.find(x => x.userId === u.userId)
+    if (target) target.isBlocked = false
+  } catch (e) { toast.show(e.message || '操作失败') }
+}
+
 // ===== 初始化 =====
 const loadAll = async () => {
   loading.value = true
@@ -864,7 +1021,7 @@ const loadAll = async () => {
   }
   loading.value = false
   const tasks = [loadBubbles()]
-  if (isAdmin.value) tasks.push(loadUsers(), loadAllUsers(), loadAnnouncements())
+  if (isAdmin.value) tasks.push(loadUsers(), loadAllUsers(), loadAnnouncements(), loadOnlineUsers())
   await Promise.all(tasks)
 }
 

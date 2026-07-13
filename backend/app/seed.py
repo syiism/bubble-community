@@ -95,6 +95,16 @@ def migrate_schema():
             conn.commit()
             print("[seed] 已添加 bubbles.category 字段。")
 
+        # is_blocked 字段
+        result = conn.execute(
+            text("SHOW COLUMNS FROM users LIKE 'is_blocked'")
+        )
+        if not result.fetchone():
+            conn.execute(text("ALTER TABLE users ADD COLUMN is_blocked TINYINT(1) NOT NULL DEFAULT 0 AFTER role"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN blocked_at DATETIME DEFAULT NULL AFTER is_blocked"))
+            conn.commit()
+            print("[seed] 已添加 users.is_blocked / blocked_at 字段。")
+
         # 设置 syiism(id=190) 为管理员
         result = conn.execute(
             text("SELECT role FROM users WHERE id = 190")

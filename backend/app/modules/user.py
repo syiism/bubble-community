@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, DateTime
+from sqlalchemy import Column, BigInteger, Boolean, String, DateTime
 from sqlalchemy.sql import func
 
 from .database import Base
@@ -14,6 +14,8 @@ class User(Base):
     avatar_url = Column(String(255), nullable=True)
     password = Column(String(255), nullable=True)
     role = Column(String(32), nullable=False, default="user")
+    is_blocked = Column(Boolean, nullable=False, default=False)
+    blocked_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=func.current_timestamp())
     updated_at = Column(
         DateTime,

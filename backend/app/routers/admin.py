@@ -463,3 +463,124 @@ async def delete_announcement(ann_id: int, user=Depends(require_admin)):
             raise HTTPException(status.HTTP_404_NOT_FOUND, "公告不存在")
         await AnnouncementRepository.delete(db, ann_id)
     return {"code": 0}
+
+
+@router.get("/online-users")
+async def list_online_users(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    user=Depends(require_admin),
+    response: Response = None,
+):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+    response.headers["Vary"] = "Cookie"
+    from app.redis_client import get_redis
+    from app.modules.user import User
+    from sqlalchemy import select
+
+    redis = get_redis()
+    cursor = 0
+    all_uids = set()
+    while True:
+        cursor, keys = await redis.scan(cursor, match="bubble_tokens:*", count=200)
+        for k in keys:
+            parts = k.split(":")
+            if len(parts) == 2 and parts[1].isdigit():
+                all_uids.add(int(parts[1]))
+        if cursor == 0:
+            break
+
+    sessions = []
+    for uid in all_uids:
+        raw = await redis.hgetall(f"bubble_tokens:{uid}")
+        for sid, data in raw.items():
+            try:
+                import json
+                sess = json.loads(data)
+            except Exception:
+                sess = {"token": data, "device_info": "", "ip": "", "created_at": "", "last_seen_at": ""}
+            sessions.append({
+                "userId": uid,
+                "sessionId": sid,
+                "ip": sess.get("ip", ""),
+                "deviceInfo": sess.get("device_info", ""),
+                "lastSeenAt": sess.get("last_seen_at", ""),
+            })
+
+    sessions.sort(key=lambda s: s.get("lastSeenAt", ""), reverse=True)
+    total = len(sessions)
+    page_sessions = sessions[(page - 1) * size: page * size]
+
+    uid_list = list({s["userId"] for s in page_sessions})
+    users_map = {}
+    if uid_list:
+        async with get_db_context() as db:
+            result = await db.execute(select(User).filter(User.id.in_(uid_list)))
+            for u in result.scalars().all():
+                users_map[u.id] = {
+                    "username": u.username,
+                    "authorName": u.author_name or "",
+                    "avatarUrl": u.avatar_url or "",
+                    "role": u.role or "user",
+                    "isBlocked": bool(u.is_blocked) if hasattr(u, 'is_blocked') else False,
+                }
+
+    rows = []
+    for s in page_sessions:
+        u = users_map.get(s["userId"], {})
+        rows.append({
+            "userId": s["userId"],
+            "username": u.get("username", ""),
+            "authorName": u.get("authorName", ""),
+            "avatarUrl": u.get("avatarUrl", ""),
+            "role": u.get("role", ""),
+            "isBlocked": u.get("isBlocked", False),
+            "sessionId": s["sessionId"],
+            "ip": s["ip"],
+            "deviceInfo": s["deviceInfo"],
+            "lastSeenAt": s["lastSeenAt"],
+        })
+
+    return {"code": 0, "users": rows, "total": total, "page": page, "size": size}
+
+
+class KickBody(BaseModel):
+    user_id: int
+    session_id: str
+
+
+@router.post("/online-users/kick")
+async def kick_session(body: KickBody, user=Depends(require_admin)):
+    if body.user_id == user["id"]:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "不能踢掉自己的当前会话")
+    from app.auth import delete_token
+    await delete_token(body.user_id, body.session_id)
+    return {"code": 0}
+
+
+@router.post("/users/{user_id}/block")
+async def block_user(user_id: int, user=Depends(require_admin)):
+    if user_id == user["id"]:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "不能封禁自己")
+    async with get_db_context() as db:
+        target = await UserRepository.get_by_id(db, user_id)
+        if not target:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "用户不存在")
+        from datetime import datetime, timezone
+        await UserRepository.update(db, target, is_blocked=True, blocked_at=datetime.now(timezone.utc).replace(tzinfo=None))
+    from app.auth import delete_all_tokens, invalidate_user_cache
+    await delete_all_tokens(user_id)
+    await invalidate_user_cache(user_id)
+    return {"code": 0}
+
+
+@router.post("/users/{user_id}/unblock")
+async def unblock_user(user_id: int, user=Depends(require_admin)):
+    async with get_db_context() as db:
+        target = await UserRepository.get_by_id(db, user_id)
+        if not target:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "用户不存在")
+        await UserRepository.update(db, target, is_blocked=False, blocked_at=None)
+    from app.auth import invalidate_user_cache
+    await invalidate_user_cache(user_id)
+    return {"code": 0}

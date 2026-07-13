@@ -120,4 +120,11 @@ export const api = {
   adminCreateAnnouncement: (data) => request('POST', '/bubble-community/api/admin/announcements', data),
   adminUpdateAnnouncement: (id, data) => request('PUT', `/bubble-community/api/admin/announcements/${id}`, data),
   adminDeleteAnnouncement: (id) => request('DELETE', `/bubble-community/api/admin/announcements/${id}`),
+  // 在线管理
+  adminOnlineUsers: (page, size) =>
+    request('GET', `/bubble-community/api/admin/online-users?page=${page}&size=${size}`),
+  adminKickSession: (userId, sessionId) =>
+    request('POST', '/bubble-community/api/admin/online-users/kick', { user_id: userId, session_id: sessionId }),
+  adminBlockUser: (userId) => request('POST', `/bubble-community/api/admin/users/${userId}/block`),
+  adminUnblockUser: (userId) => request('POST', `/bubble-community/api/admin/users/${userId}/unblock`),
 }
