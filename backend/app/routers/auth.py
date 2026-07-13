@@ -203,7 +203,7 @@ async def me(user=Depends(get_current_user), response: Response = None):
 
 @router.post("/logout")
 async def logout(request: Request, response: Response):
-    from ..auth import TOKEN_COOKIE, delete_token, _decode_jwt
+    from ..auth import TOKEN_COOKIE, delete_token, _decode_jwt, invalidate_user_cache
     token = request.cookies.get(TOKEN_COOKIE)
     if token:
         try:
@@ -212,6 +212,7 @@ async def logout(request: Request, response: Response):
             sid = payload.get("sid", "")
             if sid:
                 await delete_token(uid, sid)
+            await invalidate_user_cache(uid)
         except Exception:
             pass
     response.delete_cookie(TOKEN_COOKIE, path="/bubble-community/")
