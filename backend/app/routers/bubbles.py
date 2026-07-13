@@ -53,7 +53,7 @@ class FavoriteBody(BaseModel):
     favorite: bool
 
 
-def _row_to_style(row, user_id, imported_set, favorite_set):
+def _row_to_style(row, user_id, imported_set, favorite_set, users_map=None):
     mine = row.user_id == user_id
     return {
         "id": row.id,
@@ -71,6 +71,7 @@ def _row_to_style(row, user_id, imported_set, favorite_set):
         "favorited": row.id in favorite_set,
         "uses": 0,
         "author": row.author_name or ("" if row.is_official else "匿名书友"),
+        "creatorUsername": (users_map or {}).get(row.user_id, ""),
         "shareCode": row.share_code if mine else "",
     }
 
@@ -100,9 +101,17 @@ async def list_bubbles(
         bubble_ids = [b.id for b in bubbles]
         uses_map = await BubbleRepository.get_bubble_uses_batch(db, bubble_ids)
 
+        user_ids = {b.user_id for b in bubbles if b.user_id}
+        users_map = {}
+        if user_ids:
+            from app.modules.user import User
+            users_result = await db.execute(select(User).filter(User.id.in_(user_ids)))
+            for u in users_result.scalars().all():
+                users_map[u.id] = u.username
+
         styles = []
         for b in bubbles:
-            style = _row_to_style(b, user_id, imported_set, favorite_set)
+            style = _row_to_style(b, user_id, imported_set, favorite_set, users_map)
             style["uses"] = uses_map.get(b.id, 0)
             styles.append(style)
 

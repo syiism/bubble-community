@@ -166,12 +166,15 @@ const copySvg = async () => {
     ElNotification({ title: '复制失败', message: 'SVG内容为空', type: 'error', duration: 3000 })
     return
   }
+  const author = props.bubble.creatorUsername || props.bubble.author || '匿名书友'
+  const comment = `\n<!-- 创作者: ${author} -->`
+  const modifiedSvg = svg.replace(/^(<svg[^>]*>)/, `$1${comment}`)
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(svg)
+      await navigator.clipboard.writeText(modifiedSvg)
     } else {
       const ta = document.createElement('textarea')
-      ta.value = svg
+      ta.value = modifiedSvg
       ta.style.position = 'fixed'
       ta.style.left = '-9999px'
       document.body.appendChild(ta)
