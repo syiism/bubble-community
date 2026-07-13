@@ -32,7 +32,7 @@ docker compose up --build
 - **SVG placeholders**: canonical `{n}` (number), `{c}` (bubble color), `{t}` (text color). Accepts variants like `${displayText}`, `{{color}}` — normalized on save.
 - **Admin user**: `syiism` (id=190) auto-promoted to admin by seed script.
 - **Rate limiting**: login 5/min, register 3/min via slowapi.
-- **Avatars**: stored in `backend/avatars/`, served at `/bubble-community/avatars/`.
+- **Avatars**: stored in `backend/data/avatars/`, served at `/bubble-community/avatars/`.
 - **Bubble categories**: three categories — `original` (原创), `anime` (动漫), `classical` (古风). Default is `original`. Category filter via `?category=` on `GET /bubbles` and `GET /admin/bubbles`. Official bubbles in seed JSON have pre-assigned categories. User can select category when creating/editing bubbles.
 
 ## Role system
