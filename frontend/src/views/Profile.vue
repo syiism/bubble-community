@@ -125,7 +125,7 @@
                 v-for="style in myStyles" 
                 :key="style.id"
                 class="bg-canvas rounded-xl p-4 cursor-pointer hover:shadow-subtle transition-all"
-                @click="$router.push('/')"
+                @click="$router.push({ name: 'home', query: { select: style.id } })"
               >
                 <div class="flex items-center gap-4">
                   <div class="w-12 h-12 bg-surface rounded-lg flex items-center justify-center border border-border">
@@ -145,7 +145,7 @@
               还没有创建气泡，快去创建一个吧
             </div>
           </div>
-          
+
           <div v-if="showSaved" class="bg-surface border border-border rounded-2xl p-6 scroll-animate">
             <h2 class="text-lg font-medium text-ink mb-6">我的收藏</h2>
             <div v-if="favoriteStyles.length" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -153,7 +153,7 @@
                 v-for="style in favoriteStyles"
                 :key="style.id"
                 class="bg-canvas rounded-xl p-4 cursor-pointer hover:shadow-subtle transition-all"
-                @click="$router.push('/')"
+                @click="$router.push({ name: 'home', query: { select: style.id } })"
               >
                 <div class="flex items-center gap-4">
                   <div class="w-12 h-12 bg-surface rounded-lg flex items-center justify-center border border-border">
@@ -181,7 +181,7 @@
                 v-for="style in importedStyles"
                 :key="style.id"
                 class="bg-canvas rounded-xl p-4 cursor-pointer hover:shadow-subtle transition-all"
-                @click="$router.push('/')"
+                @click="$router.push({ name: 'home', query: { select: style.id } })"
               >
                 <div class="flex items-center gap-4">
                   <div class="w-12 h-12 bg-surface rounded-lg flex items-center justify-center border border-border">

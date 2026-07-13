@@ -27,4 +27,4 @@ echo "[entrypoint] Running seed..."
 uv run python -m app.seed
 
 echo "[entrypoint] Starting uvicorn..."
-exec uv run uvicorn app.main:app --host 0.0.0.0 --port 8001
+exec uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload

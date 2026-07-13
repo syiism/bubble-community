@@ -204,6 +204,7 @@
                 <option value="original">原创</option>
                 <option value="anime">动漫</option>
                 <option value="classical">古风</option>
+                <option value="other">其他</option>
               </select>
               <div class="relative w-full sm:w-auto">
                 <input v-model="bubbleStartDate" type="date"
@@ -539,7 +540,7 @@ const roleLabel = (role) => {
   return '用户'
 }
 
-const adminCategoryLabels = { anime: '动漫', classical: '古风' }
+const adminCategoryLabels = { anime: '动漫', classical: '古风', other: '其他' }
 const adminCategoryLabel = (cat) => adminCategoryLabels[cat] || cat
 const adminCategoryClass = (cat) => {
   if (cat === 'anime') return 'text-paleText-blue bg-pale-blue'

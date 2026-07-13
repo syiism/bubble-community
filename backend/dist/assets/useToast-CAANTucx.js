@@ -1,1 +1,0 @@
-import{t as e}from"./index-CAsRLxFf.js";function t(t,n){if(!n){let e=t||``,r=/失败|错误|无效|不存在|不能|已被|请先|请检查|请填写|不足|未登录|已过期/.test(e),i=/为空|不一致/.test(e);n=r?`error`:i?`warning`:`success`}e({title:n===`error`?`操作失败`:n===`warning`?`提示`:`操作成功`,message:t||``,type:n,duration:3e3})}function n(){return{show:t}}export{n as t};

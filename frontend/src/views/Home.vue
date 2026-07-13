@@ -222,7 +222,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessageBox, ElNotification } from 'element-plus'
 import BubbleList from '@/components/BubbleList.vue'
 import Editor from '@/components/Editor.vue'
@@ -238,6 +239,7 @@ const categoryTabs = [
   { key: 'original', label: '原创' },
   { key: 'anime', label: '动漫' },
   { key: 'classical', label: '古风' },
+  { key: 'other', label: '其他' },
 ]
 const switchCategory = (key) => {
   currentCategory.value = key
@@ -265,6 +267,8 @@ const saving = ref(false)
 const savingAuthor = ref(false)
 const loading = ref(false)
 const communityStats = ref({ totalPublic: 0, totalPrivate: 0 })
+
+const route = useRoute()
 
 const { show: showToast } = useToast()
 
@@ -549,8 +553,16 @@ const redeem = async () => {
   }
 }
 
-onMounted(() => {
-  loadStyles()
+onMounted(async () => {
+  await loadStyles()
   loadCommunityCounts()
+  const selectId = Number(route.query.select)
+  if (selectId && styles.value.some(s => s.id === selectId)) {
+    currentId.value = selectId
+    nextTick(() => {
+      const el = document.querySelector(`[data-bubble-id="${selectId}"]`)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+  }
 })
 </script>

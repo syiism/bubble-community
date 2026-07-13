@@ -1,5 +1,6 @@
 <template>
   <div
+    :data-bubble-id="bubble.id"
     :class="[
       'bg-surface border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 hover:shadow-subtle',
       bubble.id === currentId ? 'border-accent' : 'border-border'
@@ -149,7 +150,7 @@ const previewSmall = computed(() => {
   return svgToImg(props.bubble.svg, 'h-5 w-auto inline-block align-middle ml-1', props.bubble.color, props.bubble.textColor)
 })
 
-const categoryLabels = { anime: '动漫', classical: '古风' }
+const categoryLabels = { anime: '动漫', classical: '古风', other: '其他' }
 
 const categoryLabel = (cat) => categoryLabels[cat] || cat
 

@@ -48,6 +48,7 @@
           <option value="original">原创</option>
           <option value="anime">动漫</option>
           <option value="classical">古风</option>
+          <option value="other">其他</option>
         </select>
       </div>
 
