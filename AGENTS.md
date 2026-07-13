@@ -23,7 +23,7 @@ docker compose up --build
 
 ## Key architecture
 
-- **Auth**: JWT (`bubble_token` cookie) + Redis (token store). NOT old DB session (`bubble_session`). `get_current_user` reads JWT from cookie, validates via Redis.
+- **Auth**: JWT (`bubble_community_token` cookie, path=`/bubble-community/`) + Redis (token store). NOT old DB session (`bubble_session`). `get_current_user` reads JWT from cookie, validates via Redis. Cookie renamed from `bubble_token` to avoid collision with other projects on same domain.
 - **DB**: MySQL/MariaDB, SQLAlchemy 2.0 async with aiomysql. Schema auto-created via `Base.metadata.create_all()` (run by seed or on startup). Connection pool: `pool_size=20`, `max_overflow=50`.
 - **Upserts**: Use `mysql_insert(...).on_duplicate_key_update(...)` — never check-then-act.
 - **All routes** mounted under `/bubble-community/` prefix.
@@ -33,6 +33,7 @@ docker compose up --build
 - **Admin user**: `syiism` (id=190) auto-promoted to admin by seed script.
 - **Rate limiting**: login 5/min, register 3/min via slowapi.
 - **Avatars**: stored in `backend/avatars/`, served at `/bubble-community/avatars/`.
+- **Bubble categories**: three categories — `original` (原创), `anime` (动漫), `classical` (古风). Default is `original`. Category filter via `?category=` on `GET /bubbles` and `GET /admin/bubbles`. Official bubbles in seed JSON have pre-assigned categories. User can select category when creating/editing bubbles.
 
 ## Role system
 
@@ -67,8 +68,9 @@ All user-specific GET responses must include:
 Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate
 Pragma: no-cache
 Expires: 0
+Vary: Cookie
 ```
-This prevents proxy/CDN caching from mixing one user's data with another's.
+This prevents proxy/CDN caching from mixing one user's data with another's. The `Vary: Cookie` header tells caches to include the `Cookie` header in the cache key.
 
 ## Conventions
 
@@ -100,3 +102,5 @@ This prevents proxy/CDN caching from mixing one user's data with another's.
 - `GET /` → 301 redirects to `/bubble-community/`.
 - Admin/reviewer logout uses `window.location.href` (not Vue Router push) to guarantee redirect.
 - Mobile card layout for bubble management (`Admin.vue`) hides 描述/作者/创建者/创建时间 columns; creator info is shown inline below the bubble name in the mobile card via a `sm:hidden` div.
+- `user_info:{uid}` Redis cache (TTL 1h) is cleared on logout via `invalidate_user_cache(uid)`.
+- Frontend GET cache key (`frontend/src/api.js`) includes last 8 chars of JWT cookie to isolate users, preventing same-browser multi-account data mixing.
