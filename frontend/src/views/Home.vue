@@ -335,6 +335,9 @@ const counts = ref({ mine: 0, favorites: 0, imported: 0, public: 0, myPublic: 0,
 const currentBubbleMeta = ref(null)
 let searchTimer = null
 let loadSeq = 0
+/** Prefetched next page for smoother infinite scroll */
+let prefetchCache = null // { page, section, sort, q, category, data } | null
+let prefetchInFlight = null // Promise | null
 
 const categoryTabs = [
   { key: '', label: '全部' },
@@ -429,7 +432,15 @@ const currentBubbleName = computed(() => {
   return currentId.value ? '已选气泡' : '未选择'
 })
 
-const fetchPage = async (pageNum, { append = false } = {}) => {
+const listContextKey = () =>
+  `${currentSection.value}|${sortBy.value}|${debouncedQ.value || ''}|${currentCategory.value || ''}`
+
+const clearPrefetch = () => {
+  prefetchCache = null
+  prefetchInFlight = null
+}
+
+const fetchPage = async (pageNum) => {
   const seq = ++loadSeq
   const data = await api.listBubbles({
     section: currentSection.value,
@@ -443,21 +454,77 @@ const fetchPage = async (pageNum, { append = false } = {}) => {
   return data
 }
 
-const applyMeta = (data) => {
+const applyMeta = (data, { preserveCurrent = false } = {}) => {
   if (!data) return
   canUpload.value = !!data.canUpload
   authorName.value = data.authorName || ''
   userName.value = (getUser() && getUser().username) || ''
   userAvatar.value = (getUser() && getUser().avatarUrl) || ''
   if (data.counts) counts.value = { ...counts.value, ...data.counts }
-  if (data.style != null) currentId.value = data.style || 0
-  if (data.currentBubble) currentBubbleMeta.value = data.currentBubble
+  if (!preserveCurrent) {
+    if (data.style != null) currentId.value = data.style || 0
+    if (data.currentBubble) currentBubbleMeta.value = data.currentBubble
+  }
   listTotal.value = data.total || 0
   hasMore.value = !!data.hasMore
   page.value = data.page || 1
 }
 
+const appendItems = (items) => {
+  const seen = new Set(styles.value.map(s => s.id))
+  for (const it of items || []) {
+    if (!seen.has(it.id)) {
+      styles.value.push(it)
+      seen.add(it.id)
+    }
+  }
+}
+
+/** Background-fetch next page; store in prefetchCache */
+const schedulePrefetch = () => {
+  if (!hasMore.value || loading.value || loadingMore.value) return
+  const next = page.value + 1
+  const ctx = listContextKey()
+  if (prefetchCache && prefetchCache.page === next && prefetchCache.ctx === ctx) return
+  if (prefetchInFlight) return
+
+  const seqAtStart = loadSeq
+  const p = api.listBubbles({
+    section: currentSection.value,
+    page: next,
+    size: pageSize,
+    sort: sortBy.value,
+    q: debouncedQ.value || undefined,
+    category: currentCategory.value || undefined,
+  }).then((data) => {
+    if (seqAtStart !== loadSeq) return
+    if (listContextKey() !== ctx) return
+    prefetchCache = { page: next, ctx, data }
+  }).catch(() => {
+    /* silent — touch-bottom will retry via loadMore */
+  }).finally(() => {
+    if (prefetchInFlight === p) prefetchInFlight = null
+  })
+  prefetchInFlight = p
+}
+
+const takePrefetch = (nextPage) => {
+  const ctx = listContextKey()
+  if (
+    prefetchCache &&
+    prefetchCache.page === nextPage &&
+    prefetchCache.ctx === ctx &&
+    prefetchCache.data
+  ) {
+    const data = prefetchCache.data
+    prefetchCache = null
+    return data
+  }
+  return null
+}
+
 const reloadList = async () => {
+  clearPrefetch()
   loading.value = true
   page.value = 1
   hasMore.value = false
@@ -466,6 +533,7 @@ const reloadList = async () => {
     if (!data) return
     styles.value = data.items || data.styles || []
     applyMeta(data)
+    schedulePrefetch()
   } catch (e) {
     showToast(e.message || '加载失败')
   } finally {
@@ -478,14 +546,21 @@ const loadMore = async () => {
   loadingMore.value = true
   try {
     const next = page.value + 1
-    const data = await fetchPage(next, { append: true })
-    if (!data) return
-    const items = data.items || data.styles || []
-    const seen = new Set(styles.value.map(s => s.id))
-    for (const it of items) {
-      if (!seen.has(it.id)) styles.value.push(it)
+    let data = takePrefetch(next)
+    if (!data) {
+      // wait in-flight prefetch if it's for the same next page
+      if (prefetchInFlight) {
+        try { await prefetchInFlight } catch { /* ignore */ }
+        data = takePrefetch(next)
+      }
     }
-    applyMeta(data)
+    if (!data) {
+      data = await fetchPage(next)
+    }
+    if (!data) return
+    appendItems(data.items || data.styles || [])
+    applyMeta(data, { preserveCurrent: true })
+    schedulePrefetch()
   } catch (e) {
     showToast(e.message || '加载失败')
   } finally {

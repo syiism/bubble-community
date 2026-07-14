@@ -79,12 +79,13 @@ const setupObserver = () => {
     observer = null
   }
   if (!sentinel.value) return
+  // Large rootMargin preloads before the user reaches the bottom
   observer = new IntersectionObserver((entries) => {
     const hit = entries.some(e => e.isIntersecting)
     if (hit && props.hasMore && !props.loadingMore && !props.loading) {
       emit('load-more')
     }
-  }, { root: null, rootMargin: '200px', threshold: 0 })
+  }, { root: null, rootMargin: '600px 0px', threshold: 0 })
   observer.observe(sentinel.value)
 }
 
