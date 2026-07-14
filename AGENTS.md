@@ -141,7 +141,7 @@ This prevents proxy/CDN caching from mixing one user's data with another's. The 
 - Seed is idempotent (checks existence before inserting).
 - `GET /` → 301 redirects to `/bubble-community/`.
 - Admin/reviewer logout uses `window.location.href` (not Vue Router push) to guarantee redirect.
-- Mobile card layout for bubble management (`Admin.vue`) hides 描述/作者/创建者/创建时间 columns; creator info is shown inline below the bubble name in the mobile card via a `sm:hidden` div.
+- Mobile card layout for bubble management (`Admin.vue`) hides 描述/署名/用户名/创建时间 columns; 署名 is shown inline below the bubble name in the mobile card via a `sm:hidden` div. Desktop table headers: 署名 (`authorName`), 用户名 (`username`).
 - Mobile online-management cards (`Admin.vue`) show device type, role badge, IP, and last-active under the username (desktop table still hides 设备/最后活跃 until `lg`).
 - Admin tab bar on mobile: horizontal scroll + short labels（用户/气泡/公告/在线）; full labels on `sm+`.
 - `user_info:{uid}` Redis cache (TTL 1h) is cleared on logout via `invalidate_user_cache(uid)`.

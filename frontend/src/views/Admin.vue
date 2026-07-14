@@ -237,8 +237,8 @@
                   <th class="pb-3 pr-4 font-medium">ID</th>
                   <th class="pb-3 pr-4 font-medium">名称</th>
                   <th class="pb-3 pr-4 font-medium hidden sm:table-cell">描述</th>
-                  <th class="pb-3 pr-4 font-medium hidden sm:table-cell">作者</th>
-                  <th class="pb-3 pr-4 font-medium hidden md:table-cell">创建者</th>
+                  <th class="pb-3 pr-4 font-medium hidden sm:table-cell">署名</th>
+                  <th class="pb-3 pr-4 font-medium hidden md:table-cell">用户名</th>
                   <th class="pb-3 pr-4 font-medium">类型</th>
                   <th class="pb-3 pr-4 font-medium">状态</th>
                   <th class="pb-3 pr-4 font-medium hidden lg:table-cell">创建时间</th>
@@ -260,7 +260,7 @@
                   <td class="block sm:table-cell py-1 sm:py-3 pr-4 font-medium text-ink truncate max-w-full sm:max-w-32" :title="b.name">
                     <span class="sm:hidden text-xs text-muted mr-2">名称</span>
                     {{ b.name }}
-                    <div class="sm:hidden text-xs text-muted mt-0.5 truncate"><span class="text-xs text-muted mr-2">作者</span>{{ b.authorName || b.username || '—' }}</div>
+                    <div class="sm:hidden text-xs text-muted mt-0.5 truncate"><span class="text-xs text-muted mr-2">署名</span>{{ b.authorName || b.username || '—' }}</div>
                   </td>
                   <td class="hidden sm:table-cell py-1 sm:py-3 pr-4 text-muted max-w-32 truncate text-xs" :title="b.desc">{{ b.desc || '—' }}</td>
                   <td class="hidden sm:table-cell py-1 sm:py-3 pr-4 text-muted">{{ b.authorName || '—' }}</td>
