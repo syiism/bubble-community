@@ -125,7 +125,7 @@
                 v-for="style in myStyles" 
                 :key="style.id"
                 class="bg-canvas rounded-xl p-4 cursor-pointer hover:shadow-subtle transition-all"
-                @click="$router.push({ name: 'home', query: { select: style.id } })"
+                @click="$router.push({ name: 'home', query: { select: style.id, section: 'mine' } })"
               >
                 <div class="flex items-center gap-4">
                   <div class="w-12 h-12 bg-surface rounded-lg flex items-center justify-center border border-border">
@@ -153,7 +153,7 @@
                 v-for="style in favoriteStyles"
                 :key="style.id"
                 class="bg-canvas rounded-xl p-4 cursor-pointer hover:shadow-subtle transition-all"
-                @click="$router.push({ name: 'home', query: { select: style.id } })"
+                @click="$router.push({ name: 'home', query: { select: style.id, section: 'favorites' } })"
               >
                 <div class="flex items-center gap-4">
                   <div class="w-12 h-12 bg-surface rounded-lg flex items-center justify-center border border-border">
@@ -181,7 +181,7 @@
                 v-for="style in importedStyles"
                 :key="style.id"
                 class="bg-canvas rounded-xl p-4 cursor-pointer hover:shadow-subtle transition-all"
-                @click="$router.push({ name: 'home', query: { select: style.id } })"
+                @click="$router.push({ name: 'home', query: { select: style.id, section: 'imported' } })"
               >
                 <div class="flex items-center gap-4">
                   <div class="w-12 h-12 bg-surface rounded-lg flex items-center justify-center border border-border">

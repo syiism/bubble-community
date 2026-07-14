@@ -801,19 +801,61 @@ const redeem = async () => {
   }
 }
 
+const VALID_SECTIONS = ['public', 'mine', 'favorites', 'imported']
+
+const scrollToBubble = async (id) => {
+  await nextTick()
+  // layout may need a frame after list swap
+  await new Promise(r => requestAnimationFrame(() => r()))
+  const el = document.querySelector(`[data-bubble-id="${id}"]`)
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+/** Profile / deep-link: ?select=<id>&section=mine|favorites|imported|public */
+const applySelectQuery = async () => {
+  const selectId = Number(route.query.select)
+  if (!selectId) return
+
+  const sec = String(route.query.section || '')
+  if (sec && VALID_SECTIONS.includes(sec) && sec !== currentSection.value) {
+    currentSection.value = sec
+    // clear category/search noise so target is more likely on page 1
+    // keep user category if they set it; only force reload for section switch
+    await reloadList()
+  } else if (!styles.value.some(s => s.id === selectId)) {
+    // already on section but not in first page — try loading more until found
+    let guard = 0
+    while (hasMore.value && !styles.value.some(s => s.id === selectId) && guard < 20) {
+      guard++
+      await loadMore()
+    }
+  }
+
+  currentId.value = selectId
+  const found = styles.value.find(s => s.id === selectId)
+  if (found) currentBubbleMeta.value = found
+  await scrollToBubble(selectId)
+}
+
 onMounted(async () => {
+  // honor section from query before first fetch
+  const sec = String(route.query.section || '')
+  if (sec && VALID_SECTIONS.includes(sec)) {
+    currentSection.value = sec
+  }
   await loadStyles()
   loadCommunityCounts()
   loadAnnouncements()
-  const selectId = Number(route.query.select)
-  if (selectId && styles.value.some(s => s.id === selectId)) {
-    currentId.value = selectId
-    nextTick(() => {
-      const el = document.querySelector(`[data-bubble-id="${selectId}"]`)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    })
-  }
+  await applySelectQuery()
 })
+
+watch(
+  () => `${route.query.select || ''}:${route.query.section || ''}`,
+  async (key, prev) => {
+    if (!route.query.select || key === prev) return
+    await applySelectQuery()
+  }
+)
 </script>
 
 <style>
