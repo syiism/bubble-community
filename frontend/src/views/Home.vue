@@ -16,7 +16,7 @@
             <svg class="absolute left-0 w-4 h-4 text-muted pointer-events-none ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input v-model="searchQuery" type="text" placeholder="搜索气泡名称 / 署名..."
+            <input v-model="searchQuery" type="text" placeholder="搜索可见气泡名称 / 署名..."
                    class="w-full pl-8 pr-20 py-2.5 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted
                           transition-all duration-200
                           focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 focus:bg-surface"
@@ -432,8 +432,11 @@ const currentBubbleName = computed(() => {
   return currentId.value ? '已选气泡' : '未选择'
 })
 
+/** With keyword: search all user-visible bubbles; otherwise current tab section */
+const effectiveSection = () => (debouncedQ.value ? 'all' : currentSection.value)
+
 const listContextKey = () =>
-  `${currentSection.value}|${sortBy.value}|${debouncedQ.value || ''}|${currentCategory.value || ''}`
+  `${effectiveSection()}|${sortBy.value}|${debouncedQ.value || ''}|${currentCategory.value || ''}`
 
 const clearPrefetch = () => {
   prefetchCache = null
@@ -443,7 +446,7 @@ const clearPrefetch = () => {
 const fetchPage = async (pageNum) => {
   const seq = ++loadSeq
   const data = await api.listBubbles({
-    section: currentSection.value,
+    section: effectiveSection(),
     page: pageNum,
     size: pageSize,
     sort: sortBy.value,
@@ -490,7 +493,7 @@ const schedulePrefetch = () => {
 
   const seqAtStart = loadSeq
   const p = api.listBubbles({
-    section: currentSection.value,
+    section: effectiveSection(),
     page: next,
     size: pageSize,
     sort: sortBy.value,

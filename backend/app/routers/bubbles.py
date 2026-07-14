@@ -100,6 +100,21 @@ def _section_filters(section: str, user_id: int, category: str, q: str):
         filters.append(
             Bubble.id.in_(select(ImportedBubble.bubble_id).where(ImportedBubble.user_id == user_id))
         )
+    elif section == "all":
+        # User-visible union: public/official + own + favorites + imported
+        filters.append(
+            or_(
+                Bubble.is_public == True,
+                Bubble.is_official == True,
+                Bubble.user_id == user_id,
+                Bubble.id.in_(
+                    select(UserFavorite.bubble_id).where(UserFavorite.user_id == user_id)
+                ),
+                Bubble.id.in_(
+                    select(ImportedBubble.bubble_id).where(ImportedBubble.user_id == user_id)
+                ),
+            )
+        )
     else:
         filters.append(or_(Bubble.is_public == True, Bubble.is_official == True))
     return filters
@@ -156,7 +171,7 @@ async def list_bubbles(
     response.headers["Expires"] = "0"
     response.headers["Vary"] = "Cookie"
 
-    if section not in ("public", "mine", "favorites", "imported"):
+    if section not in ("public", "mine", "favorites", "imported", "all"):
         section = "public"
     if sort not in ("new", "hot"):
         sort = "new"
