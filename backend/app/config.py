@@ -23,3 +23,14 @@ REDIS_DB = int(os.getenv("REDIS_DB", "1"))
 
 JWT_SECRET = os.getenv("JWT_SECRET", "cTZL7UGNklfWYwk7684PJpq1DnVp6yLxSNXogTql")
 JWT_EXPIRE_DAYS = int(os.getenv("JWT_EXPIRE_DAYS", "30"))
+
+# Cookie auth: local HTTP needs Secure=false + SameSite=Lax.
+# Production HTTPS / WebView: COOKIE_SECURE=1 COOKIE_SAMESITE=none
+_cookie_secure_raw = os.getenv("COOKIE_SECURE", "0").strip().lower()
+COOKIE_SECURE = _cookie_secure_raw in ("1", "true", "yes", "on")
+COOKIE_SAMESITE = (os.getenv("COOKIE_SAMESITE", "lax") or "lax").strip().lower()
+if COOKIE_SAMESITE not in ("lax", "strict", "none"):
+    COOKIE_SAMESITE = "lax"
+# SameSite=None requires Secure
+if COOKIE_SAMESITE == "none":
+    COOKIE_SECURE = True

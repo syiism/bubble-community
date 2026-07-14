@@ -6,13 +6,37 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from fastapi import Depends, HTTPException, Request, status
 
-from .config import JWT_SECRET, JWT_EXPIRE_DAYS
+from .config import JWT_SECRET, JWT_EXPIRE_DAYS, COOKIE_SECURE, COOKIE_SAMESITE
 from .redis_client import get_redis
 
 TOKEN_COOKIE = "bubble_community_token"
+TOKEN_COOKIE_PATH = "/bubble-community/"
 TOKEN_MAX_AGE = int(timedelta(days=JWT_EXPIRE_DAYS).total_seconds())
 
 _log = logging.getLogger("auth")
+
+
+def set_auth_cookie(response, token: str) -> None:
+    """Set JWT auth cookie (env-driven Secure/SameSite for local HTTP vs prod HTTPS)."""
+    response.set_cookie(
+        key=TOKEN_COOKIE,
+        value=token,
+        path=TOKEN_COOKIE_PATH,
+        httponly=True,
+        samesite=COOKIE_SAMESITE,
+        secure=COOKIE_SECURE,
+        max_age=TOKEN_MAX_AGE,
+    )
+
+
+def clear_auth_cookie(response) -> None:
+    response.delete_cookie(
+        key=TOKEN_COOKIE,
+        path=TOKEN_COOKIE_PATH,
+        httponly=True,
+        samesite=COOKIE_SAMESITE,
+        secure=COOKIE_SECURE,
+    )
 
 REDIS_KEY_PREFIX = "bubble_tokens"
 _USER_CACHE_PREFIX = "user_info"

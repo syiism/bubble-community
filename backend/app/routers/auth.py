@@ -48,7 +48,7 @@ async def register(request: Request, response: Response):
         from ..modules.database import get_db_context
         from ..modules.repositories import UserRepository
         from ..password_util import hash_password
-        from ..auth import create_token, TOKEN_COOKIE, TOKEN_MAX_AGE, _device_key
+        from ..auth import create_token, set_auth_cookie, _device_key
 
         async with get_db_context() as db:
             existing = await UserRepository.get_by_username(db, username)
@@ -72,15 +72,7 @@ async def register(request: Request, response: Response):
         token = await create_token(uid, username, session_id,
                                    device_info=device_info, ip=client_ip)
 
-        response.set_cookie(
-            key=TOKEN_COOKIE,
-            value=token,
-            path="/bubble-community/",
-            httponly=True,
-            samesite="none",
-            secure=True,
-            max_age=TOKEN_MAX_AGE,
-        )
+        set_auth_cookie(response, token)
 
         return {
             "code": 0,
@@ -130,7 +122,7 @@ async def login(request: Request, response: Response):
         user_id = user.id
         resolved_username = user.username
 
-        from ..auth import create_token, TOKEN_COOKIE, TOKEN_MAX_AGE, _device_key
+        from ..auth import create_token, set_auth_cookie, _device_key
 
         device_info = request.headers.get("User-Agent", "")
         client_ip = request.client.host if request.client else ""
@@ -139,15 +131,7 @@ async def login(request: Request, response: Response):
         token = await create_token(user_id, resolved_username, session_id,
                                    device_info=device_info, ip=client_ip)
 
-        response.set_cookie(
-            key=TOKEN_COOKIE,
-            value=token,
-            path="/bubble-community/",
-            httponly=True,
-            samesite="none",
-            secure=True,
-            max_age=TOKEN_MAX_AGE,
-        )
+        set_auth_cookie(response, token)
 
         import logging
         _log = logging.getLogger("auth")
@@ -213,7 +197,7 @@ async def me(user=Depends(get_current_user), response: Response = None):
 
 @router.post("/logout")
 async def logout(request: Request, response: Response):
-    from ..auth import TOKEN_COOKIE, delete_token, _decode_jwt, invalidate_user_cache
+    from ..auth import TOKEN_COOKIE, delete_token, _decode_jwt, invalidate_user_cache, clear_auth_cookie
     token = request.cookies.get(TOKEN_COOKIE)
     if token:
         try:
@@ -225,7 +209,7 @@ async def logout(request: Request, response: Response):
             await invalidate_user_cache(uid)
         except Exception:
             pass
-    response.delete_cookie(TOKEN_COOKIE, path="/bubble-community/")
+    clear_auth_cookie(response)
     return {"code": 0, "message": "退出成功"}
 
 
