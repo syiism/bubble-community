@@ -28,7 +28,7 @@ uv run gunicorn -c gunicorn.conf.py app.main:app   # :8000
 ## Key architecture
 
 - **Auth**: JWT (`bubble_community_token` cookie, path=`/bubble-community/`) + Redis (token store). NOT old DB session (`bubble_session`). `get_current_user` reads JWT from cookie, validates via Redis. Cookie renamed from `bubble_token` to avoid collision with other projects on same domain.
-- **DB**: MySQL/MariaDB, SQLAlchemy 2.0 async with aiomysql. Schema auto-created via `Base.metadata.create_all()` (run by seed or on startup). Connection pool: `pool_size=20`, `max_overflow=50`.
+- **DB**: MySQL/MariaDB, SQLAlchemy 2.0 async with aiomysql. Schema auto-created via `Base.metadata.create_all()` (run by seed or on startup). `create_all` does **not** add columns to existing tables — additive column migrations live in `backend/app/modules/database.py` `_COLUMN_MIGRATIONS` / `_ensure_columns()` (runs on startup). Connection pool: `pool_size=20`, `max_overflow=50`.
 - **Upserts**: Use `mysql_insert(...).on_duplicate_key_update(...)` — never check-then-act.
 - **All routes** mounted under `/bubble-community/` prefix.
 - **Frontend builds to `backend/dist/`** — served by FastAPI as SPA static files in production.
