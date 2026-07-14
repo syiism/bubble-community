@@ -11,7 +11,7 @@ from app.modules.repositories import UserRepository
 
 router = APIRouter(prefix="/api/user", tags=["user"])
 
-AVATAR_DIR = Path(__file__).resolve().parent.parent / "data" / "avatars"
+AVATAR_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "avatars"
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 MAX_SIZE = 2 * 1024 * 1024  # 2MB
 
