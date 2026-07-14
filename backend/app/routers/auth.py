@@ -77,6 +77,7 @@ async def register(request: Request, response: Response):
         return {
             "code": 0,
             "message": "注册成功",
+            "token": token,
             "user": {
                 "id": uid,
                 "username": username,
@@ -143,6 +144,7 @@ async def login(request: Request, response: Response):
         return {
             "code": 0,
             "message": "登录成功",
+            "token": token,
             "user": {
                 "id": user.id,
                 "username": user.username,

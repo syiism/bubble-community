@@ -1,5 +1,5 @@
 import { reactive, computed } from 'vue'
-import { api, setOnUnauthorized } from '@/api'
+import { api, setOnUnauthorized, setStoredToken, clearStoredToken } from '@/api'
 
 const state = reactive({
   user: null,
@@ -12,6 +12,7 @@ export const isAuthenticated = computed(() => !!state.user)
 function _clearAuth(reason) {
   console.warn(`[auth] 清除登录态: ${reason}`)
   state.user = null
+  clearStoredToken()
 }
 
 // 注册 401 回调 — 当任何 API 请求返回 401 时清除登录态
@@ -31,11 +32,13 @@ export async function bootstrapAuth() {
 
 export async function login(data) {
   const res = await api.login(data)
+  if (res.token) setStoredToken(res.token)
   state.user = res.user
 }
 
 export async function register(data) {
   const res = await api.register(data)
+  if (res.token) setStoredToken(res.token)
   state.user = res.user
 }
 
@@ -44,6 +47,7 @@ export async function logout() {
     await api.logout()
   } catch {}
   state.user = null
+  clearStoredToken()
 }
 
 export async function refreshUser() {

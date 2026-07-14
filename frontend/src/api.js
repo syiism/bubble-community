@@ -5,12 +5,34 @@ export function setOnUnauthorized(cb) {
   _onUnauthorized = cb
 }
 
+const TOKEN_STORAGE_KEY = 'bubble_community_jwt'
+
+export function getStoredToken() {
+  try {
+    return localStorage.getItem(TOKEN_STORAGE_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+export function setStoredToken(token) {
+  try {
+    if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token)
+    else localStorage.removeItem(TOKEN_STORAGE_KEY)
+  } catch { /* private mode */ }
+  _cacheClear()
+}
+
+export function clearStoredToken() {
+  setStoredToken('')
+}
+
 const _cache = new Map()
 const CACHE_TTL = 5000
 
 function _cacheKey(method, url) {
-  const token = document.cookie.match(/(?:^|;\s*)bubble_community_token=([^;]+)/)
-  const tag = token ? token[1].slice(-8) : 'anon'
+  const t = getStoredToken()
+  const tag = t ? t.slice(-8) : 'anon'
   return `${tag}:${method}:${url}`
 }
 
@@ -39,6 +61,9 @@ async function request(method, url, body) {
   }
 
   const headers = { 'Content-Type': 'application/json' }
+  const token = getStoredToken()
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
   const opts = { method, headers, credentials: 'include' }
   if (body !== undefined) opts.body = JSON.stringify(body)
 
@@ -101,12 +126,18 @@ export const api = {
   uploadAvatar: (file) => {
     const form = new FormData()
     form.append('file', file)
+    const headers = {}
+    const token = getStoredToken()
+    if (token) headers['Authorization'] = `Bearer ${token}`
     return fetch('/bubble-community/api/user/avatar', {
-      method: 'POST', body: form, credentials: 'include',
+      method: 'POST', body: form, credentials: 'include', headers,
     }).then(async res => {
       const text = await res.text()
       const data = text ? JSON.parse(text) : {}
-      if (!res.ok) throw new Error(data.detail || data.message || '上传失败')
+      if (!res.ok) {
+        if (res.status === 401 && _onUnauthorized) _onUnauthorized()
+        throw new Error(data.detail || data.message || '上传失败')
+      }
       return data
     })
   },

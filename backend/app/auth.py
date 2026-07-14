@@ -183,8 +183,19 @@ async def invalidate_user_cache(uid: int) -> None:
     _log.debug("User cache invalidated for uid=%s", uid)
 
 
-async def _resolve_user(request: Request) -> dict:
+def _extract_token(request: Request) -> str | None:
+    """Prefer cookie; fall back to Authorization: Bearer (WebView / third-party contexts)."""
     token = request.cookies.get(TOKEN_COOKIE)
+    if token:
+        return token
+    auth = request.headers.get("Authorization") or request.headers.get("authorization") or ""
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip() or None
+    return None
+
+
+async def _resolve_user(request: Request) -> dict:
+    token = _extract_token(request)
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未登录")
 
