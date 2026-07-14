@@ -4,10 +4,10 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status, Resp
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 
 from app.svg_util import fill_svg
-from app.auth import get_current_user, get_current_user_strict
+from app.auth import get_current_user, get_current_user_strict, cache_get, cache_set, cache_del
 from app.modules.bubble import Bubble
 from app.modules.database import get_db_context
 from app.modules.repositories import (
@@ -76,6 +76,56 @@ def _row_to_style(row, user_id, imported_set, favorite_set, users_map=None):
     }
 
 
+async def _get_visible_bubbles_cached(db, user_id):
+    """Fetch visible bubbles with Redis caching for public+official portion."""
+    from app.redis_client import get_redis
+    import json
+
+    redis = get_redis()
+    cached = await redis.get("cache:bubbles:public-list")
+    if cached:
+        try:
+            public_data = json.loads(cached)
+            public_bubbles = [type('B', (), d)() for d in public_data]
+        except Exception:
+            public_bubbles = None
+    else:
+        public_bubbles = None
+
+    if public_bubbles is None:
+        result = await db.execute(
+            select(Bubble).filter(or_(Bubble.is_public == True, Bubble.is_official == True))
+        )
+        public_bubbles = list(result.scalars().all())
+        cache_data = [
+            {
+                "id": b.id, "user_id": b.user_id, "name": b.name,
+                "description": b.description, "svg_template": b.svg_template,
+                "color": b.color, "text_color": b.text_color,
+                "is_public": bool(b.is_public), "is_official": bool(b.is_official),
+                "category": b.category or "original",
+                "share_code": b.share_code, "author_name": b.author_name,
+            }
+            for b in public_bubbles
+        ]
+        await redis.setex("cache:bubbles:public-list", 60, json.dumps(cache_data, ensure_ascii=False, default=str))
+
+    # User-specific bubbles (always fresh)
+    result = await db.execute(select(Bubble).filter(Bubble.user_id == user_id))
+    my_bubbles = list(result.scalars().all())
+
+    # Merge: public + official + own
+    seen = {b.id for b in public_bubbles}
+    merged = list(public_bubbles)
+    for b in my_bubbles:
+        if b.id not in seen:
+            merged.append(b)
+            seen.add(b.id)
+
+    # Imported bubbles are handled separately in the caller with imported_set
+    return sorted(merged, key=lambda x: (-x.is_official, -x.id))
+
+
 @router.get("")
 async def list_bubbles(
     user=Depends(get_current_user),
@@ -91,10 +141,27 @@ async def list_bubbles(
         current_bubble = await UserCurrentBubbleRepository.get_by_user_id(db, user_id)
         current_bubble_id = current_bubble.bubble_id if current_bubble else 0
 
-        bubbles = await BubbleRepository.get_visible_bubbles(db, user_id)
+        bubbles = await _get_visible_bubbles_cached(db, user_id)
+        imported_set = await ImportedBubbleRepository.get_imported_ids(db, user_id)
+
+        # Add imported bubbles not already in the list
+        if imported_set:
+            existing_ids = {b.id for b in bubbles}
+            missing = [i for i in imported_set if i not in existing_ids]
+            if missing:
+                result = await db.execute(select(Bubble).filter(Bubble.id.in_(missing)))
+                for b in result.scalars().all():
+                    bubbles.append(b)
+
+        # Ensure current bubble is in the list
+        if current_bubble_id and current_bubble_id not in {b.id for b in bubbles}:
+            result = await db.execute(select(Bubble).filter(Bubble.id == current_bubble_id))
+            cb = result.scalar_one_or_none()
+            if cb:
+                bubbles.append(cb)
+
         if category:
             bubbles = [b for b in bubbles if b.category == category]
-        imported_set = await ImportedBubbleRepository.get_imported_ids(db, user_id)
         favorite_set = await UserFavoriteRepository.get_favorite_ids(db, user_id)
         user_info = await UserRepository.get_by_id(db, user_id)
 
@@ -184,6 +251,8 @@ async def create_bubble(body: BubbleCreate, user=Depends(get_current_user)):
             category=body.category or "original",
         )
         style = _row_to_style(bubble, user_id, set(), set())
+    await cache_del("cache:community-counts")
+    await cache_del("cache:bubbles:public-list")
     return {"code": 0, "id": bubble.id, "style": style}
 
 
@@ -212,6 +281,8 @@ async def update_bubble(bubble_id: int, body: BubbleCreate, user=Depends(get_cur
         imported_set = await ImportedBubbleRepository.get_imported_ids(db, user_id)
         favorite_set = await UserFavoriteRepository.get_favorite_ids(db, user_id)
         style = _row_to_style(updated, user_id, imported_set, favorite_set)
+    await cache_del("cache:community-counts")
+    await cache_del("cache:bubbles:public-list")
     return {"code": 0, "style": style}
 
 
@@ -225,6 +296,8 @@ async def delete_bubble(bubble_id: int, user=Depends(get_current_user)):
         if bubble.user_id != user_id:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "只能删除自己的气泡")
         await BubbleRepository.delete(db, bubble_id)
+    await cache_del("cache:community-counts")
+    await cache_del("cache:bubbles:public-list")
     return {"code": 0}
 
 
@@ -241,6 +314,8 @@ async def set_visibility(body: VisibilityBody, user=Depends(get_current_user)):
         # 构造 style 对象返回，imported/favorited 由前端从本地状态继承
         style = _row_to_style(bubble, user_id, set(), set())
         style["public"] = body.public
+    await cache_del("cache:community-counts")
+    await cache_del("cache:bubbles:public-list")
     return {"code": 0, "style": style}
 
 
@@ -333,6 +408,9 @@ async def set_favorite(body: FavoriteBody, user=Depends(get_current_user)):
 
 @router.get("/community-counts")
 async def community_counts():
+    cached = await cache_get("cache:community-counts")
+    if cached:
+        return cached
     async with get_db_context() as db:
         total_public = (
             await db.execute(
@@ -344,8 +422,10 @@ async def community_counts():
                 select(func.count(Bubble.id)).where(Bubble.is_public == False)
             )
         ).scalar() or 0
-    return {
+    data = {
         "code": 0,
         "totalPublic": total_public,
         "totalPrivate": total_private,
     }
+    await cache_set("cache:community-counts", data, 60)
+    return data

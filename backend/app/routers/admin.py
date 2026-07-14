@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 
-from app.auth import require_admin, require_role, invalidate_user_cache
+from app.auth import require_admin, require_role, invalidate_user_cache, cache_get, cache_set, cache_del
 from app.modules.database import get_db_context
 from app.modules.repositories import (
     UserRepository,
@@ -52,6 +52,9 @@ class AnnouncementCreateBody(BaseModel):
 async def admin_stats(user=Depends(require_admin), response: Response = None):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
     response.headers["Vary"] = "Cookie"
+    cached = await cache_get("cache:admin:stats")
+    if cached:
+        return cached
     async with get_db_context() as db:
         from sqlalchemy import func, select
         from app.modules.user import User
@@ -62,12 +65,10 @@ async def admin_stats(user=Depends(require_admin), response: Response = None):
         admin_count = (await db.execute(
             select(func.count(User.id)).filter(User.role == "admin")
         )).scalar() or 0
-        # 总收藏数
         from app.modules.user_favorite import UserFavorite
         fav_count = (await db.execute(
             select(func.count(UserFavorite.user_id))
         )).scalar() or 0
-        # 使用中气泡数（去重）
         from app.modules.user_current_bubble import UserCurrentBubble
         active_bubbles = len(set(
             row[0] for row in (await db.execute(
@@ -75,7 +76,6 @@ async def admin_stats(user=Depends(require_admin), response: Response = None):
             )).all()
         ))
 
-    # 在线用户数（Redis 中有活跃 session 的用户数）
     online_count = 0
     try:
         from app.redis_client import get_redis
@@ -89,7 +89,7 @@ async def admin_stats(user=Depends(require_admin), response: Response = None):
     except Exception:
         pass
 
-    return {
+    data = {
         "code": 0,
         "stats": {
             "totalUsers": total_users,
@@ -100,6 +100,8 @@ async def admin_stats(user=Depends(require_admin), response: Response = None):
             "activeBubbles": active_bubbles,
         },
     }
+    await cache_set("cache:admin:stats", data, 60)
+    return data
 
 
 @router.get("/users")
@@ -204,6 +206,7 @@ async def admin_delete_user(user_id: int, user=Depends(require_admin)):
         if target.role in ("admin", "reviewer"):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "不能删除管理员或审核员，请先降级")
         await UserRepository.delete_user(db, user_id)
+    await cache_del("cache:admin:stats")
     return {"code": 0}
 
 
@@ -313,6 +316,9 @@ async def admin_delete_bubble(bubble_id: int, user=Depends(require_admin)):
         if not bubble:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
         await BubbleRepository.delete(db, bubble_id)
+    await cache_del("cache:admin:stats")
+    await cache_del("cache:bubbles:public-list")
+    await cache_del("cache:community-counts")
     return {"code": 0}
 
 
@@ -330,6 +336,7 @@ async def admin_batch_delete_users(body: IdListBody, user=Depends(require_admin)
             if target.role in ("admin", "reviewer"):
                 continue
             await UserRepository.delete_user(db, uid)
+    await cache_del("cache:admin:stats")
     return {"code": 0}
 
 
@@ -343,6 +350,9 @@ async def admin_batch_delete_bubbles(body: IdListBody, user=Depends(require_admi
             if not bubble:
                 continue
             await BubbleRepository.delete(db, bid)
+    await cache_del("cache:admin:stats")
+    await cache_del("cache:bubbles:public-list")
+    await cache_del("cache:community-counts")
     return {"code": 0}
 
 
@@ -354,6 +364,9 @@ async def admin_set_visibility(bubble_id: int, body: BubbleVisibilityBody, user=
             raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
         modified_by = user["id"] if user.get("role") == "reviewer" else None
         await BubbleRepository.update(db, bubble, is_public=body.public, visibility_modified_by=modified_by)
+    await cache_del("cache:admin:stats")
+    await cache_del("cache:bubbles:public-list")
+    await cache_del("cache:community-counts")
     return {"code": 0, "public": body.public}
 
 
@@ -376,6 +389,9 @@ async def admin_update_bubble(bubble_id: int, body: BubbleEditBody, user=Depends
         if body.userId and body.userId != bubble.user_id:
             kwargs["user_id"] = body.userId
         await BubbleRepository.update(db, bubble, **kwargs)
+    await cache_del("cache:admin:stats")
+    await cache_del("cache:bubbles:public-list")
+    await cache_del("cache:community-counts")
     return {"code": 0}
 
 
@@ -436,6 +452,8 @@ async def create_announcement(body: AnnouncementCreateBody, user=Depends(require
             is_active=body.isActive,
             created_by=user["id"],
         )
+    await cache_del("cache:announcements:active")
+    await cache_del("cache:admin:stats")
     return {"code": 0, "id": ann.id}
 
 
@@ -452,6 +470,8 @@ async def update_announcement(ann_id: int, body: AnnouncementCreateBody, user=De
             priority=body.priority or "normal",
             is_active=body.isActive,
         )
+    await cache_del("cache:announcements:active")
+    await cache_del("cache:admin:stats")
     return {"code": 0}
 
 
@@ -462,6 +482,8 @@ async def delete_announcement(ann_id: int, user=Depends(require_admin)):
         if not ann:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "公告不存在")
         await AnnouncementRepository.delete(db, ann_id)
+    await cache_del("cache:announcements:active")
+    await cache_del("cache:admin:stats")
     return {"code": 0}
 
 
@@ -571,6 +593,7 @@ async def block_user(user_id: int, user=Depends(require_admin)):
     from app.auth import delete_all_tokens, invalidate_user_cache
     await delete_all_tokens(user_id)
     await invalidate_user_cache(user_id)
+    await cache_del("cache:admin:stats")
     return {"code": 0}
 
 
@@ -583,4 +606,5 @@ async def unblock_user(user_id: int, user=Depends(require_admin)):
         await UserRepository.update(db, target, is_blocked=False, blocked_at=None)
     from app.auth import invalidate_user_cache
     await invalidate_user_cache(user_id)
+    await cache_del("cache:admin:stats")
     return {"code": 0}

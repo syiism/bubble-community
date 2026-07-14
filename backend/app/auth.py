@@ -248,3 +248,29 @@ def public_user(row: dict) -> dict:
         "avatarUrl": row.get("avatar_url") or "",
         "role": row.get("role") or "user",
     }
+
+
+import json
+
+from .redis_client import get_redis
+
+
+async def cache_get(key: str):
+    redis = get_redis()
+    raw = await redis.get(key)
+    if raw:
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return None
+
+
+async def cache_set(key: str, data, ttl: int = 60) -> None:
+    redis = get_redis()
+    await redis.setex(key, ttl, json.dumps(data, ensure_ascii=False, default=str))
+
+
+async def cache_del(key: str) -> None:
+    redis = get_redis()
+    await redis.delete(key)

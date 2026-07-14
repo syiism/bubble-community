@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Response
 
-from app.auth import get_current_user
+from app.auth import get_current_user, cache_get, cache_set
 from app.modules.database import get_db_context
 from app.modules.repositories import AnnouncementRepository
 
@@ -13,9 +13,12 @@ async def get_active_announcements(user=Depends(get_current_user), response: Res
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     response.headers["Vary"] = "Cookie"
+    cached = await cache_get("cache:announcements:active")
+    if cached:
+        return cached
     async with get_db_context() as db:
         announcements = await AnnouncementRepository.get_active(db)
-    return {
+    data = {
         "code": 0,
         "announcements": [
             {
@@ -28,6 +31,8 @@ async def get_active_announcements(user=Depends(get_current_user), response: Res
             for a in announcements
         ],
     }
+    await cache_set("cache:announcements:active", data, 60)
+    return data
 
 
 @router.get("/all")
