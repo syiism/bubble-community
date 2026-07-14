@@ -44,6 +44,35 @@ uv run gunicorn -c gunicorn.conf.py app.main:app   # :8000
 - **Copied SVG** includes `<!-- 创作者: {username} -->` comment after `<svg>` tag for attribution.
 - **Git history**: `.env` purged from all branches via `git filter-branch` + `git gc --prune=now`. Docker/entrypoint deployment files removed from repo.
 
+## Redis caching
+
+Frequently-read, infrequently-changed data is cached in Redis using cache-aside pattern with invalidation on write:
+
+| Cache key | TTL | Invalidated by |
+|-----------|-----|----------------|
+| `cache:community-counts` | 60s | bubble create/delete/visibility toggle |
+| `cache:admin:stats` | 60s | any bubble/user/announcement write operation |
+| `cache:announcements:active` | 60s | admin announcement create/update/delete |
+| `cache:bubbles:public-list` | 60s | bubble create/delete/visibility/admin edit |
+
+**Pattern:**
+```python
+from app.auth import cache_get, cache_set, cache_del
+
+# Read: check cache → miss → query DB → store
+cached = await cache_get("cache:key")
+if cached: return cached
+data = await query_db()
+await cache_set("cache:key", data, 60)
+return data
+
+# Write: update DB → delete cache
+await update_db()
+await cache_del("cache:key")
+```
+
+TTL is a safety fallback; cache invalidation happens immediately on write via `cache_del()`.
+
 ## Role system
 
 Three roles: `admin` (管理员), `reviewer` (审核员), `user` (用户).
