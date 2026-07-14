@@ -21,17 +21,20 @@
         </div>
 
         <!-- 标签切换 -->
-        <div class="flex gap-1 mb-6 border-b border-border">
-          <button v-for="tab in tabs" :key="tab.key"
-                  :class="[
-                    'px-5 py-2.5 text-sm font-medium transition-colors rounded-t-lg -mb-px',
-                    activeTab === tab.key
-                      ? 'text-accent border-b-2 border-accent bg-accent/5'
-                      : 'text-muted hover:text-ink hover:bg-canvas'
-                  ]"
-                  @click="activeTab = tab.key">
-            {{ tab.label }}
-          </button>
+        <div class="mb-6 -mx-6 px-6 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-none">
+          <div class="flex gap-1 border-b border-border min-w-max sm:min-w-0">
+            <button v-for="tab in tabs" :key="tab.key"
+                    :class="[
+                      'px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-colors rounded-t-lg -mb-px whitespace-nowrap flex-shrink-0',
+                      activeTab === tab.key
+                        ? 'text-accent border-b-2 border-accent bg-accent/5'
+                        : 'text-muted hover:text-ink hover:bg-canvas'
+                    ]"
+                    @click="activeTab = tab.key">
+              <span class="sm:hidden">{{ tab.shortLabel || tab.label }}</span>
+              <span class="hidden sm:inline">{{ tab.label }}</span>
+            </button>
+          </div>
         </div>
 
         <!-- 用户管理 (仅 admin) -->
@@ -420,8 +423,11 @@
                   <td class="block sm:table-cell py-1 sm:py-3 pr-4 font-medium text-ink">
                     <span class="sm:hidden text-xs text-muted mr-2">用户</span>
                     {{ u.username }}
-                    <div class="sm:hidden text-xs text-muted mt-0.5">
-                      IP: {{ u.ip || '—' }}
+                    <span class="sm:hidden ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium align-middle"
+                          :class="roleBadgeClass(u.role)">{{ roleLabel(u.role) }}</span>
+                    <div class="sm:hidden text-xs text-muted mt-0.5 space-y-0.5">
+                      <div>设备：{{ parseDevice(u.deviceInfo) }}</div>
+                      <div>IP：{{ u.ip || '—' }} · {{ fmtRelative(u.lastSeenAt) }}</div>
                     </div>
                   </td>
                   <td class="hidden sm:table-cell py-1 sm:py-3 pr-4">
@@ -566,10 +572,10 @@ const isReviewer = computed(() => curUser?.role === 'reviewer')
 
 const tabs = computed(() => {
   const list = []
-  if (isAdmin.value) list.push({ key: 'users', label: '用户管理' })
-  list.push({ key: 'bubbles', label: '气泡管理' })
-  if (isAdmin.value) list.push({ key: 'announcements', label: '公告管理' })
-  if (isAdmin.value) list.push({ key: 'online', label: '在线管理' })
+  if (isAdmin.value) list.push({ key: 'users', label: '用户管理', shortLabel: '用户' })
+  list.push({ key: 'bubbles', label: '气泡管理', shortLabel: '气泡' })
+  if (isAdmin.value) list.push({ key: 'announcements', label: '公告管理', shortLabel: '公告' })
+  if (isAdmin.value) list.push({ key: 'online', label: '在线管理', shortLabel: '在线' })
   return list
 })
 
