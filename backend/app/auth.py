@@ -23,8 +23,8 @@ def set_auth_cookie(response, token: str) -> None:
         value=token,
         path=TOKEN_COOKIE_PATH,
         httponly=True,
-        samesite=COOKIE_SAMESITE,
-        secure=COOKIE_SECURE,
+        # samesite=COOKIE_SAMESITE,
+        # secure=COOKIE_SECURE,
         max_age=TOKEN_MAX_AGE,
     )
 
@@ -34,8 +34,8 @@ def clear_auth_cookie(response) -> None:
         key=TOKEN_COOKIE,
         path=TOKEN_COOKIE_PATH,
         httponly=True,
-        samesite=COOKIE_SAMESITE,
-        secure=COOKIE_SECURE,
+        # samesite=COOKIE_SAMESITE,
+        # secure=COOKIE_SECURE,
     )
 
 REDIS_KEY_PREFIX = "bubble_tokens"
