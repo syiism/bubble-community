@@ -24,8 +24,11 @@ class UsernameBody(BaseModel):
     username: str = ""
 
 
-def _avatar_url(filename: str) -> str:
-    return f"/bubble-community/avatars/{filename}"
+def _avatar_url(filename: str, ts: int = 0) -> str:
+    url = f"/bubble-community/avatars/{filename}"
+    if ts:
+        url += f"?t={ts}"
+    return url
 
 
 @router.post("/author-name")
@@ -94,7 +97,8 @@ async def upload_avatar(file: UploadFile = File(...), user=Depends(get_current_u
     AVATAR_DIR.mkdir(parents=True, exist_ok=True)
     (AVATAR_DIR / filename).write_bytes(data)
 
-    avatar_url = _avatar_url(filename)
+    import time
+    avatar_url = _avatar_url(filename, int(time.time()))
 
     async with get_db_context() as db:
         target = await UserRepository.get_by_id(db, user_id)
