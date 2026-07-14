@@ -76,116 +76,176 @@ def _row_to_style(row, user_id, imported_set, favorite_set, users_map=None):
     }
 
 
-async def _get_visible_bubbles_cached(db, user_id):
-    """Fetch visible bubbles with Redis caching for public+official portion."""
-    from app.redis_client import get_redis
-    import json
+def _section_filters(section: str, user_id: int, category: str, q: str):
+    """Build SQLAlchemy filters for a list section."""
+    from app.modules.imported_bubble import ImportedBubble
+    from app.modules.user_favorite import UserFavorite
 
-    redis = get_redis()
-    cached = await redis.get("cache:bubbles:public-list")
-    if cached:
-        try:
-            public_data = json.loads(cached)
-            public_bubbles = [type('B', (), d)() for d in public_data]
-        except Exception:
-            public_bubbles = None
-    else:
-        public_bubbles = None
+    filters = []
+    if category:
+        filters.append(Bubble.category == category)
+    if q:
+        like = f"%{q}%"
+        filters.append(or_(Bubble.name.ilike(like), Bubble.author_name.ilike(like)))
 
-    if public_bubbles is None:
-        result = await db.execute(
-            select(Bubble).filter(or_(Bubble.is_public == True, Bubble.is_official == True))
+    if section == "public":
+        filters.append(or_(Bubble.is_public == True, Bubble.is_official == True))
+    elif section == "mine":
+        filters.append(Bubble.user_id == user_id)
+    elif section == "favorites":
+        filters.append(
+            Bubble.id.in_(select(UserFavorite.bubble_id).where(UserFavorite.user_id == user_id))
         )
-        public_bubbles = list(result.scalars().all())
-        cache_data = [
-            {
-                "id": b.id, "user_id": b.user_id, "name": b.name,
-                "description": b.description, "svg_template": b.svg_template,
-                "color": b.color, "text_color": b.text_color,
-                "is_public": bool(b.is_public), "is_official": bool(b.is_official),
-                "category": b.category or "original",
-                "share_code": b.share_code, "author_name": b.author_name,
-            }
-            for b in public_bubbles
-        ]
-        await redis.setex("cache:bubbles:public-list", 60, json.dumps(cache_data, ensure_ascii=False, default=str))
+    elif section == "imported":
+        filters.append(
+            Bubble.id.in_(select(ImportedBubble.bubble_id).where(ImportedBubble.user_id == user_id))
+        )
+    else:
+        filters.append(or_(Bubble.is_public == True, Bubble.is_official == True))
+    return filters
 
-    # User-specific bubbles (always fresh)
-    result = await db.execute(select(Bubble).filter(Bubble.user_id == user_id))
-    my_bubbles = list(result.scalars().all())
 
-    # Merge: public + official + own
-    seen = {b.id for b in public_bubbles}
-    merged = list(public_bubbles)
-    for b in my_bubbles:
-        if b.id not in seen:
-            merged.append(b)
-            seen.add(b.id)
+async def _section_counts(db, user_id: int) -> dict:
+    async def _count_plain(section: str) -> int:
+        filters = _section_filters(section, user_id, "", "")
+        return (await db.execute(select(func.count(Bubble.id)).where(*filters))).scalar() or 0
 
-    # Imported bubbles are handled separately in the caller with imported_set
-    return sorted(merged, key=lambda x: (-x.is_official, -x.id))
+    mine = await _count_plain("mine")
+    favorites = await _count_plain("favorites")
+    imported = await _count_plain("imported")
+    public = await _count_plain("public")
+
+    my_public = (await db.execute(
+        select(func.count(Bubble.id)).where(Bubble.user_id == user_id, Bubble.is_public == True)
+    )).scalar() or 0
+    my_private = (await db.execute(
+        select(func.count(Bubble.id)).where(Bubble.user_id == user_id, Bubble.is_public == False)
+    )).scalar() or 0
+
+    from app.modules.user_current_bubble import UserCurrentBubble
+    total_uses = (await db.execute(
+        select(func.count(UserCurrentBubble.user_id)).where(
+            UserCurrentBubble.bubble_id.in_(select(Bubble.id).where(Bubble.user_id == user_id))
+        )
+    )).scalar() or 0
+
+    return {
+        "mine": mine,
+        "favorites": favorites,
+        "imported": imported,
+        "public": public,
+        "myPublic": my_public,
+        "myPrivate": my_private,
+        "totalUses": total_uses,
+    }
 
 
 @router.get("")
 async def list_bubbles(
     user=Depends(get_current_user),
     response: Response = None,
+    section: str = Query("public", max_length=16),
+    page: int = Query(1, ge=1),
+    size: int = Query(18, ge=1, le=50),
+    sort: str = Query("new", max_length=8),
+    q: str = Query("", max_length=64),
     category: str = Query("", max_length=32),
 ):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     response.headers["Vary"] = "Cookie"
+
+    if section not in ("public", "mine", "favorites", "imported"):
+        section = "public"
+    if sort not in ("new", "hot"):
+        sort = "new"
+
     user_id = user["id"]
+    q = (q or "").strip()
+
     async with get_db_context() as db:
+        from app.modules.user import User
+        from app.modules.user_current_bubble import UserCurrentBubble
+
         current_bubble = await UserCurrentBubbleRepository.get_by_user_id(db, user_id)
         current_bubble_id = current_bubble.bubble_id if current_bubble else 0
 
-        bubbles = await _get_visible_bubbles_cached(db, user_id)
+        filters = _section_filters(section, user_id, category, q)
+
+        total = (await db.execute(
+            select(func.count(Bubble.id)).where(*filters)
+        )).scalar() or 0
+
+        uses_subq = (
+            select(
+                UserCurrentBubble.bubble_id.label("bid"),
+                func.count(UserCurrentBubble.user_id).label("use_count"),
+            )
+            .group_by(UserCurrentBubble.bubble_id)
+            .subquery()
+        )
+
+        stmt = select(Bubble).where(*filters)
+        if sort == "hot":
+            stmt = (
+                stmt.outerjoin(uses_subq, Bubble.id == uses_subq.c.bid)
+                .order_by(
+                    Bubble.is_official.desc(),
+                    func.coalesce(uses_subq.c.use_count, 0).desc(),
+                    Bubble.id.desc(),
+                )
+            )
+        else:
+            stmt = stmt.order_by(Bubble.is_official.desc(), Bubble.id.desc())
+
+        stmt = stmt.offset((page - 1) * size).limit(size)
+        rows = list((await db.execute(stmt)).scalars().all())
+
         imported_set = await ImportedBubbleRepository.get_imported_ids(db, user_id)
-
-        # Add imported bubbles not already in the list
-        if imported_set:
-            existing_ids = {b.id for b in bubbles}
-            missing = [i for i in imported_set if i not in existing_ids]
-            if missing:
-                result = await db.execute(select(Bubble).filter(Bubble.id.in_(missing)))
-                for b in result.scalars().all():
-                    bubbles.append(b)
-
-        # Ensure current bubble is in the list
-        if current_bubble_id and current_bubble_id not in {b.id for b in bubbles}:
-            result = await db.execute(select(Bubble).filter(Bubble.id == current_bubble_id))
-            cb = result.scalar_one_or_none()
-            if cb:
-                bubbles.append(cb)
-
-        if category:
-            bubbles = [b for b in bubbles if b.category == category]
         favorite_set = await UserFavoriteRepository.get_favorite_ids(db, user_id)
         user_info = await UserRepository.get_by_id(db, user_id)
 
-        bubble_ids = [b.id for b in bubbles]
+        bubble_ids = [b.id for b in rows]
         uses_map = await BubbleRepository.get_bubble_uses_batch(db, bubble_ids)
 
-        user_ids = {b.user_id for b in bubbles if b.user_id}
+        user_ids = {b.user_id for b in rows if b.user_id}
         users_map = {}
         if user_ids:
-            from app.modules.user import User
             users_result = await db.execute(select(User).filter(User.id.in_(user_ids)))
             for u in users_result.scalars().all():
                 users_map[u.id] = u.username
 
-        styles = []
-        for b in bubbles:
+        items = []
+        for b in rows:
             style = _row_to_style(b, user_id, imported_set, favorite_set, users_map)
             style["uses"] = uses_map.get(b.id, 0)
-            styles.append(style)
+            items.append(style)
 
-        current_id = current_bubble_id if current_bubble_id else (styles[0]["id"] if styles else 0)
-        visible_ids = {s["id"] for s in styles}
-        if current_id not in visible_ids and styles:
-            current_id = styles[0]["id"]
+        current_id = current_bubble_id or 0
+        current_bubble_style = None
+        if current_id:
+            if current_id not in {b.id for b in rows}:
+                cb = await BubbleRepository.get_by_id(db, current_id)
+                if cb:
+                    current_bubble_style = _row_to_style(
+                        cb, user_id, imported_set, favorite_set, users_map
+                    )
+                    current_bubble_style["uses"] = (
+                        await BubbleRepository.get_bubble_uses(db, current_id)
+                    )
+                    # fill creator username
+                    if cb.user_id and cb.user_id not in users_map:
+                        cu = await UserRepository.get_by_id(db, cb.user_id)
+                        if cu:
+                            current_bubble_style["creatorUsername"] = cu.username
+            else:
+                current_bubble_style = next(
+                    (s for s in items if s["id"] == current_id), None
+                )
+
+        counts = await _section_counts(db, user_id)
+        has_more = page * size < total
 
         return {
             "code": 0,
@@ -193,8 +253,17 @@ async def list_bubbles(
             "canUpload": True,
             "authorName": (user_info.author_name if user_info else "") or "",
             "style": current_id,
-            "favoritesCount": len(favorite_set),
-            "styles": styles,
+            "currentBubble": current_bubble_style,
+            "favoritesCount": counts["favorites"],
+            "section": section,
+            "page": page,
+            "size": size,
+            "total": total,
+            "hasMore": has_more,
+            "counts": counts,
+            "items": items,
+            # backward compat for Profile until migrated
+            "styles": items,
         }
 
 

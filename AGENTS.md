@@ -39,6 +39,7 @@ uv run gunicorn -c gunicorn.conf.py app.main:app   # :8000
 - **Rate limiting**: login 5/min, register 3/min via slowapi.
 - **Avatars**: stored in `backend/data/avatars/`, served at `/bubble-community/avatars/`. Gitignored — not committed. Existing DB records store URL path only (no filesystem path), so directory moves are transparent. Avatar URL includes upload timestamp (`?t=...`) to force browser cache refresh.
 - **Bubble categories**: four categories — `original` (原创), `anime` (动漫), `classical` (古风), `other` (其他). Default is `original`. Category filter via `?category=` on `GET /bubbles` and `GET /admin/bubbles`. Official bubbles in seed JSON have pre-assigned categories. User can select category when creating/editing bubbles.
+- **Home list pagination**: `GET /api/bubbles` is section-paginated — `section=public|mine|favorites|imported` (default `public`), `page`, `size` (default 18, max 50), `sort=new|hot`, `q`, `category`. Official bubbles are merged into `public` (`ORDER BY is_official DESC, …`). Response: `items`, `hasMore`, `total`, `counts`, `style`, `currentBubble`. Homepage uses horizontal section tabs (公开 first) + infinite scroll; category pills are secondary filters applied to all sections.
 - **Announcements**: admin-only CRUD (`/api/admin/announcements`). Active announcements shown as modal popup on home page. All announcements viewable via sidebar button. Dismissed announcements stored in `localStorage`.
 - **Online management** (admin): `GET /api/admin/online-users` scans Redis `bubble_tokens:*` to list active sessions (ID, username, IP, device, last active). Actions: kick (delete single session), block (set `is_blocked` + destroy all tokens).
 - **Block system**: `is_blocked` column on `users` table. Blocked users get all tokens destroyed and are rejected on any API request with 401. Admin cannot block self. Unblock restores access (user must re-login).
@@ -55,7 +56,7 @@ Frequently-read, infrequently-changed data is cached in Redis using cache-aside 
 | `cache:community-counts` | 60s | bubble create/delete/visibility toggle |
 | `cache:admin:stats` | 60s | any bubble/user/announcement write operation |
 | `cache:announcements:active` | 60s | admin announcement create/update/delete |
-| `cache:bubbles:public-list` | 60s | bubble create/delete/visibility/admin edit |
+| `cache:bubbles:public-list` | 60s | *(legacy key still invalidated on write; homepage list no longer uses full-list cache)* |
 
 **Pattern:**
 ```python

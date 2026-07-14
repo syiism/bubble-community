@@ -69,7 +69,23 @@ export const api = {
   logout: () => request('POST', '/bubble-community/api/auth/logout'),
   checkUsername: (username) => request('GET', `/bubble-community/api/auth/check-username?username=${encodeURIComponent(username)}`),
   register: (data) => request('POST', '/bubble-community/api/auth/register', data),
-  listBubbles: (category) => request('GET', `/bubble-community/api/bubbles${category ? `?category=${category}` : ''}`),
+  listBubbles: (params = {}) => {
+    const q = new URLSearchParams()
+    if (typeof params === 'string') {
+      // backward compat: listBubbles(category)
+      if (params) q.set('category', params)
+    } else {
+      const { section, page, size, sort, q: search, category } = params
+      if (section) q.set('section', section)
+      if (page) q.set('page', String(page))
+      if (size) q.set('size', String(size))
+      if (sort) q.set('sort', sort)
+      if (search) q.set('q', search)
+      if (category) q.set('category', category)
+    }
+    const qs = q.toString()
+    return request('GET', `/bubble-community/api/bubbles${qs ? `?${qs}` : ''}`)
+  },
   createBubble: (data) => request('POST', '/bubble-community/api/bubbles', data),
   updateBubble: (id, data) => request('PUT', `/bubble-community/api/bubbles/${id}`, data),
   deleteBubble: (id) => request('DELETE', `/bubble-community/api/bubbles/${id}`),

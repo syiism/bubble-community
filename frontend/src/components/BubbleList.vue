@@ -1,104 +1,104 @@
 <template>
   <div>
-    <div 
-      v-for="(group, index) in groupedStyles" 
-      :key="group.title"
-      class="mb-8"
-    >
-      <div class="flex items-center justify-between mb-4">
-        <div class="flex items-center gap-3">
-          <h2 class="text-lg font-medium text-ink">{{ group.title }}</h2>
-          <span v-if="group.hint" class="text-xs text-muted">{{ group.hint }}</span>
-        </div>
-        <button 
-          v-if="group.sortable"
-          class="text-xs font-medium text-muted hover:text-accent transition-colors flex items-center gap-1"
-          @click="toggleSort"
-        >
-          排序：<span class="text-accent">{{ sortBy === 'hot' ? '人气最高' : '最新上传' }}</span>
-          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-            <polyline points="6 15 12 9 18 15"></polyline>
-          </svg>
-        </button>
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <h2 class="text-lg font-medium text-ink">{{ title }}</h2>
+        <span v-if="total != null" class="text-xs text-muted">共 {{ total }}</span>
       </div>
-      
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <BubbleCard 
-          v-for="(style, idx) in group.styles" 
-          :key="style.id"
-          :bubble="style"
-          :current-id="currentId"
-          class="scroll-animate"
-          :style="{ animationDelay: `${(index * 2 + idx) * 80}ms` }"
-          @select="handleSelect"
-          @edit="handleEdit"
-          @delete="handleDelete"
-          @share="handleShare"
-          @copy-share="handleCopyShare"
-          @toggle-public="handleTogglePublic"
-          @toggle-favorite="handleToggleFavorite"
-          @remove-import="handleRemoveImport"
-        />
-      </div>
+      <button
+        v-if="sortable"
+        class="text-xs font-medium text-muted hover:text-accent transition-colors flex items-center gap-1"
+        @click="$emit('toggle-sort')"
+      >
+        排序：<span class="text-accent">{{ sortBy === 'hot' ? '人气最高' : '最新上传' }}</span>
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+          <polyline points="6 15 12 9 18 15"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <div v-if="!styles.length && !loading" class="py-12 text-center text-sm text-muted">
+      暂无气泡
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <BubbleCard
+        v-for="(style, idx) in styles"
+        :key="style.id"
+        :bubble="style"
+        :current-id="currentId"
+        class="scroll-animate"
+        :style="{ animationDelay: `${Math.min(idx, 11) * 40}ms` }"
+        @select="handleSelect"
+        @edit="handleEdit"
+        @delete="handleDelete"
+        @share="handleShare"
+        @copy-share="handleCopyShare"
+        @toggle-public="handleTogglePublic"
+        @toggle-favorite="handleToggleFavorite"
+        @remove-import="handleRemoveImport"
+      />
+    </div>
+
+    <div ref="sentinel" class="py-6 text-center text-xs text-muted">
+      <span v-if="loadingMore">加载中…</span>
+      <span v-else-if="!hasMore && styles.length">没有更多了</span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import BubbleCard from './BubbleCard.vue'
 
 const props = defineProps({
-  styles: {
-    type: Array,
-    required: true
-  },
-  currentId: {
-    type: Number,
-    default: 0
-  }
+  styles: { type: Array, required: true },
+  currentId: { type: Number, default: 0 },
+  title: { type: String, default: '' },
+  total: { type: Number, default: null },
+  sortable: { type: Boolean, default: false },
+  sortBy: { type: String, default: 'new' },
+  loading: { type: Boolean, default: false },
+  loadingMore: { type: Boolean, default: false },
+  hasMore: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['select', 'edit', 'delete', 'share', 'copyShare', 'togglePublic', 'toggleFavorite', 'removeImport'])
+const emit = defineEmits([
+  'select', 'edit', 'delete', 'share', 'copyShare',
+  'togglePublic', 'toggleFavorite', 'removeImport',
+  'load-more', 'toggle-sort',
+])
 
-const sortBy = ref('new')
+const sentinel = ref(null)
+let observer = null
 
-const toggleSort = () => {
-  sortBy.value = sortBy.value === 'new' ? 'hot' : 'new'
+const setupObserver = () => {
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
+  if (!sentinel.value) return
+  observer = new IntersectionObserver((entries) => {
+    const hit = entries.some(e => e.isIntersecting)
+    if (hit && props.hasMore && !props.loadingMore && !props.loading) {
+      emit('load-more')
+    }
+  }, { root: null, rootMargin: '200px', threshold: 0 })
+  observer.observe(sentinel.value)
 }
 
-const groupedStyles = computed(() => {
-  const mine = props.styles.filter(s => s.mine)
-  const favorited = props.styles.filter(s => s.favorited && !s.mine)
-  const favIds = new Set(favorited.map(s => s.id))
-  const imported = props.styles.filter(s => s.imported && !favIds.has(s.id))
-  let pub = props.styles.filter(s => s.public && !s.mine && !s.imported && !s.official && !favIds.has(s.id))
-  const official = props.styles.filter(s => s.official && !favIds.has(s.id))
+onMounted(() => {
+  setupObserver()
+})
 
-  if (sortBy.value === 'hot') {
-    pub = [...pub].sort((a, b) => (b.uses || 0) - (a.uses || 0) || b.id - a.id)
-  }
+onBeforeUnmount(() => {
+  if (observer) observer.disconnect()
+})
 
-  const groups = []
-
-  if (mine.length) {
-    groups.push({ title: '我的气泡', hint: '我自己创建的', styles: mine })
-  }
-  if (favorited.length) {
-    groups.push({ title: '我的收藏', hint: '收藏的气泡', styles: favorited })
-  }
-  if (imported.length) {
-    groups.push({ title: '我导入的', hint: '凭分享码添加', styles: imported })
-  }
-  if (pub.length) {
-    groups.push({ title: '大家公开的', hint: '其他用户公开分享', styles: pub, sortable: true })
-  }
-  if (official.length) {
-    groups.push({ title: '官方样式', styles: official })
-  }
-
-  return groups
+watch(() => [props.hasMore, props.loadingMore, props.styles.length], () => {
+  // re-bind after list changes
+  requestAnimationFrame(setupObserver)
 })
 
 const handleSelect = (id) => emit('select', id)

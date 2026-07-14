@@ -405,7 +405,6 @@ const saving = ref(false)
 const showSaved = ref(false)
 const showImported = ref(false)
 const showStats = ref(false)
-const styles = ref([])
 const loading = ref(false)
 
 // ===== 快捷创建气泡 =====
@@ -459,18 +458,19 @@ const savePassword = async () => {
   }
 }
 
-const stats = computed(() => ({
-  created: styles.value.filter(s => s.mine).length,
-  public: styles.value.filter(s => s.mine && s.public).length,
-  private: styles.value.filter(s => s.mine && !s.public).length,
-  imported: styles.value.filter(s => s.imported).length,
-  favorites: styles.value.filter(s => s.favorited).length,
-  usedBy: styles.value.filter(s => s.mine).reduce((sum, s) => sum + (s.uses || 0), 0)
-}))
+const profileCounts = ref({ mine: 0, myPublic: 0, myPrivate: 0, imported: 0, favorites: 0, totalUses: 0 })
+const myStyles = ref([])
+const favoriteStyles = ref([])
+const importedStyles = ref([])
 
-const myStyles = computed(() => styles.value.filter(s => s.mine))
-const favoriteStyles = computed(() => styles.value.filter(s => s.favorited))
-const importedStyles = computed(() => styles.value.filter(s => s.imported))
+const stats = computed(() => ({
+  created: profileCounts.value.mine || myStyles.value.length,
+  public: profileCounts.value.myPublic || myStyles.value.filter(s => s.public).length,
+  private: profileCounts.value.myPrivate || myStyles.value.filter(s => !s.public).length,
+  imported: profileCounts.value.imported || importedStyles.value.length,
+  favorites: profileCounts.value.favorites || favoriteStyles.value.length,
+  usedBy: profileCounts.value.totalUses || myStyles.value.reduce((sum, s) => sum + (s.uses || 0), 0)
+}))
 
 const getPreview = (style) => {
   return svgToImg(style.svg, 'h-8 w-auto', style.color, style.textColor)
@@ -594,8 +594,15 @@ onMounted(async () => {
     user.value = getUser() || user.value
     authorName.value = user.value.authorName || ''
     usernameForm.value = user.value.username || ''
-    const data = await api.listBubbles()
-    styles.value = data.styles || []
+    const [mine, fav, imp] = await Promise.all([
+      api.listBubbles({ section: 'mine', page: 1, size: 50 }),
+      api.listBubbles({ section: 'favorites', page: 1, size: 50 }),
+      api.listBubbles({ section: 'imported', page: 1, size: 50 }),
+    ])
+    myStyles.value = mine.items || mine.styles || []
+    favoriteStyles.value = fav.items || fav.styles || []
+    importedStyles.value = imp.items || imp.styles || []
+    if (mine.counts) profileCounts.value = { ...profileCounts.value, ...mine.counts }
     loadSessions()
   } catch (e) {
     toast.show(e.message || '加载失败')

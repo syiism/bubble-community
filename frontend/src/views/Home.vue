@@ -16,13 +16,14 @@
             <svg class="absolute left-0 w-4 h-4 text-muted pointer-events-none ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input v-model="searchQuery" type="text" placeholder="搜索气泡名称 / 作者..."
+            <input v-model="searchQuery" type="text" placeholder="搜索气泡名称 / 署名..."
                    class="w-full pl-8 pr-20 py-2.5 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted
                           transition-all duration-200
-                          focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 focus:bg-surface" />
+                          focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 focus:bg-surface"
+                   @keyup.enter="onSearchSubmit" />
             <button v-if="searchQuery"
                     class="absolute right-0 px-3 py-1.5 text-xs font-medium text-muted hover:text-ink bg-surface/80 border border-border rounded-lg transition-colors"
-                    @click="searchQuery = ''">
+                    @click="clearSearch">
               清空
             </button>
           </div>
@@ -32,18 +33,38 @@
       <div v-if="loading && !styles.length" class="text-center py-20 text-sm text-muted">加载中…</div>
 
       <template v-else>
-        <!-- 分区 Tab -->
-        <div class="flex gap-1 mb-6 scroll-animate">
-          <button v-for="tab in categoryTabs" :key="tab.key"
-                  :class="[
-                    'px-4 py-1.5 text-sm font-medium rounded-full transition-colors',
-                    currentCategory === tab.key
-                      ? 'bg-ink text-white'
-                      : 'text-muted bg-surface border border-border hover:text-ink hover:bg-canvas'
-                  ]"
-                  @click="switchCategory(tab.key)">
-            {{ tab.label }}
-          </button>
+        <!-- 分区 category（二级筛选） -->
+        <div class="mb-4 -mx-6 px-6 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-none scroll-animate">
+          <div class="flex gap-1 min-w-max">
+            <button v-for="tab in categoryTabs" :key="tab.key"
+                    :class="[
+                      'px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-colors whitespace-nowrap',
+                      currentCategory === tab.key
+                        ? 'bg-ink text-white'
+                        : 'text-muted bg-surface border border-border hover:text-ink hover:bg-canvas'
+                    ]"
+                    @click="switchCategory(tab.key)">
+              {{ tab.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- section Tab：公开 / 我的 / 收藏 / 导入 -->
+        <div class="mb-6 -mx-6 px-6 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-none scroll-animate">
+          <div class="flex gap-1 border-b border-border min-w-max sm:min-w-0">
+            <button v-for="tab in sectionTabs" :key="tab.key"
+                    :class="[
+                      'px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-colors rounded-t-lg -mb-px whitespace-nowrap flex-shrink-0',
+                      currentSection === tab.key
+                        ? 'text-accent border-b-2 border-accent bg-accent/5'
+                        : 'text-muted hover:text-ink hover:bg-canvas'
+                    ]"
+                    @click="switchSection(tab.key)">
+              <span class="sm:hidden">{{ tab.shortLabel }}</span>
+              <span class="hidden sm:inline">{{ tab.label }}</span>
+              <span v-if="sectionCount(tab.key) != null" class="ml-1 text-[10px] sm:text-xs opacity-70">{{ sectionCount(tab.key) }}</span>
+            </button>
+          </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div class="md:col-span-2 space-y-4">
@@ -188,8 +209,15 @@
         </div>
 
         <BubbleList
-          :styles="filteredStyles"
+          :styles="styles"
           :current-id="currentId"
+          :title="currentSectionTitle"
+          :total="listTotal"
+          :sortable="currentSection === 'public'"
+          :sort-by="sortBy"
+          :loading="loading"
+          :loading-more="loadingMore"
+          :has-more="hasMore"
           @select="handleSelect"
           @edit="handleEdit"
           @delete="handleDelete"
@@ -198,13 +226,15 @@
           @toggle-public="handleTogglePublic"
           @toggle-favorite="handleToggleFavorite"
           @remove-import="handleRemoveImport"
+          @load-more="loadMore"
+          @toggle-sort="toggleSort"
         />
       </template>
     </div>
   </div>
 
   <div
-    v-if="filteredStyles.length"
+    v-if="currentId"
     class="fixed bottom-0 left-0 right-0 z-30 bg-surface/95 backdrop-blur border-t border-border p-safe-bottom"
   >
     <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
@@ -292,7 +322,20 @@ import { useToast } from '@/composables/useToast'
 
 const styles = ref([])
 const searchQuery = ref('')
+const debouncedQ = ref('')
 const currentCategory = ref('')
+const currentSection = ref('public')
+const sortBy = ref('new')
+const page = ref(1)
+const pageSize = 18
+const hasMore = ref(false)
+const listTotal = ref(0)
+const loadingMore = ref(false)
+const counts = ref({ mine: 0, favorites: 0, imported: 0, public: 0, myPublic: 0, myPrivate: 0, totalUses: 0 })
+const currentBubbleMeta = ref(null)
+let searchTimer = null
+let loadSeq = 0
+
 const categoryTabs = [
   { key: '', label: '全部' },
   { key: 'original', label: '原创' },
@@ -300,18 +343,54 @@ const categoryTabs = [
   { key: 'classical', label: '古风' },
   { key: 'other', label: '其他' },
 ]
-const switchCategory = (key) => {
-  currentCategory.value = key
-  loadStyles()
+const sectionTabs = [
+  { key: 'public', label: '大家公开的', shortLabel: '公开' },
+  { key: 'mine', label: '我的气泡', shortLabel: '我的' },
+  { key: 'favorites', label: '我的收藏', shortLabel: '收藏' },
+  { key: 'imported', label: '我导入的', shortLabel: '导入' },
+]
+
+const sectionCount = (key) => {
+  const c = counts.value
+  if (!c) return null
+  if (key === 'public') return c.public
+  if (key === 'mine') return c.mine
+  if (key === 'favorites') return c.favorites
+  if (key === 'imported') return c.imported
+  return null
 }
-const filteredStyles = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return styles.value
-  return styles.value.filter(s =>
-    s.name.toLowerCase().includes(q) ||
-    s.author.toLowerCase().includes(q)
-  )
+
+const currentSectionTitle = computed(() => {
+  const t = sectionTabs.find(x => x.key === currentSection.value)
+  return t ? t.label : ''
 })
+
+const switchCategory = (key) => {
+  if (currentCategory.value === key) return
+  currentCategory.value = key
+  reloadList()
+}
+const switchSection = (key) => {
+  if (currentSection.value === key) return
+  currentSection.value = key
+  reloadList()
+}
+const toggleSort = () => {
+  sortBy.value = sortBy.value === 'new' ? 'hot' : 'new'
+  reloadList()
+}
+const onSearchSubmit = () => {
+  clearTimeout(searchTimer)
+  debouncedQ.value = searchQuery.value.trim()
+  reloadList()
+}
+const clearSearch = () => {
+  searchQuery.value = ''
+  clearTimeout(searchTimer)
+  debouncedQ.value = ''
+  reloadList()
+}
+
 const currentId = ref(0)
 const canUpload = ref(false)
 const authorName = ref('')
@@ -335,35 +414,97 @@ const route = useRoute()
 
 const { show: showToast } = useToast()
 
-const myStylesCount = computed(() => styles.value.filter(s => s.mine).length)
-const publicStylesCount = computed(() => styles.value.filter(s => s.mine && s.public).length)
-const privateStylesCount = computed(() => styles.value.filter(s => s.mine && !s.public).length)
-const importedStylesCount = computed(() => styles.value.filter(s => s.imported).length)
-const favoritesCount = computed(() => styles.value.filter(s => s.favorited).length)
-const totalUses = computed(() => styles.value.filter(s => s.mine).reduce((sum, s) => sum + (s.uses || 0), 0))
+const myStylesCount = computed(() => counts.value.mine || 0)
+const publicStylesCount = computed(() => counts.value.myPublic || 0)
+const privateStylesCount = computed(() => counts.value.myPrivate || 0)
+const importedStylesCount = computed(() => counts.value.imported || 0)
+const favoritesCount = computed(() => counts.value.favorites || 0)
+const totalUses = computed(() => counts.value.totalUses || 0)
 const currentBubbleName = computed(() => {
   const s = styles.value.find(s => s.id === currentId.value)
-  return s ? s.name : '未选择'
+  if (s) return s.name
+  if (currentBubbleMeta.value && currentBubbleMeta.value.id === currentId.value) {
+    return currentBubbleMeta.value.name
+  }
+  return currentId.value ? '已选气泡' : '未选择'
 })
 
-const loadStyles = async () => {
+const fetchPage = async (pageNum, { append = false } = {}) => {
+  const seq = ++loadSeq
+  const data = await api.listBubbles({
+    section: currentSection.value,
+    page: pageNum,
+    size: pageSize,
+    sort: sortBy.value,
+    q: debouncedQ.value || undefined,
+    category: currentCategory.value || undefined,
+  })
+  if (seq !== loadSeq) return null
+  return data
+}
+
+const applyMeta = (data) => {
+  if (!data) return
+  canUpload.value = !!data.canUpload
+  authorName.value = data.authorName || ''
+  userName.value = (getUser() && getUser().username) || ''
+  userAvatar.value = (getUser() && getUser().avatarUrl) || ''
+  if (data.counts) counts.value = { ...counts.value, ...data.counts }
+  if (data.style != null) currentId.value = data.style || 0
+  if (data.currentBubble) currentBubbleMeta.value = data.currentBubble
+  listTotal.value = data.total || 0
+  hasMore.value = !!data.hasMore
+  page.value = data.page || 1
+}
+
+const reloadList = async () => {
   loading.value = true
+  page.value = 1
+  hasMore.value = false
   try {
-    const data = await api.listBubbles(currentCategory.value || undefined)
-    styles.value = data.styles || []
-    canUpload.value = !!data.canUpload
-    authorName.value = data.authorName || ''
-    userName.value = (getUser() && getUser().username) || ''
-    userAvatar.value = (getUser() && getUser().avatarUrl) || ''
-    currentId.value = data.style || (styles.value[0] ? styles.value[0].id : 0)
-    const exists = styles.value.some(s => s.id === currentId.value)
-    if (!exists && styles.value.length) currentId.value = styles.value[0].id
+    const data = await fetchPage(1)
+    if (!data) return
+    styles.value = data.items || data.styles || []
+    applyMeta(data)
   } catch (e) {
     showToast(e.message || '加载失败')
   } finally {
     loading.value = false
   }
 }
+
+const loadMore = async () => {
+  if (loadingMore.value || loading.value || !hasMore.value) return
+  loadingMore.value = true
+  try {
+    const next = page.value + 1
+    const data = await fetchPage(next, { append: true })
+    if (!data) return
+    const items = data.items || data.styles || []
+    const seen = new Set(styles.value.map(s => s.id))
+    for (const it of items) {
+      if (!seen.has(it.id)) styles.value.push(it)
+    }
+    applyMeta(data)
+  } catch (e) {
+    showToast(e.message || '加载失败')
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+const loadStyles = reloadList
+
+// debounced search
+watch(searchQuery, (val) => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    const next = (val || '').trim()
+    if (next === debouncedQ.value) return
+    debouncedQ.value = next
+    reloadList()
+  }, 300)
+})
 
 const loadCommunityCounts = async () => {
   try {
@@ -429,7 +570,12 @@ const handleEditorSubmit = async (data) => {
       showToast(data.public ? '已保存，所有使用者将同步更新' : '已保存，凭分享码使用者将更新')
     } else {
       const res = await api.createBubble(payload)
-      if (res.style) styles.value.unshift(res.style)
+      if (res.style) {
+        if (currentSection.value === 'mine') styles.value.unshift(res.style)
+        counts.value.mine = (counts.value.mine || 0) + 1
+        if (res.style.public) counts.value.myPublic = (counts.value.myPublic || 0) + 1
+        else counts.value.myPrivate = (counts.value.myPrivate || 0) + 1
+      }
       showToast('已创建')
     }
     closeEditor()
@@ -466,8 +612,14 @@ const handleDelete = async (style) => {
   try {
     await api.deleteBubble(style.id)
     styles.value = styles.value.filter(s => s.id !== style.id)
+    listTotal.value = Math.max(0, listTotal.value - 1)
+    if (style.mine) {
+      counts.value.mine = Math.max(0, (counts.value.mine || 0) - 1)
+      if (style.public) counts.value.myPublic = Math.max(0, (counts.value.myPublic || 0) - 1)
+      else counts.value.myPrivate = Math.max(0, (counts.value.myPrivate || 0) - 1)
+    }
     if (currentId.value === style.id) {
-      currentId.value = styles.value.length ? styles.value[0].id : 0
+      currentId.value = styles.value.length ? styles.value[0].id : (currentBubbleMeta.value?.id || 0)
     }
     showToast('已删除')
   } catch (e) {
@@ -544,19 +696,23 @@ const handleTogglePublic = async (id, isPublic) => {
 }
 
 const handleToggleFavorite = async (id, favorite) => {
-  // 乐观更新：先改界面，再发请求
   const s = styles.value.find(s => s.id === id)
   const prevFav = s ? s.favorited : false
   if (s) s.favorited = favorite
+  if (favorite) counts.value.favorites = (counts.value.favorites || 0) + 1
+  else counts.value.favorites = Math.max(0, (counts.value.favorites || 0) - 1)
+  if (!favorite && currentSection.value === 'favorites') {
+    styles.value = styles.value.filter(x => x.id !== id)
+    listTotal.value = Math.max(0, listTotal.value - 1)
+  }
   try {
     await api.setFavorite(id, favorite)
-    // 成功：界面已是最新，无需再改
     showToast(favorite ? '已收藏' : '已取消收藏')
   } catch (e) {
-    // 失败：回滚到之前的值
     if (s) s.favorited = prevFav
+    if (favorite) counts.value.favorites = Math.max(0, (counts.value.favorites || 0) - 1)
+    else counts.value.favorites = (counts.value.favorites || 0) + 1
     showToast(e.message || '操作失败')
-    await loadStyles()
   }
 }
 
@@ -569,6 +725,8 @@ const handleRemoveImport = async (style) => {
   try {
     await api.removeImported(style.id)
     styles.value = styles.value.filter(s => s.id !== style.id)
+    listTotal.value = Math.max(0, listTotal.value - 1)
+    counts.value.imported = Math.max(0, (counts.value.imported || 0) - 1)
     if (currentId.value === style.id) {
       currentId.value = styles.value.length ? styles.value[0].id : 0
     }
@@ -627,12 +785,11 @@ const redeem = async () => {
   try {
     const res = await api.redeem(code)
     if (res.style) {
-      // 替换已有的或追加新气泡
-      const idx = styles.value.findIndex(s => s.id === res.style.id)
-      if (idx >= 0) {
-        styles.value[idx] = res.style
-      } else {
-        styles.value.unshift(res.style)
+      counts.value.imported = (counts.value.imported || 0) + 1
+      if (currentSection.value === 'imported') {
+        const idx = styles.value.findIndex(s => s.id === res.style.id)
+        if (idx >= 0) styles.value[idx] = res.style
+        else styles.value.unshift(res.style)
       }
     }
     ElNotification({ title: '导入成功', message: `已添加「${res.name || ''}」到你的气泡列表`, type: 'success', duration: 4000 })
