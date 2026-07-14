@@ -69,7 +69,8 @@ async def register(request: Request, response: Response):
             value=token,
             path="/bubble-community/",
             httponly=True,
-            samesite="lax",
+            samesite="none",
+            secure=True,
             max_age=TOKEN_MAX_AGE,
         )
 
@@ -135,7 +136,8 @@ async def login(request: Request, response: Response):
             value=token,
             path="/bubble-community/",
             httponly=True,
-            samesite="lax",
+            samesite="none",
+            secure=True,
             max_age=TOKEN_MAX_AGE,
         )
 
