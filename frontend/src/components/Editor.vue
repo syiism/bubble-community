@@ -61,9 +61,20 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-ink mb-2">SVG 模板</label>
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <label class="block text-sm font-medium text-ink">SVG 模板</label>
+          <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              v-model="preserveColors"
+              class="w-4 h-4 rounded border-border text-accent focus:ring-accent"
+            />
+            <span class="text-xs text-ink">保留原始颜色</span>
+          </label>
+        </div>
         <div class="text-xs text-muted mb-2">
-          数字用 {n}；颜色用 {c}/{t}，也兼容 ${displayText}、{{color}} 等；粘贴自带颜色的也可以，会自动变可调
+          数字用 {n}；颜色用 {c}/{t}，也兼容 ${displayText}、{{color}} 等。
+          {{ preserveColors ? '已开启保留原始颜色：不会把 SVG 中的颜色替换为模板。' : '粘贴自带颜色的也可以，会自动变可调。' }}
         </div>
         <div class="relative">
           <textarea
@@ -140,7 +151,7 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-4">
+      <div v-if="!preserveColors" class="flex items-center gap-4">
         <button
           class="px-4 py-2 text-sm font-medium text-ink bg-surface border border-border rounded-lg hover:bg-canvas transition-colors"
           @click="extractColors"
@@ -150,7 +161,7 @@
         <span class="text-xs text-muted">把写死的颜色一键变成可调</span>
       </div>
 
-      <div v-if="extractedColors.length">
+      <div v-if="!preserveColors && extractedColors.length">
         <div class="flex flex-wrap gap-2">
           <div
             v-for="(color, idx) in extractedColors"
@@ -264,6 +275,7 @@ const form = ref({
 
 const loading = ref(false)
 const extractedColors = ref([])
+const preserveColors = ref(false)
 
 // admin: 作者用户名输入 + 校验
 const ownerUsername = ref('')
@@ -332,6 +344,7 @@ watch(() => props.style, (newStyle) => {
   ownerChecking.value = false
   ownerStatus.value = null
   resolvedOwner.value = null
+  preserveColors.value = false
   if (newStyle) {
     const uname = newStyle.username || ''
     form.value = {
@@ -404,6 +417,7 @@ const copySvg = async () => {
 }
 
 const autoMap = () => {
+  if (preserveColors.value) return
   const result = autoMapColors(form.value.svg)
   form.value.svg = result.svg
   if (result.color && !form.value.color) {
@@ -415,6 +429,7 @@ const autoMap = () => {
 }
 
 const extractColors = () => {
+  if (preserveColors.value) return
   extractedColors.value = extract(form.value.svg)
   if (!extractedColors.value.length) {
     emit('toast', '未发现固定颜色（已是占位符或无颜色）')
@@ -422,6 +437,7 @@ const extractColors = () => {
 }
 
 const applyColor = (color, type) => {
+  if (preserveColors.value) return
   form.value.svg = form.value.svg.split(color).join(type === 'c' ? '{c}' : '{t}')
   if (type === 'c') {
     form.value.color = color
@@ -431,6 +447,12 @@ const applyColor = (color, type) => {
   extractColors()
   emit('toast', `已改为可调的${type === 'c' ? '气泡色' : '文字色'}`)
 }
+
+watch(preserveColors, (on) => {
+  if (on) {
+    extractedColors.value = []
+  }
+})
 
 const submit = () => {
   if (!form.value.svg.trim()) {

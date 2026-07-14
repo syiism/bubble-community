@@ -34,6 +34,7 @@ uv run gunicorn -c gunicorn.conf.py app.main:app   # :8000
 - **Frontend builds to `backend/dist/`** — served by FastAPI as SPA static files in production.
 - **CORS**: defaults to `localhost:5173/:5174`. Override via `CORS_ORIGINS` env var (comma-separated).
 - **SVG placeholders**: canonical `{n}` (number), `{c}` (bubble color), `{t}` (text color). Accepts variants like `${displayText}`, `{{color}}` — normalized on save.
+- **Editor preserve colors**: `Editor.vue` has a「保留原始颜色」switch. When on, paste/`@change` skips `autoMapColors` (no hex/rgba → `{c}`/`{t}` rewrite); color extract/apply UI is hidden. Session-only (not persisted); resets when opening/closing editor.
 - **Admin user**: `syiism` (id=190) auto-promoted to admin by seed script.
 - **Rate limiting**: login 5/min, register 3/min via slowapi.
 - **Avatars**: stored in `backend/data/avatars/`, served at `/bubble-community/avatars/`. Gitignored — not committed. Existing DB records store URL path only (no filesystem path), so directory moves are transparent. Avatar URL includes upload timestamp (`?t=...`) to force browser cache refresh.
