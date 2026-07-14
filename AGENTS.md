@@ -42,6 +42,7 @@ uv run gunicorn -c gunicorn.conf.py app.main:app   # :8000
 - **Online management** (admin): `GET /api/admin/online-users` scans Redis `bubble_tokens:*` to list active sessions (ID, username, IP, device, last active). Actions: kick (delete single session), block (set `is_blocked` + destroy all tokens).
 - **Block system**: `is_blocked` column on `users` table. Blocked users get all tokens destroyed and are rejected on any API request with 401. Admin cannot block self. Unblock restores access (user must re-login).
 - **Copied SVG** includes `<!-- 创作者: {username} -->` comment after `<svg>` tag for attribution.
+- **Admin bubble author transfer**: edit dialog uses username input (not user dropdown). Debounced `GET /api/auth/check-username` validates existence; when taken returns `{ available: false, userId, authorName, username }`. `PUT /api/admin/bubbles/{id}` accepts `username` and resolves `user_id` server-side (missing user → 400). Empty username leaves owner unchanged.
 - **Git history**: `.env` purged from all branches via `git filter-branch` + `git gc --prune=now`. Docker/entrypoint deployment files removed from repo.
 
 ## Redis caching

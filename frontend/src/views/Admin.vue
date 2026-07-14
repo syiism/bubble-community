@@ -470,7 +470,6 @@
     <Editor v-model="showBubbleEditor"
             :style="editingBubble"
             :admin="true"
-            :user-list="allUsers"
             @close="showBubbleEditor = false; editingBubble = null"
             @submit="handleEditSubmit"
             @toast="toast.show"
@@ -593,7 +592,6 @@ const statCards = computed(() => {
 
 // ===== 用户管理 =====
 const users = ref([])
-const allUsers = ref([])
 const usersTotal = ref(0)
 const usersPage = ref(1)
 const usersPageSize = 20
@@ -606,13 +604,6 @@ const loadUsers = async () => {
     const data = await api.adminUsers(usersPage.value, usersPageSize, userQuery.value, userRoleFilter.value)
     users.value = data.users || []
     usersTotal.value = data.total || 0
-  } catch (e) { console.error(e) }
-}
-
-const loadAllUsers = async () => {
-  try {
-    const data = await api.adminUsers(1, 100, '', '')
-    allUsers.value = data.users || []
   } catch (e) { console.error(e) }
 }
 
@@ -925,6 +916,7 @@ const openEditModal = (b) => {
 
 const handleEditSubmit = async (data) => {
   try {
+    const username = (data.username || '').trim()
     await api.adminUpdateBubble(data.id, {
       name: data.name,
       desc: data.desc,
@@ -935,19 +927,19 @@ const handleEditSubmit = async (data) => {
       category: data.category || 'original',
       authorName: data.authorName || '',
       userId: data.userId || 0,
+      username,
     })
     // 更新本地行
     const idx = bubbles.value.findIndex(x => x.id === data.id)
     if (idx >= 0) {
-      const newOwner = allUsers.value.find(u => u.id === data.userId)
       Object.assign(bubbles.value[idx], {
         name: data.name,
         desc: data.desc,
         public: data.public,
         category: data.category || 'original',
         authorName: data.authorName || '',
-        userId: data.userId || 0,
-        username: newOwner ? newOwner.username : bubbles.value[idx].username,
+        userId: data.userId || bubbles.value[idx].userId || 0,
+        username: username || bubbles.value[idx].username,
       })
     }
     editingBubble.value = null
@@ -1021,7 +1013,7 @@ const loadAll = async () => {
   }
   loading.value = false
   const tasks = [loadBubbles()]
-  if (isAdmin.value) tasks.push(loadUsers(), loadAllUsers(), loadAnnouncements(), loadOnlineUsers())
+  if (isAdmin.value) tasks.push(loadUsers(), loadAnnouncements(), loadOnlineUsers())
   await Promise.all(tasks)
 }
 

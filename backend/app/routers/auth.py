@@ -18,8 +18,16 @@ async def check_username(username: str):
     from ..modules.repositories import UserRepository
 
     async with get_db_context() as db:
-        user = await UserRepository.get_by_username(db, username)
-    return {"code": 0, "available": user is None}
+        user = await UserRepository.get_by_username(db, username.strip())
+    if user is None:
+        return {"code": 0, "available": True}
+    return {
+        "code": 0,
+        "available": False,
+        "userId": user.id,
+        "authorName": user.author_name or "",
+        "username": user.username,
+    }
 
 
 @router.post("/register")

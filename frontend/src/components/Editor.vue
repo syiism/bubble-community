@@ -21,12 +21,20 @@
 
       <div v-if="admin">
         <label class="block text-sm font-medium text-ink mb-2">作者（用户名）</label>
-        <select v-model="form.userId"
-                class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink
-                       focus:outline-none focus:border-accent transition-colors">
-          <option :value="0">—</option>
-          <option v-for="u in userList" :key="u.id" :value="u.id">{{ u.username }}</option>
-        </select>
+        <div class="relative">
+          <input
+            v-model="ownerUsername"
+            type="text"
+            placeholder="输入用户名切换作者，留空不修改"
+            class="w-full px-4 py-3 bg-canvas border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none transition-colors"
+            :class="ownerInputBorderClass"
+            @input="onOwnerUsernameInput"
+          />
+          <span v-if="ownerChecking" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">检查中…</span>
+        </div>
+        <p v-if="ownerStatus === 'exists'" class="mt-1.5 text-xs text-green-600">用户存在，保存后将转让给该用户</p>
+        <p v-else-if="ownerStatus === 'missing'" class="mt-1.5 text-xs text-red-500">用户不存在</p>
+        <p v-else-if="ownerStatus === 'same'" class="mt-1.5 text-xs text-muted">与当前作者相同</p>
       </div>
 
       <div>
@@ -199,7 +207,7 @@
         :disabled="!form.svg.trim() || loading"
         :class="[
           'w-full py-3 rounded-xl text-sm font-medium transition-colors',
-          form.svg.trim() && !loading
+          form.svg.trim() && !loading && !ownerBlocked
             ? 'bg-ink text-white hover:bg-charcoal'
             : 'bg-border text-muted cursor-not-allowed'
         ]"
@@ -214,6 +222,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { ElNotification } from 'element-plus'
+import { api } from '@/api'
 import { svgToImg, normalizePlaceholders, autoMapColors, extractColors as extract } from '@/utils/svgHelper'
 
 const props = defineProps({
@@ -228,10 +237,6 @@ const props = defineProps({
   admin: {
     type: Boolean,
     default: false
-  },
-  userList: {
-    type: Array,
-    default: () => []
   }
 })
 
@@ -252,14 +257,83 @@ const form = ref({
   textColor: '',
   public: false,
   category: 'original',
-  userId: 0
+  userId: 0,
+  authorName: '',
+  username: ''
 })
 
 const loading = ref(false)
 const extractedColors = ref([])
 
+// admin: 作者用户名输入 + 校验
+const ownerUsername = ref('')
+const ownerChecking = ref(false)
+const ownerStatus = ref(null) // null | 'checking' | 'exists' | 'missing' | 'same'
+const resolvedOwner = ref(null) // { userId, authorName, username }
+let ownerTimer = null
+const initialUsername = ref('')
+
+const ownerBlocked = computed(() => {
+  if (!props.admin) return false
+  const val = ownerUsername.value.trim()
+  if (!val) return false
+  return ownerStatus.value === 'missing' || ownerStatus.value === 'checking' || ownerChecking.value
+})
+
+const ownerInputBorderClass = computed(() => {
+  if (ownerStatus.value === 'exists' || ownerStatus.value === 'same') return 'border-green-400 focus:border-green-400'
+  if (ownerStatus.value === 'missing') return 'border-red-400 focus:border-red-400'
+  return 'border-border focus:border-accent'
+})
+
+const onOwnerUsernameInput = () => {
+  clearTimeout(ownerTimer)
+  resolvedOwner.value = null
+  const val = ownerUsername.value.trim()
+  if (!val) {
+    ownerStatus.value = null
+    ownerChecking.value = false
+    return
+  }
+  if (val === initialUsername.value) {
+    ownerStatus.value = 'same'
+    ownerChecking.value = false
+    return
+  }
+  ownerChecking.value = true
+  ownerStatus.value = 'checking'
+  ownerTimer = setTimeout(async () => {
+    try {
+      const res = await api.checkUsername(val)
+      if (res.available) {
+        ownerStatus.value = 'missing'
+        resolvedOwner.value = null
+      } else {
+        ownerStatus.value = 'exists'
+        resolvedOwner.value = {
+          userId: res.userId || 0,
+          authorName: res.authorName || '',
+          username: res.username || val,
+        }
+        form.value.authorName = res.authorName || res.username || val
+        form.value.userId = res.userId || 0
+      }
+    } catch {
+      ownerStatus.value = null
+      resolvedOwner.value = null
+    } finally {
+      ownerChecking.value = false
+    }
+  }, 500)
+}
+
 watch(() => props.style, (newStyle) => {
+  clearTimeout(ownerTimer)
+  ownerChecking.value = false
+  ownerStatus.value = null
+  resolvedOwner.value = null
   if (newStyle) {
+    const uname = newStyle.username || ''
     form.value = {
       name: newStyle.name || '',
       desc: newStyle.desc || '',
@@ -268,13 +342,12 @@ watch(() => props.style, (newStyle) => {
       textColor: newStyle.textColor || '',
       public: !!newStyle.public,
       category: newStyle.category || 'original',
-      userId: newStyle.userId || newStyle.user_id || 0
+      userId: newStyle.userId || newStyle.user_id || 0,
+      authorName: newStyle.authorName || '',
+      username: uname,
     }
-    // admin 模式下根据 userId 预填署名
-    if (props.admin && form.value.userId) {
-      const u = props.userList.find(u => u.id === form.value.userId)
-      if (u) form.value.authorName = u.authorName || u.username || ''
-    }
+    initialUsername.value = uname
+    ownerUsername.value = uname
   } else {
     form.value = {
       name: '',
@@ -284,20 +357,15 @@ watch(() => props.style, (newStyle) => {
       textColor: '',
       public: false,
       category: 'original',
-      userId: 0
+      userId: 0,
+      authorName: '',
+      username: '',
     }
+    initialUsername.value = ''
+    ownerUsername.value = ''
   }
   extractedColors.value = []
 }, { immediate: true })
-
-// admin 模式下切换作者时自动填充署名
-watch(() => form.value.userId, (uid) => {
-  if (!props.admin || !uid) return
-  const u = props.userList.find(u => u.id === uid)
-  if (u) {
-    form.value.authorName = u.authorName || u.username || ''
-  }
-})
 
 const previewHtml = computed(() => {
   return svgToImg(form.value.svg, 'h-16 w-auto', form.value.color, form.value.textColor)
@@ -369,14 +437,31 @@ const submit = () => {
     emit('toast', '请填写 SVG')
     return
   }
+  if (ownerBlocked.value) {
+    emit('toast', ownerStatus.value === 'missing' ? '作者用户不存在' : '正在校验作者用户名…')
+    return
+  }
 
   loading.value = true
 
+  const uname = ownerUsername.value.trim()
+  const payload = {
+    ...form.value,
+    id: props.style?.id,
+    username: uname,
+  }
+  if (resolvedOwner.value) {
+    payload.userId = resolvedOwner.value.userId
+    payload.username = resolvedOwner.value.username
+    payload.authorName = form.value.authorName || resolvedOwner.value.authorName || resolvedOwner.value.username
+  } else if (!uname) {
+    // 留空：不改作者，保留原 userId
+    payload.userId = props.style?.userId || props.style?.user_id || form.value.userId || 0
+    payload.username = ''
+  }
+
   setTimeout(() => {
-    emit('submit', {
-      ...form.value,
-      id: props.style?.id
-    })
+    emit('submit', payload)
     loading.value = false
   }, 500)
 }

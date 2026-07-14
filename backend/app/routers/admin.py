@@ -38,6 +38,7 @@ class BubbleEditBody(BaseModel):
     public: bool = False
     authorName: str = ""
     userId: int = 0
+    username: str = ""
     category: str = "original"
 
 
@@ -386,7 +387,14 @@ async def admin_update_bubble(bubble_id: int, body: BubbleEditBody, user=Depends
             "author_name": body.authorName.strip()[:32],
             "category": body.category or "original",
         }
-        if body.userId and body.userId != bubble.user_id:
+        uname = (body.username or "").strip()
+        if uname:
+            target = await UserRepository.get_by_username(db, uname)
+            if not target:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, "用户不存在")
+            if target.id != bubble.user_id:
+                kwargs["user_id"] = target.id
+        elif body.userId and body.userId != bubble.user_id:
             kwargs["user_id"] = body.userId
         await BubbleRepository.update(db, bubble, **kwargs)
     await cache_del("cache:admin:stats")
