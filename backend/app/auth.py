@@ -183,23 +183,37 @@ async def invalidate_user_cache(uid: int) -> None:
     _log.debug("User cache invalidated for uid=%s", uid)
 
 
-def _extract_token(request: Request) -> str | None:
-    """Prefer cookie; fall back to Authorization: Bearer (WebView / third-party contexts)."""
-    token = request.cookies.get(TOKEN_COOKIE)
-    if token:
-        return token
+def _bearer_token(request: Request) -> str | None:
     auth = request.headers.get("Authorization") or request.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
         return auth[7:].strip() or None
     return None
 
 
-async def _resolve_user(request: Request) -> dict:
-    token = _extract_token(request)
-    if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未登录")
+def _token_candidates(request: Request) -> list[tuple[str, str]]:
+    """
+    Ordered auth candidates: Bearer first (WebView-safe), then cookie.
+    Stale cookies in WebView must not override a valid Bearer token.
+    """
+    out: list[tuple[str, str]] = []
+    bearer = _bearer_token(request)
+    if bearer:
+        out.append(("bearer", bearer))
+    cookie = request.cookies.get(TOKEN_COOKIE)
+    if cookie and cookie not in {t for _, t in out}:
+        out.append(("cookie", cookie))
+    return out
 
-    payload = _decode_jwt(token)
+
+async def _validate_session_token(token: str, request: Request) -> dict | None:
+    """Return user_info if JWT+Redis session is valid; else None (do not raise)."""
+    try:
+        payload = _decode_jwt(token)
+    except HTTPException:
+        return None
+    except Exception:
+        return None
+
     uid = payload["uid"]
     username = payload.get("username", "")
     sid = payload.get("sid", "")
@@ -226,9 +240,8 @@ async def _resolve_user(request: Request) -> dict:
             stored = token
 
     if stored != token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已失效，请重新登录")
+        return None
 
-    # 从缓存获取用户信息，避免每请求 DB 查询
     user_info = await _get_cached_user(uid)
     if user_info is None:
         from .modules.database import get_db_context
@@ -239,13 +252,11 @@ async def _resolve_user(request: Request) -> dict:
         user_info = _user_info_from_db(user)
         await _cache_user_info(uid, user_info)
 
-    # 封禁检查
     if user_info.get("is_blocked"):
         if sid:
             await delete_token(uid, sid)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号已被封禁")
 
-    # 更新最后活跃时间（Redis，非阻塞）
     if sid:
         try:
             await touch_session(uid, sid)
@@ -253,6 +264,27 @@ async def _resolve_user(request: Request) -> dict:
             pass
 
     return user_info
+
+
+async def _resolve_user(request: Request) -> dict:
+    candidates = _token_candidates(request)
+    if not candidates:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未登录")
+
+    last_err = "登录已失效，请重新登录"
+    for source, token in candidates:
+        try:
+            user_info = await _validate_session_token(token, request)
+        except HTTPException as e:
+            # blocked etc. — do not try other tokens
+            raise e
+        if user_info is not None:
+            if source != "cookie":
+                _log.debug("Auth via %s for uid=%s", source, user_info.get("id"))
+            return user_info
+        last_err = "登录已失效，请重新登录"
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=last_err)
 
 
 async def get_current_user(request: Request) -> dict:

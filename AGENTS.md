@@ -27,7 +27,7 @@ uv run gunicorn -c gunicorn.conf.py app.main:app   # :8000
 
 ## Key architecture
 
-- **Auth**: JWT + Redis (token store). Cookie name `bubble_community_token` (path=`/bubble-community/`). `get_current_user` accepts **cookie OR** `Authorization: Bearer <token>` (WebView often fails to store/send cookies). Login/register also return `token` in JSON; frontend stores it in `localStorage` (`bubble_community_jwt`) and sends Bearer on every request. Cookie renamed from `bubble_token` to avoid collision with other projects on same domain.
+- **Auth**: JWT + Redis (token store). Cookie name `bubble_community_token` (path=`/bubble-community/`). `get_current_user` tries **Bearer first, then cookie** (stale WebView cookies must not override a valid Bearer). Login/register return `token` in JSON; frontend keeps it in memory + `localStorage` (`bubble_community_jwt`) and sends `Authorization: Bearer` on every request. Nginx must forward `Authorization` if reverse-proxied.
 - **Auth cookie flags** (env, defaults in `backend/app/config.py`): `COOKIE_SECURE` (default `0` for local HTTP), `COOKIE_SAMESITE` (default `lax`). Production HTTPS: `COOKIE_SECURE=1` + `COOKIE_SAMESITE=none` if cross-site cookies are needed. Bearer fallback covers in-app WebView when cookies are broken.
 - **DB**: MySQL/MariaDB, SQLAlchemy 2.0 async with aiomysql. Schema auto-created via `Base.metadata.create_all()` (run by seed or on startup). `create_all` does **not** add columns to existing tables — additive column migrations live in `backend/app/modules/database.py` `_COLUMN_MIGRATIONS` / `_ensure_columns()` (runs on startup). Connection pool: `pool_size=20`, `max_overflow=50`.
 - **Upserts**: Use `mysql_insert(...).on_duplicate_key_update(...)` — never check-then-act.

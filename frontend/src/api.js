@@ -6,8 +6,17 @@ export function setOnUnauthorized(cb) {
 }
 
 const TOKEN_STORAGE_KEY = 'bubble_community_jwt'
+/** In-memory mirror so WebView keeps token even if localStorage is flaky */
+let _memoryToken = ''
+
+try {
+  _memoryToken = localStorage.getItem(TOKEN_STORAGE_KEY) || ''
+} catch {
+  _memoryToken = ''
+}
 
 export function getStoredToken() {
+  if (_memoryToken) return _memoryToken
   try {
     return localStorage.getItem(TOKEN_STORAGE_KEY) || ''
   } catch {
@@ -16,10 +25,11 @@ export function getStoredToken() {
 }
 
 export function setStoredToken(token) {
+  _memoryToken = token || ''
   try {
     if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token)
     else localStorage.removeItem(TOKEN_STORAGE_KEY)
-  } catch { /* private mode */ }
+  } catch { /* private mode / WebView storage quirks */ }
   _cacheClear()
 }
 
@@ -77,8 +87,8 @@ async function request(method, url, body) {
     const msg = (data && (data.detail || data.message)) || `请求失败 (${res.status})`
     const err = new Error(msg)
     err.status = res.status
-    // 401 → session 过期或被覆盖，通知 auth store 清除状态
-    if (res.status === 401 && _onUnauthorized) {
+    // 401 → session 过期；仅在「已带 token」时清登录态，避免登录前 me() 误清
+    if (res.status === 401 && _onUnauthorized && token) {
       _onUnauthorized()
     }
     throw err
