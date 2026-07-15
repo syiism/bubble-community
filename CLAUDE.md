@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 cd backend
 uv sync           # install dependencies
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
-uv run python -m app.seed   # create DB schema + seed official bubbles + migrate schema
+uv run python -m migrations.runner -y   # create DB + apply all migrations (idempotent)
 ```
 
 ### Frontend (Vue 3, Vite)

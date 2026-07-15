@@ -1,8 +1,9 @@
 """Migration runner — execute pending migrations in order.
 
 Usage:
-    uv run python -m migrations.runner          # apply pending (with confirmation)
-    uv run python -m migrations.runner list      # show status
+    uv run python -m migrations.runner           # apply pending (with confirmation)
+    uv run python -m migrations.runner -y         # apply pending (skip confirmation)
+    uv run python -m migrations.runner list       # show status
 """
 import os
 import sys
@@ -51,7 +52,7 @@ def _ensure_db_exists():
         conn.commit()
 
 
-def run(mode: str = "up"):
+def run(mode: str = "up", force: bool = False):
     _ensure_db_exists()
     engine = create_engine(DB_URL)
     _ensure_table(engine)
@@ -74,10 +75,11 @@ def run(mode: str = "up"):
         print(f"  — {name}")
     print()
     print("⚠  请先确保已备份数据库 (mysqldump)，数据丢失风险自负。")
-    ans = input("  确认执行？(yes/no): ").strip().lower()
-    if ans not in ("yes", "y"):
-        print("已取消。")
-        return
+    if not force:
+        ans = input("  确认执行？(yes/no): ").strip().lower()
+        if ans not in ("yes", "y"):
+            print("已取消。")
+            return
 
     for name, path in pending:
         mod = importlib.import_module(f"migrations.{name}")
@@ -92,5 +94,7 @@ def run(mode: str = "up"):
 
 
 if __name__ == "__main__":
-    mode = sys.argv[1] if len(sys.argv) > 1 else "up"
-    run(mode)
+    argv = [a for a in sys.argv[1:] if not a.startswith("-")]
+    mode = argv[0] if argv else "up"
+    force = "-y" in sys.argv or "--yes" in sys.argv
+    run(mode, force)

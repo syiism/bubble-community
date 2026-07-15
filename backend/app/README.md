@@ -17,13 +17,13 @@ uv sync          # 安装依赖（fastapi/uvicorn/pymysql/pyjwt/passlib[bcrypt]/
 
 > 说明：计划用 `mariadb` 官方 Python 连接器，但本机编译时 `/tmp` 配额不足失败，按计划回退到纯 Python 的 `pymysql`（兼容 MySQL 8，仅 `db.py` 一处 import）。连接测试仍用 `mariadb` CLI。
 
-## 初始化数据库 + 灌入官方气泡
+## 初始化数据库
 
 ```bash
-uv run python -m app.seed
+uv run python -m migrations.runner -y
 ```
 
-会自动：建库 `bubble_community` → 建表 → 从 `../user/api/bubble-style/index.html` 读取 official 气泡入库。
+会自动：建库 `bubble_community` → 建表 → 执行增量列迁移（幂等）。
 
 ## 启动
 
