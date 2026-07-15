@@ -1,7 +1,7 @@
 """Migration runner — execute pending migrations in order.
 
 Usage:
-    uv run python -m migrations.runner          # apply pending
+    uv run python -m migrations.runner          # apply pending (with confirmation)
     uv run python -m migrations.runner list      # show status
 """
 import os
@@ -64,9 +64,22 @@ def run(mode: str = "up"):
             print(f"  [{status}] {name}")
         return
 
-    for name, path in _load_scripts():
-        if name in applied:
-            continue
+    pending = [(name, path) for name, path in scripts if name not in applied]
+    if not pending:
+        print("All migrations already applied.")
+        return
+
+    print("Pending migrations:")
+    for name, _ in pending:
+        print(f"  — {name}")
+    print()
+    print("⚠  请先确保已备份数据库 (mysqldump)，数据丢失风险自负。")
+    ans = input("  确认执行？(yes/no): ").strip().lower()
+    if ans not in ("yes", "y"):
+        print("已取消。")
+        return
+
+    for name, path in pending:
         mod = importlib.import_module(f"migrations.{name}")
         print(f"  Applying {name}...", end=" ")
         mod.upgrade(engine)
