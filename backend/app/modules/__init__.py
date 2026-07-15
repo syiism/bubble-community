@@ -6,6 +6,7 @@ from .imported_bubble import ImportedBubble
 from .user_favorite import UserFavorite
 from .session_model import Session
 from .announcement import Announcement
+from .announcement_confirmation import AnnouncementConfirmation
 from .repositories import (
     UserRepository,
     BubbleRepository,
@@ -14,4 +15,5 @@ from .repositories import (
     ImportedBubbleRepository,
     UserFavoriteRepository,
     AnnouncementRepository,
+    AnnouncementConfirmationRepository,
 )

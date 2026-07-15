@@ -291,6 +291,13 @@ async def get_current_user(request: Request) -> dict:
     return await _resolve_user(request)
 
 
+async def get_current_user_optional(request: Request) -> dict | None:
+    try:
+        return await _resolve_user(request)
+    except HTTPException:
+        return None
+
+
 # 向后兼容：部分路由曾使用不带 response 参数的版本
 get_current_user_strict = get_current_user
 

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 
@@ -23,6 +24,7 @@ from .http_client import client, avatar_client
 from .modules.database import create_all_tables
 from .redis_client import init_redis, close_redis
 from .routers import auth, bubbles, user, admin, announcement
+from .tasks import flush_confirmations
 
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "dist")
 
@@ -54,14 +56,25 @@ app.include_router(admin.router, prefix="/bubble-community")
 app.include_router(announcement.router, prefix="/bubble-community")
 
 
+_flush_task = None
+
 @app.on_event("startup")
 async def startup():
     await create_all_tables()
     await init_redis()
+    global _flush_task
+    _flush_task = asyncio.create_task(flush_confirmations())
+    logging.getLogger("tasks").info("Background flush_confirmations task started")
 
 
 @app.on_event("shutdown")
 async def shutdown():
+    if _flush_task:
+        _flush_task.cancel()
+        try:
+            await _flush_task
+        except asyncio.CancelledError:
+            pass
     await client.aclose()
     await avatar_client.aclose()
     await close_redis()

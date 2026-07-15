@@ -196,7 +196,7 @@
               </div>
               <div class="mt-3">
                 <button class="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-muted bg-canvas rounded-xl hover:text-ink hover:bg-border/50 transition-colors"
-                        @click="showAllAnnouncements = true">
+                        @click="loadAllAnnouncements">
                   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                     <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
@@ -595,14 +595,21 @@ const loadCommunityCounts = async () => {
 
 const loadAnnouncements = async () => {
   try {
-    const [active, all] = await Promise.all([api.announcements(), api.announcementsAll()])
+    const res = await api.announcements()
     const dismissed = JSON.parse(localStorage.getItem('dismissed_announcements') || '[]')
-    activeAnnouncements.value = (active.announcements || []).filter(a => !dismissed.includes(a.id))
-    allAnnouncements.value = all.announcements || []
+    activeAnnouncements.value = (res.announcements || []).filter(a => !dismissed.includes(a.id))
     if (activeAnnouncements.value.length) {
       showAnnouncementModal.value = true
     }
   } catch {}
+}
+
+const loadAllAnnouncements = async () => {
+  try {
+    const res = await api.announcementsAll()
+    allAnnouncements.value = res.announcements || []
+  } catch {}
+  showAllAnnouncements.value = true
 }
 
 const dismissAnnouncement = (id) => {
@@ -614,9 +621,15 @@ const dismissAnnouncement = (id) => {
   activeAnnouncements.value = activeAnnouncements.value.filter(a => a.id !== id)
 }
 
-const closeAnnouncementModal = () => {
-  activeAnnouncements.value.forEach(a => dismissAnnouncement(a.id))
+const closeAnnouncementModal = async () => {
+  const ids = activeAnnouncements.value.map(a => a.id)
+  activeAnnouncements.value = []
   showAnnouncementModal.value = false
+  if (ids.length && getUser()) {
+    try { await api.confirmAnnouncement(ids) } catch {}
+  }
+  // 未登录用户仍用 localStorage 记录关闭
+  ids.forEach(id => dismissAnnouncement(id))
 }
 
 const fmtDate = (iso) => {

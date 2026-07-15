@@ -11,6 +11,7 @@ from .imported_bubble import ImportedBubble
 from .user_favorite import UserFavorite
 from .session_model import Session
 from .announcement import Announcement
+from .announcement_confirmation import AnnouncementConfirmation
 from ..password_util import hash_password
 
 
@@ -479,3 +480,13 @@ class AnnouncementRepository:
     async def delete(db: AsyncSession, ann_id: int) -> None:
         await db.execute(delete(Announcement).where(Announcement.id == ann_id))
         await db.commit()
+
+
+class AnnouncementConfirmationRepository:
+    @staticmethod
+    async def get_confirmed_ids(db: AsyncSession, user_id: int) -> set[int]:
+        result = await db.execute(
+            select(AnnouncementConfirmation.announcement_id)
+            .filter(AnnouncementConfirmation.user_id == user_id)
+        )
+        return {row[0] for row in result.all()}

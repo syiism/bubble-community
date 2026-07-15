@@ -177,6 +177,7 @@ export const api = {
   adminCreateAnnouncement: (data) => request('POST', '/bubble-community/api/admin/announcements', data),
   adminUpdateAnnouncement: (id, data) => request('PUT', `/bubble-community/api/admin/announcements/${id}`, data),
   adminDeleteAnnouncement: (id) => request('DELETE', `/bubble-community/api/admin/announcements/${id}`),
+  confirmAnnouncement: (ids) => request('POST', '/bubble-community/api/announcements/confirm', { announcement_ids: ids }),
   // 在线管理
   adminOnlineUsers: (page, size) =>
     request('GET', `/bubble-community/api/admin/online-users?page=${page}&size=${size}`),
