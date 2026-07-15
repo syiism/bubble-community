@@ -236,6 +236,7 @@ import { ElNotification } from 'element-plus'
 import { api } from '@/api'
 import { svgToImg, normalizePlaceholders, autoMapColors, extractColors as extract } from '@/utils/svgHelper'
 import { pendingToolSvg } from '@/utils/toolBridge'
+import { getUser } from '@/stores/auth'
 
 const props = defineProps({
   modelValue: {
@@ -484,6 +485,11 @@ const submit = () => {
   if (ownerBlocked.value) {
     emit('toast', ownerStatus.value === 'missing' ? '作者用户不存在' : '正在校验作者用户名…')
     return
+  }
+
+  if (!form.value.svg.includes('<!-- 创作者:')) {
+    const author = resolvedOwner.value?.username || getUser()?.username || '匿名书友'
+    form.value.svg = form.value.svg.replace(/^(<svg[^>]*>)/, `$1\n<!-- 创作者: ${author} -->`)
   }
 
   loading.value = true
