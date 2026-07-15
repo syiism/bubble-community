@@ -8,7 +8,7 @@
 # Backend (Python 3.12+, FastAPI, async)
 cd backend
 uv sync
-uv run python -m app.seed          # create DB + tables + seed official bubbles (idempotent)
+uv run python -m migrations.runner   # create DB + apply all migrations (idempotent)
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
 # Frontend (Vue 3, Vite 8, Tailwind 3)
@@ -29,7 +29,7 @@ uv run gunicorn -c gunicorn.conf.py app.main:app   # :8000
 
 - **Auth**: JWT + Redis (token store). Cookie name `bubble_community_token` (path=`/bubble-community/`). `get_current_user` tries **Bearer first, then cookie** (stale WebView cookies must not override a valid Bearer). Login/register return `token` in JSON; frontend keeps it in memory + `localStorage` (`bubble_community_jwt`) and sends `Authorization: Bearer` on every request. Nginx must forward `Authorization` if reverse-proxied.
 - **Auth cookie flags** (env, defaults in `backend/app/config.py`): `COOKIE_SECURE` (default `0` for local HTTP), `COOKIE_SAMESITE` (default `lax`). Production HTTPS: `COOKIE_SECURE=1` + `COOKIE_SAMESITE=none` if cross-site cookies are needed. Bearer fallback covers in-app WebView when cookies are broken.
-- **DB**: MySQL/MariaDB, SQLAlchemy 2.0 async with aiomysql. Schema auto-created via `Base.metadata.create_all()` (run by seed or on startup). `create_all` does **not** add columns to existing tables — additive column migrations live in `backend/app/modules/database.py` `_COLUMN_MIGRATIONS` / `_ensure_columns()` (runs on startup). Connection pool: `pool_size=20`, `max_overflow=50`.
+- **DB**: MySQL/MariaDB, SQLAlchemy 2.0 async with aiomysql. Schema auto-created via `Base.metadata.create_all()` on startup. Additive column migrations live in `backend/migrations/` and must be applied via `uv run python -m migrations.runner`. Connection pool: `pool_size=20`, `max_overflow=50`.
 - **Upserts**: Use `mysql_insert(...).on_duplicate_key_update(...)` — never check-then-act.
 - **All routes** mounted under `/bubble-community/` prefix.
 - **Frontend builds to `backend/dist/`** — served by FastAPI as SPA static files in production.
@@ -145,8 +145,6 @@ This prevents proxy/CDN caching from mixing one user's data with another's. The 
 ## Known quirks
 
 - `backend/app/db.py` and `backend/app/schema.sql` are **obsolete** — ORM replaces them.
-- Seed JSON source: tries `../../user/api/bubble-style/index.html` first, falls back to `backend/app/official_bubbles.json`.
-- Seed is idempotent (checks existence before inserting).
 - `GET /` → 301 redirects to `/bubble-community/`.
 - Admin/reviewer logout uses `window.location.href` (not Vue Router push) to guarantee redirect.
 - Mobile card layout for bubble management (`Admin.vue`) hides 描述/署名/用户名/创建时间 columns; 署名 is shown inline below the bubble name in the mobile card via a `sm:hidden` div. Desktop table headers: 署名 (`authorName`), 用户名 (`username`).
