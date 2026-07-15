@@ -31,6 +31,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/tools/img-to-svg',
+    name: 'img-to-svg',
+    component: () => import('@/views/ImgToSvg.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/admin',
     name: 'admin',
     component: () => import('@/views/Admin.vue'),

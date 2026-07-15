@@ -235,6 +235,7 @@ import { ref, computed, watch } from 'vue'
 import { ElNotification } from 'element-plus'
 import { api } from '@/api'
 import { svgToImg, normalizePlaceholders, autoMapColors, extractColors as extract } from '@/utils/svgHelper'
+import { pendingToolSvg } from '@/utils/toolBridge'
 
 const props = defineProps({
   modelValue: {
@@ -395,8 +396,13 @@ const clearColor = (field) => {
 const preview = () => {}
 
 const copySvg = async () => {
-  const svg = form.value.svg
+  let svg = form.value.svg
   if (!svg.trim()) return
+  if (svg.includes('{n}') || svg.includes('{c}') || svg.includes('{t}')) {
+    svg = svg.split('{n}').join(pendingFillN.value)
+              .split('{c}').join(form.value.color || '#8a8f99')
+              .split('{t}').join(form.value.textColor || '#8a8f99')
+  }
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(svg)
@@ -451,6 +457,22 @@ const applyColor = (color, type) => {
 watch(preserveColors, (on) => {
   if (on) {
     extractedColors.value = []
+  }
+})
+
+const pendingFillN = ref('88')
+watch(pendingToolSvg, (svg) => {
+  if (svg && !props.style) {
+    const cleaned = svg.replace(/^\s*<\?xml[^>]*\?>\s*/i, '').replace(/^\s*<!DOCTYPE[\s\S]*?>\s*/i, '').trim()
+    pendingToolSvg.value = ''
+    const numMatch = cleaned.match(/<text\b[^>]*>(\d+(?:\.\d+)?)<\/text>/i)
+    if (numMatch) {
+      pendingFillN.value = numMatch[1]
+      form.value.svg = cleaned.replace(numMatch[0], numMatch[0].replace(numMatch[1], '{n}'))
+    } else {
+      pendingFillN.value = '88'
+      form.value.svg = cleaned
+    }
   }
 })
 

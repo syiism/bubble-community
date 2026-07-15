@@ -312,14 +312,16 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox, ElNotification } from 'element-plus'
 import BubbleList from '@/components/BubbleList.vue'
 import Editor from '@/components/Editor.vue'
 import { api } from '@/api'
+import { pendingToolSvg } from '@/utils/toolBridge'
 import { getUser, refreshUser } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 
+const router = useRouter()
 const styles = ref([])
 const searchQuery = ref('')
 const debouncedQ = ref('')
@@ -925,6 +927,20 @@ onMounted(async () => {
   loadCommunityCounts()
   loadAnnouncements()
   await applySelectQuery()
+
+  // create-from-tool: pre-fill editor with SVG from img-to-svg tool
+  if (route.query['create-from-tool']) {
+    const svg = sessionStorage.getItem('img_to_svg_svg')
+    sessionStorage.removeItem('img_to_svg_svg')
+    sessionStorage.removeItem('img_to_svg_params')
+    const q = { ...route.query }
+    delete q['create-from-tool']
+    router.replace({ query: q })
+    if (svg) {
+      openEditor()
+      pendingToolSvg.value = svg
+    }
+  }
 })
 
 watch(

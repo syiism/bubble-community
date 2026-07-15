@@ -19,6 +19,7 @@
              class="text-sm font-medium text-muted hover:text-accent transition-colors">论坛</a>
           <router-link to="/" :class="navLinkClass('home')">社区</router-link>
           <router-link to="/docs" :class="navLinkClass('docs')">文档</router-link>
+          <router-link to="/tools/img-to-svg" :class="navLinkClass('img-to-svg')">图片转SVG</router-link>
           <router-link to="/profile" :class="navLinkClass('profile')">{{ user?.username || '我的' }}</router-link>
           <router-link v-if="user?.role === 'admin' || user?.role === 'reviewer'" to="/admin" :class="navLinkClass('admin')">管理</router-link>
           <button class="text-sm font-medium text-muted hover:text-accent transition-colors" @click="onLogout">退出</button>
@@ -112,6 +113,9 @@
           <router-link to="/docs" @click="closeMenu"
              class="block text-sm font-medium transition-colors hover:text-accent"
              :class="$route.name === 'docs' ? 'text-accent' : 'text-muted'">文档</router-link>
+          <router-link to="/tools/img-to-svg" @click="closeMenu"
+             class="block text-sm font-medium transition-colors hover:text-accent"
+             :class="$route.name === 'img-to-svg' ? 'text-accent' : 'text-muted'">图片转SVG</router-link>
           <router-link to="/profile" @click="closeMenu"
              class="block text-sm font-medium transition-colors hover:text-accent"
              :class="$route.name === 'profile' ? 'text-accent' : 'text-muted'">{{ user?.username || '我的' }}</router-link>
