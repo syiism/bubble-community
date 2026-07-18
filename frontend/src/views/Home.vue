@@ -936,13 +936,10 @@ onMounted(async () => {
   if (sec && VALID_SECTIONS.includes(sec)) {
     currentSection.value = sec
   }
-  await loadStyles()
-  loadCommunityCounts()
-  loadAnnouncements()
-  await applySelectQuery()
 
-  // create-from-tool: pre-fill editor with SVG from img-to-svg tool
+  // create-from-tool: load /me first, then popup immediately; rest loads in background
   if (route.query['create-from-tool']) {
+    await refreshUser()
     const svg = sessionStorage.getItem('img_to_svg_svg')
     sessionStorage.removeItem('img_to_svg_svg')
     sessionStorage.removeItem('img_to_svg_params')
@@ -953,7 +950,17 @@ onMounted(async () => {
       openEditor()
       pendingToolSvg.value = svg
     }
+    loadStyles()
+    loadCommunityCounts()
+    loadAnnouncements()
+    applySelectQuery()
+    return
   }
+
+  await loadStyles()
+  loadCommunityCounts()
+  loadAnnouncements()
+  await applySelectQuery()
 })
 
 watch(
