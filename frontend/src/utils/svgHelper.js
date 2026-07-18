@@ -1,3 +1,10 @@
+export async function hashUsername(username) {
+  const msgBuffer = new TextEncoder().encode(username)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16)
+}
+
 export function escapeHtml(s) {
   return String(s == null ? "" : s).replace(/[<>&"']/g, function(ch) {
     return ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" })[ch]

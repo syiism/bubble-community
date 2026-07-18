@@ -127,7 +127,7 @@
 <script setup>
 import { computed } from 'vue'
 import { ElNotification } from 'element-plus'
-import { svgToImg } from '@/utils/svgHelper'
+import { svgToImg, hashUsername } from '@/utils/svgHelper'
 
 const props = defineProps({
   bubble: {
@@ -169,7 +169,8 @@ const copySvg = async () => {
   let result = svg
   if (!svg.includes('<!-- 创作者:')) {
     const author = props.bubble.creatorUsername || props.bubble.author || '匿名书友'
-    result = svg.replace(/^(<svg[^>]*>)/, `$1\n<!-- 创作者: ${author} -->`)
+    const hashed = await hashUsername(author)
+    result = svg.replace(/^(<svg[^>]*>)/, `$1\n<!-- 创作者: ${hashed} -->`)
   }
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {

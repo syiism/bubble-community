@@ -234,7 +234,7 @@
 import { ref, computed, watch } from 'vue'
 import { ElNotification } from 'element-plus'
 import { api } from '@/api'
-import { svgToImg, normalizePlaceholders, autoMapColors, extractColors as extract } from '@/utils/svgHelper'
+import { svgToImg, normalizePlaceholders, autoMapColors, extractColors as extract, hashUsername } from '@/utils/svgHelper'
 import { pendingToolSvg } from '@/utils/toolBridge'
 import { getUser } from '@/stores/auth'
 
@@ -477,7 +477,7 @@ watch(pendingToolSvg, (svg) => {
   }
 })
 
-const submit = () => {
+const submit = async () => {
   if (!form.value.svg.trim()) {
     emit('toast', '请填写 SVG')
     return
@@ -489,7 +489,8 @@ const submit = () => {
 
   if (!form.value.svg.includes('<!-- 创作者:')) {
     const author = resolvedOwner.value?.username || getUser()?.username || '匿名书友'
-    form.value.svg = form.value.svg.replace(/^(<svg[^>]*>)/, `$1\n<!-- 创作者: ${author} -->`)
+    const hashed = await hashUsername(author)
+    form.value.svg = form.value.svg.replace(/^(<svg[^>]*>)/, `$1\n<!-- 创作者: ${hashed} -->`)
   }
 
   loading.value = true
