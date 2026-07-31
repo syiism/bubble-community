@@ -47,6 +47,29 @@ def _set_font_family(svg: str, font_family: str) -> str:
     return re.sub(r"<text\b[^>]*>", _patch, svg)
 
 
+_COLOR_VALUE_RE = re.compile(r"^#[0-9a-fA-F]{3,8}$|^rgba?\(", re.IGNORECASE)
+
+
+def _first_text_fill(svg: str) -> str:
+    """First hardcoded fill color on a <text> element (mirrors frontend autoMapColors)."""
+    m = re.search(r'<text\b[^>]*?\bfill\s*=\s*["\']([^"\']+)["\']', svg, re.IGNORECASE)
+    if m and _COLOR_VALUE_RE.match(m.group(1)):
+        return m.group(1)
+    return ""
+
+
+def _first_shape_color(svg: str, exclude: str) -> str:
+    """First hardcoded fill/stroke color other than `exclude`."""
+    for m in re.finditer(
+        r"(?:fill|stroke)\s*=\s*[\"'](#[0-9a-fA-F]{3,8}|rgba?\([^)]*\))[\"']",
+        svg,
+        re.IGNORECASE,
+    ):
+        if m.group(1) != exclude:
+            return m.group(1)
+    return ""
+
+
 def apply_customizations(
     svg: str,
     color: str = "",
@@ -58,12 +81,27 @@ def apply_customizations(
 
     Only non-empty values are applied; unset items keep their {c}/{t}/{n}
     placeholders for downstream replacement.
+
+    Templates without {c}/{t} placeholders (hardcoded colors like
+    fill="#030000") are mapped heuristically, mirroring the frontend
+    autoMapColors(): <text> fill -> text_color, first other fill/stroke
+    -> color (all occurrences of that value are replaced).
     """
     out = normalize_placeholders(svg)
-    if color:
-        out = out.replace("{c}", color)
+    has_c = "{c}" in out
+    has_t = "{t}" in out
+    text_fill = "" if has_t else _first_text_fill(out)
     if text_color:
         out = out.replace("{t}", text_color)
+        if not has_t and text_fill:
+            out = out.replace(text_fill, text_color)
+    if color:
+        out = out.replace("{c}", color)
+        if not has_c:
+            exclude = (text_color or text_fill) if text_fill else ""
+            bc = _first_shape_color(out, exclude)
+            if bc:
+                out = out.replace(bc, color)
     if text:
         out = out.replace("{n}", _xml_escape(text))
     if font_family:

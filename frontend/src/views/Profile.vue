@@ -511,7 +511,7 @@ import { ElMessageBox } from 'element-plus'
 import { api } from '@/api'
 import Editor from '@/components/Editor.vue'
 import { getUser, refreshUser } from '@/stores/auth'
-import { svgToImg, normalizePlaceholders, escapeHtml } from '@/utils/svgHelper'
+import { svgToImg, applyCustomizations } from '@/utils/svgHelper'
 import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
@@ -609,27 +609,18 @@ const effectiveFontFamily = computed(() =>
   fontPreset.value === '__custom' ? customFont.value.trim() : fontPreset.value
 )
 
-const applyFontFamily = (svg, fontFamily) => {
-  const esc = escapeHtml(fontFamily)
-  return svg.replace(/<text\b[^>]*>/g, (tag) => {
-    if (/font-family\s*=\s*"[^"]*"/.test(tag)) {
-      return tag.replace(/font-family\s*=\s*"[^"]*"/, `font-family="${esc}"`)
-    }
-    if (/font-family\s*=\s*'[^']*'/.test(tag)) {
-      return tag.replace(/font-family\s*=\s*'[^']*'/, `font-family='${esc}'`)
-    }
-    return tag.replace('>', ` font-family="${esc}">`)
-  })
-}
-
 const settingsPreview = computed(() => {
   const b = currentBubble.value
   if (!b) return ''
   const f = settingsForm.value
-  let svg = normalizePlaceholders(b.rawSvg || b.svg)
-  if (f.customText) svg = svg.split('{n}').join(escapeHtml(f.customText))
-  if (effectiveFontFamily.value) svg = applyFontFamily(svg, effectiveFontFamily.value)
-  return svgToImg(svg, 'h-8 w-auto', f.color || b.color, f.textColor || b.textColor)
+  const svg = applyCustomizations(b.rawSvg || b.svg, {
+    color: f.color,
+    textColor: f.textColor,
+    text: f.customText,
+    fontFamily: effectiveFontFamily.value,
+  })
+  // 未自定义的 {c}/{t} 用气泡自身颜色预览，{n} 用默认 12
+  return svgToImg(svg, 'h-8 w-auto', b.color, b.textColor)
 })
 
 const loadCurrentSettings = async () => {

@@ -59,6 +59,50 @@ export function svgToImg(svg, cls, c, t) {
   return `<span class="${cls}">${filled}</span>`
 }
 
+export function applyFontFamilyToSvg(svg, fontFamily) {
+  const esc = escapeHtml(fontFamily)
+  return String(svg || '').replace(/<text\b[^>]*>/g, (tag) => {
+    if (/font-family\s*=\s*"[^"]*"/.test(tag)) {
+      return tag.replace(/font-family\s*=\s*"[^"]*"/, `font-family="${esc}"`)
+    }
+    if (/font-family\s*=\s*'[^']*'/.test(tag)) {
+      return tag.replace(/font-family\s*=\s*'[^']*'/, `font-family='${esc}'`)
+    }
+    return tag.replace('>', ` font-family="${esc}">`)
+  })
+}
+
+// 与服务端 svg_util.apply_customizations 保持一致：
+// 非空值填充 {c}/{t}/{n}；无占位符的模板按 autoMapColors 启发式映射写死颜色
+// （<text> fill → textColor，第一个其它 fill/stroke → color，替换该颜色值的所有出现）
+export function applyCustomizations(svg, { color = '', textColor = '', text = '', fontFamily = '' } = {}) {
+  let out = normalizePlaceholders(svg)
+  const hasC = out.indexOf('{c}') >= 0
+  const hasT = out.indexOf('{t}') >= 0
+  const isColorVal = (v) => /^#[0-9a-fA-F]{3,8}$/.test(v) || /^rgba?\(/i.test(v)
+  const textMatch = out.match(/<text\b[^>]*?\bfill\s*=\s*["']([^"']+)["']/i)
+  const textFill = (!hasT && textMatch && isColorVal(textMatch[1])) ? textMatch[1] : ''
+  if (textColor) {
+    out = out.split('{t}').join(textColor)
+    if (!hasT && textFill) out = out.split(textFill).join(textColor)
+  }
+  if (color) {
+    out = out.split('{c}').join(color)
+    if (!hasC) {
+      const exclude = textFill ? (textColor || textFill) : ''
+      const re = /(?:fill|stroke)\s*=\s*["'](#[0-9a-fA-F]{3,8}|rgba?\([^)]*\))["']/gi
+      let m, bc = ''
+      while ((m = re.exec(out))) {
+        if (m[1] !== exclude) { bc = m[1]; break }
+      }
+      if (bc) out = out.split(bc).join(color)
+    }
+  }
+  if (text) out = out.split('{n}').join(escapeHtml(text))
+  if (fontFamily) out = applyFontFamilyToSvg(out, fontFamily)
+  return out
+}
+
 export function extractColors(svg) {
   const re = /#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g
   const seen = {}
