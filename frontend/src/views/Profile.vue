@@ -255,7 +255,7 @@
           <div class="bg-surface border border-border rounded-2xl p-6 scroll-animate scroll-animate-delay-4">
             <h2 class="text-lg font-medium text-ink mb-2">气泡自定义设置</h2>
             <p class="text-xs text-muted leading-relaxed mb-6">
-              颜色支持 16 进制代码（如 #ff5722）或 rgba()；模板中用 {c} 表示气泡颜色、{t} 表示字体颜色、{n} 表示数字，留空的项保留占位符由阅读平台替换。气泡大小控制输出 SVG 的文字标签：大号 &lt;TEXT&gt;、小号 &lt;text&gt;。
+              颜色支持 16 进制代码（如 #ff5722）或 rgba()；模板中用 {c} 表示气泡颜色、{t} 表示字体颜色、{n} 表示数字，留空的项保留占位符由阅读平台替换。
             </p>
 
             <div v-if="!currentSettings.hasCurrent" class="text-sm text-muted">
@@ -347,18 +347,6 @@
                     class="flex-1 px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-ink mb-2">气泡大小</label>
-                <select
-                  v-model="settingsForm.size"
-                  class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink focus:outline-none focus:border-accent transition-colors"
-                >
-                  <option value="">默认（不修改）</option>
-                  <option value="large">大号（&lt;TEXT&gt;）</option>
-                  <option value="small">小号（&lt;text&gt;）</option>
-                </select>
               </div>
 
               <div>
@@ -636,7 +624,7 @@ const getPreview = (style) => {
 const FONT_PRESETS = ['SimSun, serif', 'SimHei, sans-serif', 'KaiTi, serif', 'serif', 'monospace']
 const currentSettings = ref({ hasCurrent: false, bubbleId: null })
 const currentBubble = ref(null)
-const settingsForm = ref({ color: '', textColor: '', customText: '', size: '' })
+const settingsForm = ref({ color: '', textColor: '', customText: '' })
 const fontPreset = ref('')
 const customFont = ref('')
 const settingsSaving = ref(false)
@@ -654,7 +642,6 @@ const settingsPreview = computed(() => {
     textColor: f.textColor,
     text: f.customText,
     fontFamily: effectiveFontFamily.value,
-    size: f.size,
   })
   // 未自定义的 {c}/{t} 用气泡自身颜色预览，{n} 用默认 12
   return svgToImg(svg, 'h-8 w-auto', b.color, b.textColor)
@@ -669,7 +656,6 @@ const loadCurrentSettings = async () => {
         color: data.color || '',
         textColor: data.textColor || '',
         customText: data.customText || '',
-        size: data.size || '',
       }
       const ff = data.fontFamily || ''
       if (!ff) {
@@ -694,7 +680,6 @@ const saveBubbleSettings = async () => {
       textColor: settingsForm.value.textColor.trim(),
       fontFamily: effectiveFontFamily.value,
       customText: settingsForm.value.customText.trim(),
-      size: settingsForm.value.size,
     })
     toast.show('设置已保存')
   } catch (e) {

@@ -280,7 +280,6 @@ class UserCurrentBubbleRepository:
         custom_text_color: str | None,
         custom_font_family: str | None,
         custom_text: str | None,
-        custom_size: str | None,
     ) -> None:
         await db.execute(
             update(UserCurrentBubble)
@@ -290,7 +289,6 @@ class UserCurrentBubbleRepository:
                 custom_text_color=custom_text_color or None,
                 custom_font_family=custom_font_family or None,
                 custom_text=custom_text or None,
-                custom_size=custom_size or None,
             )
         )
         await db.commit()

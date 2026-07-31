@@ -61,7 +61,7 @@ export function svgToImg(svg, cls, c, t) {
 
 export function applyFontFamilyToSvg(svg, fontFamily) {
   const esc = escapeHtml(fontFamily)
-  return String(svg || '').replace(/<text\b[^>]*>/gi, (tag) => {
+  return String(svg || '').replace(/<text\b[^>]*>/g, (tag) => {
     if (/font-family\s*=\s*"[^"]*"/.test(tag)) {
       return tag.replace(/font-family\s*=\s*"[^"]*"/, `font-family="${esc}"`)
     }
@@ -75,8 +75,7 @@ export function applyFontFamilyToSvg(svg, fontFamily) {
 // 与服务端 svg_util.apply_customizations 保持一致：
 // 非空值填充 {c}/{t}/{n}；无占位符的模板按 autoMapColors 启发式映射写死颜色
 // （<text> fill → textColor，第一个其它 fill/stroke → color，替换该颜色值的所有出现）
-// size: 'large' -> <TEXT> 标签，'small' -> <text> 标签，'' -> 不修改
-export function applyCustomizations(svg, { color = '', textColor = '', text = '', fontFamily = '', size = '' } = {}) {
+export function applyCustomizations(svg, { color = '', textColor = '', text = '', fontFamily = '' } = {}) {
   let out = normalizePlaceholders(svg)
   const hasC = out.indexOf('{c}') >= 0
   const hasT = out.indexOf('{t}') >= 0
@@ -101,10 +100,6 @@ export function applyCustomizations(svg, { color = '', textColor = '', text = ''
   }
   if (text) out = out.split('{n}').join(escapeHtml(text))
   if (fontFamily) out = applyFontFamilyToSvg(out, fontFamily)
-  if (size === 'large' || size === 'small') {
-    const tag = size === 'large' ? 'TEXT' : 'text'
-    out = out.replace(/<text\b/gi, `<${tag}`).replace(/<\/text\s*>/gi, `</${tag}>`)
-  }
   return out
 }
 

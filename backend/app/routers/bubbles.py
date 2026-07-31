@@ -54,7 +54,6 @@ class CurrentSettingsBody(BaseModel):
     textColor: str = ""
     fontFamily: str = ""
     customText: str = ""
-    size: str = ""
 
 
 class FavoriteBody(BaseModel):
@@ -316,7 +315,6 @@ async def get_bubble(user=Depends(get_current_user_strict)):
         text_color=(current_bubble.custom_text_color if current_bubble else "") or "",
         text=(current_bubble.custom_text if current_bubble else "") or "",
         font_family=(current_bubble.custom_font_family if current_bubble else "") or "",
-        size=(current_bubble.custom_size if current_bubble else "") or "",
     )
     return Response(
         content=svg,
@@ -353,7 +351,6 @@ async def get_current_settings(user=Depends(get_current_user)):
             "textColor": current.custom_text_color or "",
             "fontFamily": current.custom_font_family or "",
             "customText": current.custom_text or "",
-            "size": current.custom_size or "",
         },
         headers=_NO_STORE_HEADERS,
     )
@@ -365,13 +362,10 @@ async def put_current_settings(body: CurrentSettingsBody, user=Depends(get_curre
     text_color = body.textColor.strip()
     font_family = body.fontFamily.strip()
     custom_text = body.customText.strip()
-    size = body.size.strip()
     if len(color) > 32 or len(text_color) > 32:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "颜色值过长")
     if len(font_family) > 64 or len(custom_text) > 64:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "内容过长")
-    if size not in ("", "large", "small"):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "非法的气泡大小")
 
     user_id = user["id"]
     async with get_db_context() as db:
@@ -379,7 +373,7 @@ async def put_current_settings(body: CurrentSettingsBody, user=Depends(get_curre
         if not current:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "请先在首页选择一个气泡")
         await UserCurrentBubbleRepository.update_settings(
-            db, user_id, color, text_color, font_family, custom_text, size
+            db, user_id, color, text_color, font_family, custom_text
         )
     return JSONResponse({"code": 0}, headers=_NO_STORE_HEADERS)
 
