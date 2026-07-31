@@ -13,6 +13,7 @@ class UserCurrentBubble(Base):
     custom_text_color = Column(String(32), nullable=True)
     custom_font_family = Column(String(64), nullable=True)
     custom_text = Column(String(64), nullable=True)
+    custom_size = Column(String(16), nullable=True)
     set_at = Column(
         DateTime,
         nullable=False,

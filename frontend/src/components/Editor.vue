@@ -73,7 +73,7 @@
           </label>
         </div>
         <div class="text-xs text-muted mb-2">
-          数字用 {n}；颜色用 {c}/{t}，也兼容 ${displayText}、{{color}} 等。
+          数字用 {n}；颜色用 {c}/{t}，也兼容 ${displayText}、{{color}} 等；固定颜色可直接写 16 进制代码（如 #030000）。
           {{ preserveColors ? '已开启保留原始颜色：不会把 SVG 中的颜色替换为模板。' : '粘贴自带颜色的也可以，会自动变可调。' }}
         </div>
         <div class="relative">

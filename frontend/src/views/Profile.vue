@@ -110,16 +110,35 @@
         
         <div class="md:col-span-2 space-y-6">
           <div class="bg-surface border border-border rounded-2xl p-6 scroll-animate scroll-animate-delay-3">
-            <div class="flex items-center justify-between mb-6">
-              <h2 class="text-lg font-medium text-ink">我创建的气泡</h2>
-              <button 
-                class="text-sm font-medium text-accent hover:text-accent/80 transition-colors"
-                @click="$router.push('/')"
-              >
-                查看全部
-              </button>
+            <div class="flex items-center justify-between" :class="{ 'mb-6': showMine }">
+              <h2 class="text-lg font-medium text-ink">
+                我创建的气泡
+                <span class="text-sm font-normal text-muted">{{ myStyles.length }}</span>
+              </h2>
+              <div class="flex items-center gap-3">
+                <button 
+                  class="text-sm font-medium text-accent hover:text-accent/80 transition-colors"
+                  @click="$router.push('/')"
+                >
+                  查看全部
+                </button>
+                <button
+                  class="w-8 h-8 flex items-center justify-center rounded-lg text-muted hover:text-ink hover:bg-canvas transition-colors"
+                  :title="showMine ? '折叠' : '展开'"
+                  @click="showMine = !showMine"
+                >
+                  <svg
+                    class="w-4 h-4 transition-transform duration-200"
+                    :class="{ 'rotate-180': showMine }"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                  >
+                    <path d="m6 9 6 6 6-6"/>
+                  </svg>
+                </button>
+              </div>
             </div>
             
+            <template v-if="showMine">
             <div v-if="myStyles.length" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div 
                 v-for="style in myStyles" 
@@ -144,6 +163,7 @@
             <div v-else class="text-center py-8 text-sm text-muted">
               还没有创建气泡，快去创建一个吧
             </div>
+            </template>
           </div>
 
           <div v-if="showSaved" class="bg-surface border border-border rounded-2xl p-6 scroll-animate">
@@ -233,7 +253,10 @@
           </div>
           
           <div class="bg-surface border border-border rounded-2xl p-6 scroll-animate scroll-animate-delay-4">
-            <h2 class="text-lg font-medium text-ink mb-6">气泡自定义设置</h2>
+            <h2 class="text-lg font-medium text-ink mb-2">气泡自定义设置</h2>
+            <p class="text-xs text-muted leading-relaxed mb-6">
+              颜色支持 16 进制代码（如 #ff5722）或 rgba()；模板中用 {c} 表示气泡颜色、{t} 表示字体颜色、{n} 表示数字，留空的项保留占位符由阅读平台替换。气泡大小控制输出 SVG 的文字标签：大号 &lt;TEXT&gt;、小号 &lt;text&gt;。
+            </p>
 
             <div v-if="!currentSettings.hasCurrent" class="text-sm text-muted">
               请先在<router-link to="/" class="text-accent hover:underline">首页</router-link>选择一个气泡，再回来设置。
@@ -324,6 +347,18 @@
                     class="flex-1 px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-ink mb-2">气泡大小</label>
+                <select
+                  v-model="settingsForm.size"
+                  class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink focus:outline-none focus:border-accent transition-colors"
+                >
+                  <option value="">默认（不修改）</option>
+                  <option value="large">大号（&lt;TEXT&gt;）</option>
+                  <option value="small">小号（&lt;text&gt;）</option>
+                </select>
               </div>
 
               <div>
@@ -525,6 +560,7 @@ const saving = ref(false)
 const showSaved = ref(false)
 const showImported = ref(false)
 const showStats = ref(false)
+const showMine = ref(false)
 const loading = ref(false)
 
 // ===== 快捷创建气泡 =====
@@ -600,7 +636,7 @@ const getPreview = (style) => {
 const FONT_PRESETS = ['SimSun, serif', 'SimHei, sans-serif', 'KaiTi, serif', 'serif', 'monospace']
 const currentSettings = ref({ hasCurrent: false, bubbleId: null })
 const currentBubble = ref(null)
-const settingsForm = ref({ color: '', textColor: '', customText: '' })
+const settingsForm = ref({ color: '', textColor: '', customText: '', size: '' })
 const fontPreset = ref('')
 const customFont = ref('')
 const settingsSaving = ref(false)
@@ -618,6 +654,7 @@ const settingsPreview = computed(() => {
     textColor: f.textColor,
     text: f.customText,
     fontFamily: effectiveFontFamily.value,
+    size: f.size,
   })
   // 未自定义的 {c}/{t} 用气泡自身颜色预览，{n} 用默认 12
   return svgToImg(svg, 'h-8 w-auto', b.color, b.textColor)
@@ -632,6 +669,7 @@ const loadCurrentSettings = async () => {
         color: data.color || '',
         textColor: data.textColor || '',
         customText: data.customText || '',
+        size: data.size || '',
       }
       const ff = data.fontFamily || ''
       if (!ff) {
@@ -656,6 +694,7 @@ const saveBubbleSettings = async () => {
       textColor: settingsForm.value.textColor.trim(),
       fontFamily: effectiveFontFamily.value,
       customText: settingsForm.value.customText.trim(),
+      size: settingsForm.value.size,
     })
     toast.show('设置已保存')
   } catch (e) {

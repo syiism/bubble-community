@@ -33,7 +33,7 @@ def _xml_escape(s: str) -> str:
 
 
 def _set_font_family(svg: str, font_family: str) -> str:
-    """Add or replace font-family on every <text> tag."""
+    """Add or replace font-family on every <text>/<TEXT> tag."""
     def _patch(m: "re.Match") -> str:
         tag = m.group(0)
         if re.search(r'font-family\s*=\s*"[^"]*"', tag):
@@ -44,7 +44,15 @@ def _set_font_family(svg: str, font_family: str) -> str:
             tag = tag.replace(">", f' font-family="{font_family}">', 1)
         return tag
 
-    return re.sub(r"<text\b[^>]*>", _patch, svg)
+    return re.sub(r"<text\b[^>]*>", _patch, svg, flags=re.IGNORECASE)
+
+
+def _set_text_tag_size(svg: str, size: str) -> str:
+    """'large' -> <TEXT></TEXT>, 'small' -> <text></text> (case-insensitive source)."""
+    tag = "TEXT" if size == "large" else "text"
+    out = re.sub(r"<text\b", f"<{tag}", svg, flags=re.IGNORECASE)
+    out = re.sub(r"</text\s*>", f"</{tag}>", out, flags=re.IGNORECASE)
+    return out
 
 
 _COLOR_VALUE_RE = re.compile(r"^#[0-9a-fA-F]{3,8}$|^rgba?\(", re.IGNORECASE)
@@ -76,6 +84,7 @@ def apply_customizations(
     text_color: str = "",
     text: str = "",
     font_family: str = "",
+    size: str = "",
 ) -> str:
     """Fill user-customized values into the template.
 
@@ -86,6 +95,8 @@ def apply_customizations(
     fill="#030000") are mapped heuristically, mirroring the frontend
     autoMapColors(): <text> fill -> text_color, first other fill/stroke
     -> color (all occurrences of that value are replaced).
+
+    size: 'large' -> <TEXT> tags, 'small' -> <text> tags, '' -> unchanged.
     """
     out = normalize_placeholders(svg)
     has_c = "{c}" in out
@@ -106,4 +117,6 @@ def apply_customizations(
         out = out.replace("{n}", _xml_escape(text))
     if font_family:
         out = _set_font_family(out, _xml_escape(font_family))
+    if size in ("large", "small"):
+        out = _set_text_tag_size(out, size)
     return out
