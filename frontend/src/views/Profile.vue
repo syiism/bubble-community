@@ -233,6 +233,126 @@
           </div>
           
           <div class="bg-surface border border-border rounded-2xl p-6 scroll-animate scroll-animate-delay-4">
+            <h2 class="text-lg font-medium text-ink mb-6">气泡自定义设置</h2>
+
+            <div v-if="!currentSettings.hasCurrent" class="text-sm text-muted">
+              请先在<router-link to="/" class="text-accent hover:underline">首页</router-link>选择一个气泡，再回来设置。
+            </div>
+
+            <div v-else class="space-y-6">
+              <div class="flex items-center gap-4">
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium text-ink truncate">{{ currentBubble?.name || '未命名气泡' }}</div>
+                  <div class="text-xs text-muted mt-1">当前选中的气泡</div>
+                </div>
+                <div class="shrink-0" v-html="settingsPreview"></div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-ink mb-2">气泡颜色</label>
+                <div class="flex items-center gap-3">
+                  <input
+                    type="color"
+                    :value="settingsForm.color || '#b8693d'"
+                    class="w-10 h-10 shrink-0 rounded-lg border border-border cursor-pointer bg-canvas"
+                    @input="settingsForm.color = $event.target.value"
+                  />
+                  <input
+                    v-model="settingsForm.color"
+                    type="text"
+                    maxlength="32"
+                    placeholder="如 #b8693d（留空=跟随模板）"
+                    class="flex-1 px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+                  />
+                  <button
+                    v-if="settingsForm.color"
+                    class="shrink-0 text-xs text-muted hover:text-ink transition-colors"
+                    @click="settingsForm.color = ''"
+                  >
+                    清除
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-ink mb-2">字体颜色</label>
+                <div class="flex items-center gap-3">
+                  <input
+                    type="color"
+                    :value="settingsForm.textColor || '#8a8f99'"
+                    class="w-10 h-10 shrink-0 rounded-lg border border-border cursor-pointer bg-canvas"
+                    @input="settingsForm.textColor = $event.target.value"
+                  />
+                  <input
+                    v-model="settingsForm.textColor"
+                    type="text"
+                    maxlength="32"
+                    placeholder="如 #8a8f99（留空=跟随模板）"
+                    class="flex-1 px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+                  />
+                  <button
+                    v-if="settingsForm.textColor"
+                    class="shrink-0 text-xs text-muted hover:text-ink transition-colors"
+                    @click="settingsForm.textColor = ''"
+                  >
+                    清除
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-ink mb-2">字体样式</label>
+                <div class="flex gap-3">
+                  <select
+                    v-model="fontPreset"
+                    class="flex-1 px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink focus:outline-none focus:border-accent transition-colors"
+                  >
+                    <option value="">默认（不修改）</option>
+                    <option value="SimSun, serif">宋体</option>
+                    <option value="SimHei, sans-serif">黑体</option>
+                    <option value="KaiTi, serif">楷体</option>
+                    <option value="serif">serif</option>
+                    <option value="monospace">monospace</option>
+                    <option value="__custom">自定义…</option>
+                  </select>
+                  <input
+                    v-if="fontPreset === '__custom'"
+                    v-model="customFont"
+                    type="text"
+                    maxlength="64"
+                    placeholder="如 'Noto Sans SC', sans-serif"
+                    class="flex-1 px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-ink mb-2">自定义显示文本</label>
+                <input
+                  v-model="settingsForm.customText"
+                  type="text"
+                  maxlength="64"
+                  placeholder="替换气泡中的数字（留空=由阅读平台填入）"
+                  class="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+                />
+              </div>
+
+              <div>
+                <button
+                  :disabled="settingsSaving"
+                  class="w-full py-3 text-sm font-medium text-white bg-ink rounded-xl hover:bg-charcoal transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  @click="saveBubbleSettings"
+                >
+                  {{ settingsSaving ? '保存中...' : '保存设置' }}
+                </button>
+                <p class="text-xs text-muted mt-2">
+                  以上设置仅影响对外接口 /api/get-bubble 输出的 SVG；留空的项保留占位符，由阅读平台自行替换。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-surface border border-border rounded-2xl p-6 scroll-animate">
             <h2 class="text-lg font-medium text-ink mb-6">账户设置</h2>
 
             <div class="space-y-6">
@@ -391,7 +511,7 @@ import { ElMessageBox } from 'element-plus'
 import { api } from '@/api'
 import Editor from '@/components/Editor.vue'
 import { getUser, refreshUser } from '@/stores/auth'
-import { svgToImg } from '@/utils/svgHelper'
+import { svgToImg, normalizePlaceholders, escapeHtml } from '@/utils/svgHelper'
 import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
@@ -474,6 +594,84 @@ const stats = computed(() => ({
 
 const getPreview = (style) => {
   return svgToImg(style.svg, 'h-8 w-auto', style.color, style.textColor)
+}
+
+// ===== 气泡自定义设置 =====
+const FONT_PRESETS = ['SimSun, serif', 'SimHei, sans-serif', 'KaiTi, serif', 'serif', 'monospace']
+const currentSettings = ref({ hasCurrent: false, bubbleId: null })
+const currentBubble = ref(null)
+const settingsForm = ref({ color: '', textColor: '', customText: '' })
+const fontPreset = ref('')
+const customFont = ref('')
+const settingsSaving = ref(false)
+
+const effectiveFontFamily = computed(() =>
+  fontPreset.value === '__custom' ? customFont.value.trim() : fontPreset.value
+)
+
+const applyFontFamily = (svg, fontFamily) => {
+  const esc = escapeHtml(fontFamily)
+  return svg.replace(/<text\b[^>]*>/g, (tag) => {
+    if (/font-family\s*=\s*"[^"]*"/.test(tag)) {
+      return tag.replace(/font-family\s*=\s*"[^"]*"/, `font-family="${esc}"`)
+    }
+    if (/font-family\s*=\s*'[^']*'/.test(tag)) {
+      return tag.replace(/font-family\s*=\s*'[^']*'/, `font-family='${esc}'`)
+    }
+    return tag.replace('>', ` font-family="${esc}">`)
+  })
+}
+
+const settingsPreview = computed(() => {
+  const b = currentBubble.value
+  if (!b) return ''
+  const f = settingsForm.value
+  let svg = normalizePlaceholders(b.rawSvg || b.svg)
+  if (f.customText) svg = svg.split('{n}').join(escapeHtml(f.customText))
+  if (effectiveFontFamily.value) svg = applyFontFamily(svg, effectiveFontFamily.value)
+  return svgToImg(svg, 'h-8 w-auto', f.color || b.color, f.textColor || b.textColor)
+})
+
+const loadCurrentSettings = async () => {
+  try {
+    const data = await api.getCurrentSettings()
+    currentSettings.value = data.hasCurrent ? data : { hasCurrent: false, bubbleId: null }
+    if (data.hasCurrent) {
+      settingsForm.value = {
+        color: data.color || '',
+        textColor: data.textColor || '',
+        customText: data.customText || '',
+      }
+      const ff = data.fontFamily || ''
+      if (!ff) {
+        fontPreset.value = ''
+      } else if (FONT_PRESETS.includes(ff)) {
+        fontPreset.value = ff
+      } else {
+        fontPreset.value = '__custom'
+        customFont.value = ff
+      }
+    }
+  } catch {
+    // 辅助功能，静默失败
+  }
+}
+
+const saveBubbleSettings = async () => {
+  settingsSaving.value = true
+  try {
+    await api.saveCurrentSettings({
+      color: settingsForm.value.color.trim(),
+      textColor: settingsForm.value.textColor.trim(),
+      fontFamily: effectiveFontFamily.value,
+      customText: settingsForm.value.customText.trim(),
+    })
+    toast.show('设置已保存')
+  } catch (e) {
+    toast.show(e.message || '保存失败')
+  } finally {
+    settingsSaving.value = false
+  }
 }
 
 const onAvatarChange = async (e) => {
@@ -602,8 +800,10 @@ onMounted(async () => {
     myStyles.value = mine.items || mine.styles || []
     favoriteStyles.value = fav.items || fav.styles || []
     importedStyles.value = imp.items || imp.styles || []
+    currentBubble.value = mine.currentBubble || null
     if (mine.counts) profileCounts.value = { ...profileCounts.value, ...mine.counts }
     loadSessions()
+    loadCurrentSettings()
   } catch (e) {
     toast.show(e.message || '加载失败')
   } finally {

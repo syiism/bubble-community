@@ -1,12 +1,13 @@
 import secrets
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 
 from sqlalchemy import func, select, or_
 
-from app.svg_util import fill_svg
+from app.svg_util import fill_svg, apply_customizations
 from app.auth import get_current_user, get_current_user_strict, cache_get, cache_set, cache_del
 from app.modules.bubble import Bubble
 from app.modules.database import get_db_context
@@ -46,6 +47,13 @@ class RedeemBody(BaseModel):
 
 class CurrentBody(BaseModel):
     style: int | str
+
+
+class CurrentSettingsBody(BaseModel):
+    color: str = ""
+    textColor: str = ""
+    fontFamily: str = ""
+    customText: str = ""
 
 
 class FavoriteBody(BaseModel):
@@ -301,7 +309,13 @@ async def get_bubble(user=Depends(get_current_user_strict)):
     if not bubble:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "气泡不存在")
 
-    svg = fill_svg(bubble.svg_template, color=bubble.color, text_color=bubble.text_color, n=12)
+    svg = apply_customizations(
+        fill_svg(bubble.svg_template, color=bubble.color, text_color=bubble.text_color, n=12),
+        color=(current_bubble.custom_color if current_bubble else "") or "",
+        text_color=(current_bubble.custom_text_color if current_bubble else "") or "",
+        text=(current_bubble.custom_text if current_bubble else "") or "",
+        font_family=(current_bubble.custom_font_family if current_bubble else "") or "",
+    )
     return Response(
         content=svg,
         media_type="image/svg+xml",
@@ -312,6 +326,56 @@ async def get_bubble(user=Depends(get_current_user_strict)):
             "Vary": "Cookie",
         },
     )
+
+
+_NO_STORE_HEADERS = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Vary": "Cookie",
+}
+
+
+@router.get("/current-settings")
+async def get_current_settings(user=Depends(get_current_user)):
+    user_id = user["id"]
+    async with get_db_context() as db:
+        current = await UserCurrentBubbleRepository.get_by_user_id(db, user_id)
+    if not current:
+        return JSONResponse({"hasCurrent": False}, headers=_NO_STORE_HEADERS)
+    return JSONResponse(
+        {
+            "hasCurrent": True,
+            "bubbleId": current.bubble_id,
+            "color": current.custom_color or "",
+            "textColor": current.custom_text_color or "",
+            "fontFamily": current.custom_font_family or "",
+            "customText": current.custom_text or "",
+        },
+        headers=_NO_STORE_HEADERS,
+    )
+
+
+@router.put("/current-settings")
+async def put_current_settings(body: CurrentSettingsBody, user=Depends(get_current_user)):
+    color = body.color.strip()
+    text_color = body.textColor.strip()
+    font_family = body.fontFamily.strip()
+    custom_text = body.customText.strip()
+    if len(color) > 32 or len(text_color) > 32:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "颜色值过长")
+    if len(font_family) > 64 or len(custom_text) > 64:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "内容过长")
+
+    user_id = user["id"]
+    async with get_db_context() as db:
+        current = await UserCurrentBubbleRepository.get_by_user_id(db, user_id)
+        if not current:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "请先在首页选择一个气泡")
+        await UserCurrentBubbleRepository.update_settings(
+            db, user_id, color, text_color, font_family, custom_text
+        )
+    return JSONResponse({"code": 0}, headers=_NO_STORE_HEADERS)
 
 
 @router.post("")

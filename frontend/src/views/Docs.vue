@@ -106,6 +106,7 @@
             <li>返回的 SVG 带有 <code class="px-1 py-0.5 bg-canvas rounded text-xs font-mono">Cache-Control: no-store</code> 头，请勿长时间缓存。</li>
             <li>占位符除 <code class="px-1 py-0.5 bg-canvas rounded text-xs font-mono">{n}</code>/<code class="px-1 py-0.5 bg-canvas rounded text-xs font-mono">{c}</code>/<code class="px-1 py-0.5 bg-canvas rounded text-xs font-mono">{t}</code> 外，系统会将 <code class="px-1 py-0.5 bg-canvas rounded text-xs font-mono">{{count}}</code>、<code class="px-1 py-0.5 bg-canvas rounded text-xs font-mono">$displayText</code> 等变体统一归一化为标准占位符。</li>
             <li>如果用户未设置气泡，返回第一个官方气泡。</li>
+            <li>用户在个人中心设置「气泡自定义设置」（气泡颜色/字体颜色/字体样式/自定义显示文本）后，对应占位符会被服务端直接填充为自定义值，并替换 <code class="px-1 py-0.5 bg-canvas rounded text-xs font-mono">&lt;text&gt;</code> 的 <code class="px-1 py-0.5 bg-canvas rounded text-xs font-mono">font-family</code>；未设置的项仍保留占位符由下游替换。</li>
           </ul>
         </div>
       </div>

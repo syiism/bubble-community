@@ -272,6 +272,27 @@ class UserCurrentBubbleRepository:
         await db.execute(stmt)
         await db.commit()
 
+    @staticmethod
+    async def update_settings(
+        db: AsyncSession,
+        user_id: int,
+        custom_color: str | None,
+        custom_text_color: str | None,
+        custom_font_family: str | None,
+        custom_text: str | None,
+    ) -> None:
+        await db.execute(
+            update(UserCurrentBubble)
+            .where(UserCurrentBubble.user_id == user_id)
+            .values(
+                custom_color=custom_color or None,
+                custom_text_color=custom_text_color or None,
+                custom_font_family=custom_font_family or None,
+                custom_text=custom_text or None,
+            )
+        )
+        await db.commit()
+
 
 class ImportedBubbleRepository:
     @staticmethod
