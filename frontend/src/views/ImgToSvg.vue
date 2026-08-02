@@ -374,7 +374,7 @@ const currentSvgPreview = ref('')
 const palette = ref([])
 
 // ---- UI state ----
-const mode = ref('color')
+const mode = ref('embed')
 const busy = ref(false)
 const renderToken = ref(0)
 const textAutoPosition = ref(true)
@@ -562,7 +562,7 @@ async function loadFile(file) {
         mode.value = 'gif'
       }
     }
-    if (!sourceIsGif.value && mode.value === 'gif') mode.value = 'color'
+    if (!sourceIsGif.value && mode.value === 'gif') mode.value = 'embed'
 
     let img
     try {
