@@ -269,6 +269,16 @@
                   <div class="text-xs text-muted mt-1">当前选中的气泡</div>
                 </div>
                 <div class="shrink-0" v-html="settingsPreview"></div>
+                <button
+                  class="shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors text-muted bg-canvas border border-border hover:bg-border/50"
+                  title="复制SVG代码"
+                  @click="copyCustomizedSvg"
+                >
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
               </div>
 
               <div>
@@ -646,6 +656,31 @@ const settingsPreview = computed(() => {
   // 未自定义的 {c}/{t} 用气泡自身颜色预览，{n} 用默认 12
   return svgToImg(svg, 'h-8 w-auto', b.color, b.textColor)
 })
+
+const copyCustomizedSvg = async () => {
+  const b = currentBubble.value
+  if (!b) return
+  const f = settingsForm.value
+  const svg = applyCustomizations(b.rawSvg || b.svg, {
+    color: f.color,
+    textColor: f.textColor,
+    text: f.customText,
+    fontFamily: effectiveFontFamily.value,
+  })
+  try {
+    await navigator.clipboard.writeText(svg)
+  } catch {
+    const ta = document.createElement('textarea')
+    ta.value = svg
+    ta.style.position = 'fixed'
+    ta.style.left = '-9999px'
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+  }
+  toast.show('SVG 已复制')
+}
 
 const loadCurrentSettings = async () => {
   try {
